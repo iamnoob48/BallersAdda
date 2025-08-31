@@ -3,8 +3,6 @@
 .glow-button {
   box-shadow: 0 0 10px rgba(34, 197, 94, 0.5), 0 0 20px rgba(34, 197, 94, 0.4);
 }
-
-/* Fade animation */
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 1s ease-out both;
@@ -21,3 +19,28 @@
     }
   }
 }
+@utility text-gradient {
+  @apply bg-linear-to-r from-[#f4e900] to-[#60b6f1] bg-clip-text text-transparent;
+}
+/* caret blink */
+@keyframes blink {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.typing-caret {
+  background-color: #237860; /* dark green - tweak to match theme */
+  animation: blink 1s step-end infinite;
+  border-radius: 2px;
+}
+
+
+.typing-caret-done {
+  background-color: #065f46;
+  opacity: 0.6;
+  box-shadow: 0 0 8px rgba(34,197,94,0.25);
+}
+
+
+

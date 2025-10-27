@@ -27,7 +27,7 @@ const Footer = () => {
 
       <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
         <p className="text-sm md:text-base text-gray-400">
-          © {new Date().getFullYear()} Youth Football India. All rights reserved.
+          &copy; {new Date().getFullYear()} BallersAdda. All rights reserved.
         </p>
         <div className="flex space-x-6">
           <a
@@ -45,7 +45,6 @@ const Footer = () => {
         </div>
       </div>
 
-      {/* Back to Home Button with animation */}
       <AnimatePresence>
         {showButton && (
           <motion.button

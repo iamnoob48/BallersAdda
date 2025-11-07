@@ -5,11 +5,155 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+//Role for the user
+enum Role {
+  PLAYER
+  ACADEMY
+  COACH
+  SCOUT
+  ADMIN
+}
+
+//Status for the tournament
+enum Status {
+  UPCOMING
+  ONGOING
+  COMPLETED
+}
+
+//Status for experience level
+enum ExperienceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  PRO
+}
+
+model User {
+  id         Int       @id @default(autoincrement())
+  googleId   String?   @unique
+  email      String    @unique
+  username   String?
+  password   String?
+  phone      String?   @unique
+  profilePic String?
+  role       Role      @default(PLAYER)
+  isVerified Boolean   @default(false) //  useful for phone/email verification
+  lastLogin  DateTime? //  analytics / session tracking
+  status     String    @default("ACTIVE") //  'ACTIVE', 'SUSPENDED', 'DELETED'
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  playerProfile PlayerProfile?
+
+  @@index([email, role]) //  improves auth & role lookup speed
+}
+
+//Model for players
+model PlayerProfile {
+  id      Int  @id @default(autoincrement())
+  user    User @relation(fields: [user_Id], references: [id])
+  user_Id Int  @unique
+
+  firstName   String
+  lastName    String
+  displayName String? // for easier frontend display 
+  bio         String? // optional intro for social aspects later
+
+  age          Int?
+  gender       String?
+  height       Float?
+  weight       Float?
+  position     String?
+  dominantFoot String? //  left/right/both — useful for coaches
+
+  experienceLevel   ExperienceLevel? @default(BEGINNER) //  BEGINNER, INTERMEDIATE, ADVANCED, PRO
+  badges            Int?             @default(0)
+  ratings           Float?           @default(0.0)
+  tournamentsPlayed Int?             @default(0)
+  academy           String?
+  academyJoinDate   DateTime?
+  academyId         Int?
+  regionalRank      Int? //  useful for competitive players
+  nationalRank      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teams       Team[]
+  tournaments PlayerTournament[]
+
+  @@index([academyId])
+  @@index([ratings])
+}
+
+model Tournament {
+  id                   Int      @id @default(autoincrement())
+  tournamentUid        String   @unique @default(cuid()) //  safer than manual ID
+  name                 String
+  description          String? //  add more info for display
+  location             String
+  startDate            DateTime
+  endDate              DateTime
+  price                Float
+  category             String
+  registrationFee      Float
+  registrationDeadline DateTime
+  maxTeams             Int? //  limit team registrations
+  maxPlayersPerTeam    Int? //  tournament rule
+  status               Status   @default(UPCOMING) //  UPCOMING, ONGOING, COMPLETED
+  organizerId          Int? //  link to academy or admin (User)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  players PlayerTournament[]
+  teams   Team[]
+
+  @@index([status])
+  @@index([location])
+}
+
+model PlayerTournament {
+  id           Int           @id @default(autoincrement())
+  player       PlayerProfile @relation(fields: [playerId], references: [id])
+  playerId     Int
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id])
+  tournamentId Int
+
+  goals       Int?     @default(0)
+  assists     Int?     @default(0)
+  yellowCards Int?     @default(0)
+  redCards    Int?     @default(0)
+  rating      Float?   @default(0.0)
+  joinedAt    DateTime @default(now())
+
+  @@unique([playerId, tournamentId])
+  @@index([tournamentId])
+}
+
+//Model for a team
+model Team {
+  id        Int     @id @default(autoincrement())
+  name      String
+  coachName String?
+  logoUrl   String? //  optional for branding
+
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  tournamentId Int
+
+  players PlayerProfile[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tournamentId])
 }

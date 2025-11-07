@@ -31,7 +31,8 @@ function CTA() {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.5 }}
         >
-          Be part of India's fastest-growing youth football community. Compete, connect, and showcase your talent like never before.
+          Be part of India's fastest-growing youth football community. Compete,
+          connect, and showcase your talent like never before.
         </motion.p>
 
         <motion.div
@@ -51,4 +52,4 @@ function CTA() {
   );
 }
 
-export default CTA
+export default CTA;

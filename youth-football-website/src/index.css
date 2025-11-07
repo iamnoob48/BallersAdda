@@ -42,5 +42,19 @@
   box-shadow: 0 0 8px rgba(34,197,94,0.25);
 }
 
+@keyframes sweep {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
+}
+
+.animate-sweep {
+  animation: sweep 5s linear infinite;
+}
+
+
 
 

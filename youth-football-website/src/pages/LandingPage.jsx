@@ -1,22 +1,40 @@
-import Hero from "../components/Hero.jsx"
-import Header from "../components/Header.jsx";
-import Tournaments from "../components/Tournaments.jsx";
-import Academy from "../components/Academy.jsx";
-import CTA from "../components/CTA.jsx";
-import Footer from "../components/Footer.jsx";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import Hero from "../LandingComponents/Hero.jsx";
+import Header from "../LandingComponents/Header.jsx";
+import Tournaments from "../LandingComponents/Tournaments.jsx";
+import Academy from "../LandingComponents/Academy.jsx";
+import CTA from "../LandingComponents/CTA.jsx";
+import Footer from "../LandingComponents/Footer.jsx";
+import api from "../api/axios.js";
 
-function LandingPage(){
-    return(
-        <>
-            <Header/>
-            <Hero/>
-            <Tournaments/>
-            <Academy/>
-            <CTA/>
-            <Footer/>
+function LandingPage() {
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    // Check if the user has an access token
+    const checkAuth = async () => {
+      try {
+        const res = await api.get("/auth/verify-token");
+        // If the token is valid, navigate to the home page
+        navigate("/home");
+      } catch (error) {
+        console.error("Authentication check failed:", error);
+      }
+    };
+    checkAuth();
+  }, [navigate]);
 
-        </>
-    )
+  return (
+    <>
+      <Header />
+      <Hero />
+      <Tournaments />
+      <Academy />
+      <CTA />
+      <Footer />
+    </>
+  );
 }
+
 export default LandingPage;

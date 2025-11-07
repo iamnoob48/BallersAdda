@@ -57,8 +57,7 @@ const Footer = () => {
             className="fixed bottom-6 right-6 bg-green-500 hover:bg-green-400 text-white p-3 rounded-full shadow-lg hover:shadow-green-400/50 transition-all duration-300"
             aria-label="Back to Top"
           >
-            <ArrowBigUpIcon size={20}/>
-          
+            <ArrowBigUpIcon size={20} />
           </motion.button>
         )}
       </AnimatePresence>

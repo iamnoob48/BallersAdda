@@ -3,6 +3,10 @@ import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiPhone } from "react-icons/fi";
 import { Link, useNavigate } from "react-router-dom";
+import OTP from "../LandingComponents/OTP.jsx";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
+import api from "../api/axios.js";
 
 export default function SignUp() {
   const [signUpData, setSignUpData] = useState({
@@ -11,6 +15,8 @@ export default function SignUp() {
     username: "",
   });
   const [isPhone, setIsPhone] = useState(false);
+  const [isPhoneLogin, setIsPhoneLogin] = useState(false);
+  const [phoneNum, setPhoneNum] = useState("");
   const [errors, setErrors] = useState([]);
 
   const navigate = useNavigate();
@@ -38,21 +44,24 @@ export default function SignUp() {
     }
 
     // Handle sign-up logic here
-    const res = await fetch("/api/v1/auth/register", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(signUpData),
-    });
-    const data = await res.json();
-    if (res.ok) {
-      // Registration successful, navigate to login or home page
-      navigate("/login");
-    } else {
-      // Handle errors (you can enhance this to show specific error messages)
-      setErrors(data.errors || ["Registration failed. Please try again."]);
+    try {
+      const res = await api.post("/auth/register", {
+        username: signUpData.username,
+        email: signUpData.email,
+        password: signUpData.password,
+      });
+      //Succesful signup navigate to home page
+      navigate("/home");
+    } catch (error) {
+      const message =
+        error.response?.data?.message ||
+        "An unexpected error occurred. Please try again later.";
+      setErrors(message);
     }
+  };
+  //For Google Sign In
+  const handleGoogleSignIn = () => {
+    window.location.href = "http://localhost:4000/api/v1/auth/google";
   };
 
   const handleChange = (e) => {
@@ -67,114 +76,196 @@ export default function SignUp() {
         className="absolute top-20 right-20 w-40 h-40 rounded-full bg-gray-400/30 blur-3xl"
       ></motion.div>
 
-      <motion.div
-        initial={{ y: 40, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-200"
-      >
-        <h1 className="text-3xl font-extrabold text-center text-gray-900 mb-6">
-          <span className="text-green-600">Register</span>
-        </h1>
+      {!isPhone && (
+        <motion.div
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="relative bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-200"
+        >
+          <h1 className="text-3xl font-extrabold text-center text-gray-900 mb-6">
+            <span className="text-green-600">Register</span>
+          </h1>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Username
-            </label>
-            <input
-              type="text"
-              name="username"
-              value={signUpData.username}
-              onChange={handleChange}
-              placeholder="Enter your username"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={signUpData.email}
-              placeholder="Enter your email"
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Password */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={signUpData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
-            />
-          </div>
-
-          {/* Register Button */}
-          <motion.button
-            type="submit"
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition"
-          >
-            Register
-          </motion.button>
-          {errors && (
+          <form className="space-y-5" onSubmit={handleSubmit}>
             <div>
-              <p className="text-sm text-red-400 ">{errors}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Username
+              </label>
+              <input
+                type="text"
+                name="username"
+                value={signUpData.username}
+                onChange={handleChange}
+                placeholder="Enter your username"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+              />
             </div>
-          )}
 
-          <div className="flex items-center justify-center gap-4 mt-4">
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={signUpData.email}
+                placeholder="Enter your email"
+                onChange={handleChange}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={signUpData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+              />
+            </div>
+
+            {/* Register Button */}
+            <motion.button
+              type="submit"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition"
+            >
+              Register
+            </motion.button>
+            {errors && (
+              <div>
+                <p className="text-sm text-red-400 ">{errors}</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-4 mt-4">
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={handleGoogleSignIn}
+                className="flex items-center justify-center gap-2 w-1/2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                <FcGoogle className="text-xl" />
+                <span className="font-medium text-gray-700">Google</span>
+              </motion.button>
+
+              <motion.button
+                type="button"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsPhone(true)}
+                className="flex items-center justify-center gap-2 w-1/2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              >
+                <FiPhone className="text-xl text-green-600" />
+                <span className="font-medium text-gray-700">Phone</span>
+              </motion.button>
+            </div>
+          </form>
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Already have an account?{" "}
+            <Link
+              to="/Login"
+              className="text-green-600 font-medium hover:underline"
+            >
+              Login
+            </Link>
+          </p>
+          <p className="mt-6 text-center text-sm text-gray-600">
+            <Link to="/" className="text-green-600 font-medium hover:underline">
+              Back To Home
+            </Link>
+          </p>
+        </motion.div>
+      )}
+      {isPhone && !isPhoneLogin && (
+        <motion.div
+          key="phone-login"
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="relative bg-white/95 backdrop-blur-sm rounded-2xl shadow-2xl p-8 w-full max-w-md border border-gray-200"
+        >
+          <h1 className="text-2xl font-extrabold text-center text-gray-900 mb-6">
+            Register With<span className="text-green-600"> Phone Number</span>
+          </h1>
+
+          <form className="space-y-5">
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.4 }}
+              className="relative w-full"
+            >
+              <label
+                htmlFor="phone"
+                className="block text-sm font-semibold text-gray-800 mb-2"
+              >
+                Phone Number
+              </label>
+
+              <div className="relative group">
+                <PhoneInput
+                  country={"in"} // set to 'in' for India, or keep 'us' if you prefer
+                  value={phoneNum}
+                  onChange={(phone) => setPhoneNum(phone)}
+                  inputProps={{
+                    name: "phone",
+                    required: true,
+                  }}
+                  inputClass="!w-full !text-gray-900 !font-medium !bg-white/80 !backdrop-blur-md !rounded !border !border-gray-300 !px-14 !py-3   focus:!outline-none transition-all duration-200"
+                  buttonClass="!bg-transparent !border-none !absolute !left-3"
+                  containerClass="!w-full"
+                />
+
+                {/* Animated underline effect */}
+                <span className="absolute left-0 bottom-0 h-[2px] w-0 bg-green-500 transition-all duration-300 group-focus-within:w-full"></span>
+              </div>
+
+              <p className="text-xs text-gray-500 mt-1">
+                You’ll receive an OTP on this number
+              </p>
+            </motion.div>
             <motion.button
               type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center justify-center gap-2 w-1/2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              onClick={() => setIsPhoneLogin(true)}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition"
             >
-              <FcGoogle className="text-xl" />
-              <span className="font-medium text-gray-700">Google</span>
+              Get OTP
             </motion.button>
 
-            <motion.button
+            <button
               type="button"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsPhone(true)}
-              className="flex items-center justify-center gap-2 w-1/2 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+              onClick={() => setIsPhone(false)}
+              className="w-full text-green-600 font-medium mt-3 hover:underline"
             >
-              <FiPhone className="text-xl text-green-600" />
-              <span className="font-medium text-gray-700">Phone</span>
-            </motion.button>
-          </div>
-        </form>
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Already have an account?{" "}
-          <Link
-            to="/Login"
-            className="text-green-600 font-medium hover:underline"
-          >
-            Login
-          </Link>
-        </p>
-        <p className="mt-6 text-center text-sm text-gray-600">
-          <Link to="/" className="text-green-600 font-medium hover:underline">
-            Back To Home
-          </Link>
-        </p>
-      </motion.div>
+              Back to Email Login
+            </button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-gray-600">
+            Don’t have an account?{" "}
+            <Link
+              to="/Register"
+              className="text-green-600 font-medium hover:underline"
+            >
+              Register
+            </Link>
+          </p>
+        </motion.div>
+      )}
+      {isPhoneLogin && <OTP onBack={() => setIsPhoneLogin(false)} />}
     </section>
   );
 }

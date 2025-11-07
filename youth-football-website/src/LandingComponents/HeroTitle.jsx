@@ -6,8 +6,8 @@ function HeroTitle({
     { text: "Future", className: "text-gradient" },
     { text: " of Youth Football" },
   ],
-  speed = 45, 
-  pauseAfter = 800, 
+  speed = 45,
+  pauseAfter = 800,
 }) {
   const totalLength = useMemo(
     () => segments.reduce((acc, s) => acc + (s.text?.length || 0), 0),
@@ -24,10 +24,8 @@ function HeroTitle({
         setCharsTyped((c) => c + 1);
       }, speed);
     } else {
-
       setDone(true);
-      const t = setTimeout(() => {
-      }, pauseAfter);
+      const t = setTimeout(() => {}, pauseAfter);
       return () => clearTimeout(t);
     }
     return () => clearInterval(interval);
@@ -62,4 +60,4 @@ function HeroTitle({
   );
 }
 
-export default HeroTitle
+export default HeroTitle;

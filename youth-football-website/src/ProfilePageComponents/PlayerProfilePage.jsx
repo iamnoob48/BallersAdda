@@ -6,629 +6,830 @@ import {
   FaSchool,
   FaChartLine,
   FaMedal,
-  FaFutbol,
+  FaCog,
+  FaSignOutAlt,
+  FaCamera,
+  FaPen,
+  FaCheckCircle,
+  FaTimes,
 } from "react-icons/fa";
-import { GiSoccerKick } from "react-icons/gi";
-import api from "../api/axios";
+import { FaMoon, FaSun } from "react-icons/fa";
+import { GiSoccerKick, GiWhistle } from "react-icons/gi";
+import { IoMdFootball } from "react-icons/io";
 import { useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import { toggleDarkMode } from "../redux/slices/themeSlice";
+import api from "../api/axios";
 
 export default function PlayerProfilePage({ player }) {
   const [activeSection, setActiveSection] = useState("personal");
-  const [showPopup, setShowPopup] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const navigate = useNavigate();
   const [userName, setUserName] = useState("");
+  const [formData, setFormData] = useState({});
+  const [academyDetails, setAcademyDetails] = useState({});
 
+  // --- DARK MODE (from Redux) ---
+  const dm = useSelector((state) => state.theme.darkMode);
+  const dispatch = useDispatch();
+
+  // Determine if we have valid player profile data
   const isPlayerData = Boolean(player);
-  const fetchUserName = async () => {
+
+  //For updating after hitting edit
+  const handleUpdate = async () => {
     try {
-      const res = await api.get("/auth/profile");
-      setUserName(res.data.username);
+      const res = await api.post("/player/updatePlayerProfile", formData);
+      console.log(res.data);
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error("Error updating player profile:", error);
     }
   };
+
+  //For fetching academy details of player based on academy id
+  const fetchAcademyDetails = async () => {
+    try {
+      const res = await api.get("/player/academyDetailsOfPlayer");
+      const data = res.data.academy;
+      setAcademyDetails(data);
+    } catch (error) {
+      console.error("Error fetching academy details:", error);
+    }
+  };
+
   useEffect(() => {
-    fetchUserName();
+    const fetchUserName = async () => {
+      try {
+        const res = await api.get("/auth/profile");
+        setUserName(res.data.username);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      }
+    };
+    if (!player) fetchUserName();
+
+    // Initialize form data when player data loads
+    if (player) {
+      setFormData({
+        firstName: player.firstName || "",
+        lastName: player.lastName || "",
+        displayName: player.displayName || "",
+        age: player.age || "",
+        gender: player.gender || "",
+        position: player.position || "",
+        height: player.height || "",
+        weight: player.weight || "",
+        dominantFoot: player.dominantFoot || "",
+        bio: player.bio || "",
+      });
+    }
+  }, [player]);
+
+  useEffect(() => {
+    fetchAcademyDetails();
   }, []);
 
-  // Use effect for this if player data is not passed
-
-  const sections = [
-    { key: "personal", icon: <FaUser />, label: "Personal Info" },
-    { key: "tournaments", icon: <FaTrophy />, label: "Tournaments" },
-    { key: "academy", icon: <FaSchool />, label: "Academy" },
-    { key: "performance", icon: <FaChartLine />, label: "Performance" },
-    { key: "achievements", icon: <FaMedal />, label: "Achievements" },
-    { key: "settings", icon: <FaFutbol />, label: "Settings" },
-  ];
-
-  // Logout
   const handleLogout = async () => {
     try {
-      const res = await api.post("/auth/logout");
-      if (res.status === 200) window.location.href = "/login";
+      await api.post("/auth/logout");
+      window.location.href = "/login";
     } catch (error) {
       console.error("Error during logout:", error);
     }
   };
 
-  const handleSectionClick = (key) => {
-    if (!isPlayerData && key !== "personal") {
-      setShowPopup(true);
-      return;
-    }
-    setActiveSection(key);
-  };
+  const sections = [
+    { key: "personal", icon: <FaUser />, label: "Profile" },
+    { key: "tournaments", icon: <FaTrophy />, label: "Tournaments" },
+    { key: "academy", icon: <FaSchool />, label: "Academy" },
+    { key: "performance", icon: <FaChartLine />, label: "Stats" },
+    { key: "achievements", icon: <FaMedal />, label: "Badges" },
+    { key: "settings", icon: <FaCog />, label: "Settings" },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-gray-50 flex flex-col md:flex-row px-4 md:px-10 py-10 gap-8 relative">
-      {/* LEFT SIDEBAR */}
-      <motion.aside
-        initial={{ x: -30, opacity: 0 }}
-        animate={{ x: 0, opacity: 1 }}
-        className="md:w-1/4 bg-white rounded-2xl shadow-lg border border-gray-200 h-fit sticky top-8"
-      >
-        <div className="p-6 flex flex-col items-center border-b border-gray-100">
-          <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center text-4xl text-green-600 font-bold shadow-md">
-            {player?.firstName?.[0] || userName[0] || "P"}
-          </div>
-          <h2 className="mt-3 text-xl font-bold text-gray-900">
-            {player?.displayName ||
-              `${player?.firstName} ${player?.lastName}` ||
-              userName ||
-              "Player Name"}
-          </h2>
-          <p className="text-gray-500 text-sm">
-            {player?.position || "Unassigned Position"}
-          </p>
-        </div>
+    <div className={`min-h-screen font-sans pb-20 md:pb-10 transition-colors duration-300 ${dm ? "bg-[#0a0a0a] selection:bg-yellow-400/30 selection:text-yellow-200" : "bg-[#F0FDF4] selection:bg-green-200 selection:text-green-900"}`}>
+      {/* --- BACKGROUND DECORATION --- */}
+      <div className={`fixed top-0 left-0 w-full h-80 -z-10 transition-colors duration-300 ${dm ? "bg-gradient-to-b from-green-950/40 to-transparent" : "bg-gradient-to-b from-green-100/50 to-transparent"}`} />
+      <div className={`fixed -top-20 -right-20 w-96 h-96 rounded-full blur-3xl -z-10 transition-colors duration-300 ${dm ? "bg-green-900/20" : "bg-green-200/30"}`} />
+      <div className={`fixed top-40 -left-20 w-72 h-72 rounded-full blur-3xl -z-10 transition-colors duration-300 ${dm ? "bg-emerald-900/15" : "bg-emerald-200/20"}`} />
 
-        <nav className="flex flex-col divide-y divide-gray-100">
-          {sections.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => handleSectionClick(s.key)}
-              className={`flex items-center gap-3 px-6 py-4 text-left text-sm font-medium transition-all ${
-                activeSection === s.key
-                  ? "bg-green-100 text-green-700 border-l-4 border-green-600"
-                  : "text-gray-700 hover:bg-gray-50"
-              } ${!isPlayerData && s.key !== "personal" ? "opacity-70" : ""}`}
-            >
-              <span className="text-lg">{s.icon}</span>
-              {s.label}
-            </button>
-          ))}
-        </nav>
-      </motion.aside>
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 flex flex-col md:flex-row gap-8">
+        {/* --- LEFT SIDEBAR (Desktop) / TOP NAV (Mobile) --- */}
+        <motion.aside
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="md:w-1/4 flex-shrink-0"
+        >
+          {/* Profile Card */}
+          <div className={`rounded-3xl p-6 shadow-xl relative overflow-hidden group transition-colors duration-300 ${dm ? "bg-[#141414] border border-green-900/30 shadow-green-950/30" : "bg-white border border-green-50 shadow-green-100/50"}`}>
+            <div className={`absolute top-0 left-0 w-full h-24 ${dm ? "bg-gradient-to-br from-green-800 to-emerald-950" : "bg-gradient-to-br from-green-400 to-emerald-600"}`} />
 
-      {/* RIGHT CONTENT */}
-      <main className="flex-1 relative">
-        <AnimatePresence mode="wait">
-          {activeSection === "personal" && (
-            <motion.div
-              key="personal"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.4 }}
-              className="bg-white rounded-2xl shadow-md border border-gray-100 p-8"
-            >
-              {!isPlayerData ? (
-                <div className="text-center py-10">
-                  <p className="text-gray-600 mb-4">
-                    You haven’t completed your profile yet.
-                  </p>
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate("/profile-complete")}
-                    className="bg-green-600 text-white px-6 py-3 rounded-full font-semibold shadow-md hover:bg-green-700 transition"
-                  >
-                    Complete My Profile
-                  </motion.button>
+            <div className="relative flex flex-col items-center mt-8">
+              <div className="relative">
+                <div className={`w-28 h-28 rounded-full border-4 flex items-center justify-center text-4xl font-bold shadow-md overflow-hidden transition-colors duration-300 ${dm ? "border-[#1a1a1a] bg-green-950/50 text-green-400" : "border-white bg-green-50 text-green-600"}`}>
+                  {/* Fallback avatar or image */}
+                  {player?.image ? (
+                    <img
+                      src={player.image}
+                      alt="Profile"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span>
+                      {player?.firstName?.[0] || userName?.[0] || "P"}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <>
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">
-                      Personal Information
-                    </h3>
+                {isPlayerData && (
+                  <button className="absolute bottom-1 right-1 bg-gray-900 text-white p-2 rounded-full text-xs shadow-lg hover:scale-110 transition">
+                    <FaCamera />
+                  </button>
+                )}
+              </div>
 
-                    {/* Edit Button */}
+              <h2 className={`mt-4 text-xl font-extrabold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                {player?.displayName || userName || "Guest Player"}
+              </h2>
+              <p className={`text-sm font-medium px-3 py-1 rounded-full mt-1 border ${dm ? "text-green-400 bg-green-950/50 border-green-800/50" : "text-green-600 bg-green-50 border-green-100"}`}>
+                {player?.position || "Position Unassigned"}
+              </p>
+            </div>
+
+            {/* Navigation (Desktop Vertical List) */}
+            <nav className="mt-8 space-y-1 hidden md:block">
+              {sections.map((s) => (
+                <button
+                  key={s.key}
+                  disabled={!isPlayerData && s.key !== "personal"}
+                  onClick={() => setActiveSection(s.key)}
+                  className={`w-full flex items-center gap-4 px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 group/btn ${
+                    activeSection === s.key
+                      ? (dm ? "bg-green-700 text-yellow-300 shadow-lg shadow-green-900/40" : "bg-green-600 text-white shadow-lg shadow-green-200")
+                      : (dm ? "text-gray-400 hover:bg-green-950/40 hover:text-green-400 disabled:opacity-40 disabled:cursor-not-allowed" : "text-gray-500 hover:bg-green-50 hover:text-green-700 disabled:opacity-40 disabled:cursor-not-allowed")
+                  }`}
+                >
+                  <span
+                    className={`text-lg transition-transform group-hover/btn:scale-110 ${
+                      activeSection === s.key ? (dm ? "text-yellow-300" : "text-white") : (dm ? "text-green-600" : "text-green-500")
+                    }`}
+                  >
+                    {s.icon}
+                  </span>
+                  {s.label}
+                  {activeSection === s.key && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="ml-auto w-1.5 h-1.5 rounded-full bg-white"
+                    />
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          {/* Mobile Navigation (Horizontal Scroll) */}
+          <div className={`md:hidden mt-6 -mx-4 px-4 overflow-x-auto no-scrollbar flex gap-3 pb-2 sticky top-2 z-40 backdrop-blur-md py-2 ${dm ? "bg-[#0a0a0a]/90" : "bg-[#F0FDF4]/90"}`}>
+            {sections.map((s) => (
+              <button
+                key={s.key}
+                disabled={!isPlayerData && s.key !== "personal"}
+                onClick={() => setActiveSection(s.key)}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold whitespace-nowrap transition-all border ${
+                  activeSection === s.key
+                    ? (dm ? "bg-green-700 text-yellow-300 border-green-700 shadow-md" : "bg-green-600 text-white border-green-600 shadow-md")
+                    : (dm ? "bg-[#1a1a1a] text-gray-400 border-green-900/30" : "bg-white text-gray-600 border-gray-200")
+                } disabled:opacity-50`}
+              >
+                {s.icon} {s.label}
+              </button>
+            ))}
+          </div>
+        </motion.aside>
+
+        {/* --- RIGHT CONTENT AREA --- */}
+        <main className="flex-1 min-w-0">
+          <AnimatePresence mode="wait">
+            {/* 1. PERSONAL SECTION */}
+            {activeSection === "personal" && (
+              <SectionWrapper key="personal">
+                {!isPlayerData ? (
+                  <div className="text-center py-16 px-4">
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl ${dm ? "bg-green-950/50 text-green-400" : "bg-green-100 text-green-600"}`}>
+                      <FaUser />
+                    </div>
+                    <h3 className={`text-xl font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                      Incomplete Profile
+                    </h3>
+                    <p className={`max-w-sm mx-auto mt-2 mb-6 ${dm ? "text-gray-400" : "text-gray-500"}`}>
+                      Complete your profile to unlock stats, academy features,
+                      and tournament tracking.
+                    </p>
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => setShowEditModal(true)}
-                      className="bg-green-600 text-white px-5 py-2 rounded-full font-semibold shadow-md hover:bg-green-700 transition-all flex items-center gap-2"
+                      onClick={() => navigate("/profile-complete")}
+                      className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M16.862 4.487l1.687-1.688a2.25 2.25 0 113.182 3.183l-9.193 9.193a4.5 4.5 0 01-1.897 1.13l-3.434.985.985-3.434a4.5 4.5 0 011.13-1.897l7.54-7.54z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19.5 7.125L17.88 5.505M18 14.25v6.375a.375.375 0 01-.375.375H5.25a.375.375 0 01-.375-.375V6.375A.375.375 0 015.25 6h6.375"
-                        />
-                      </svg>
-                      Edit
+                      Complete Now
                     </motion.button>
                   </div>
-
-                  {/* Info Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <Info
-                      label="Full Name"
-                      value={`${player.firstName} ${player.lastName}`}
-                    />
-                    <Info label="Age" value={player.age || "N/A"} />
-                    <Info label="Gender" value={player.gender || "N/A"} />
-                    <Info
-                      label="Height"
-                      value={player.height ? `${player.height} cm` : "N/A"}
-                    />
-                    <Info
-                      label="Weight"
-                      value={player.weight ? `${player.weight} kg` : "N/A"}
-                    />
-                    <Info label="Position" value={player.position || "N/A"} />
-                    <Info
-                      label="Dominant Foot"
-                      value={player.dominantFoot || "N/A"}
-                    />
-                    <Info
-                      label="Experience Level"
-                      value={player.experienceLevel || "BEGINNER"}
-                    />
-                  </div>
-
-                  {player.bio && (
-                    <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-gray-600 mb-1">
-                        Bio
-                      </h4>
-                      <p className="text-gray-700 text-sm bg-gray-50 p-3 rounded-lg">
-                        {player.bio}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Edit Modal */}
-                  <AnimatePresence>
-                    {showEditModal && (
-                      <motion.div
-                        className="fixed inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm z-50"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                ) : (
+                  <>
+                    <div className="flex justify-between items-start mb-8">
+                      <div>
+                        <h3 className={`text-2xl font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                          About {player.firstName}
+                        </h3>
+                        <p className={`text-sm mt-1 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                          Manage your personal details and bio.
+                        </p>
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setShowEditModal(true)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold shadow-sm transition-colors ${dm ? "bg-[#1a1a1a] border border-green-900/30 text-gray-300 hover:border-yellow-500/50 hover:text-yellow-400" : "bg-white border border-gray-200 text-gray-700 hover:border-green-400 hover:text-green-600"}`}
                       >
-                        <motion.div
-                          initial={{ scale: 0.9, opacity: 0 }}
-                          animate={{ scale: 1, opacity: 1 }}
-                          exit={{ scale: 0.95, opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="bg-white dark:bg-[#121417] rounded-2xl shadow-2xl w-full max-w-2xl relative overflow-hidden border border-green-100 dark:border-green-900/40"
-                        >
-                          {/* Header */}
-                          <div className="bg-green-600 p-4 text-white flex items-center justify-between shadow-sm">
-                            <h3 className="text-lg md:text-xl font-bold">
-                              Edit Personal Information
-                            </h3>
-                            <button
-                              onClick={() => setShowEditModal(false)}
-                              className="text-white hover:scale-110 transition"
-                            >
-                              ✕
-                            </button>
-                          </div>
-
-                          {/* Form */}
-                          <div className="p-6 max-h-[80vh] overflow-y-auto">
-                            <form className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                              {/* First Name */}
-                              <FormField
-                                label="First Name"
-                                defaultValue={player.firstName}
-                              />
-                              <FormField
-                                label="Last Name"
-                                defaultValue={player.lastName}
-                              />
-                              <FormField
-                                label="Display Name"
-                                defaultValue={player.displayName}
-                              />
-                              <FormField
-                                label="Age"
-                                type="number"
-                                defaultValue={player.age}
-                              />
-                              <FormSelect
-                                label="Gender"
-                                defaultValue={player.gender}
-                                options={["Male", "Female", "Other"]}
-                              />
-                              <FormField
-                                label="Position"
-                                defaultValue={player.position}
-                              />
-                              <FormField
-                                label="Height (cm)"
-                                type="number"
-                                defaultValue={player.height}
-                              />
-                              <FormField
-                                label="Weight (kg)"
-                                type="number"
-                                defaultValue={player.weight}
-                              />
-                              <FormSelect
-                                label="Dominant Foot"
-                                defaultValue={player.dominantFoot}
-                                options={["Left", "Right", "Both"]}
-                              />
-
-                              {/* Bio */}
-                              <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                  Bio
-                                </label>
-                                <textarea
-                                  placeholder="Tell us something about yourself..."
-                                  defaultValue={player.bio}
-                                  rows={4}
-                                  className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#1A1D21] text-gray-800 dark:text-gray-200 px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none"
-                                />
-                              </div>
-                            </form>
-
-                            {/* Buttons */}
-                            <div className="flex justify-end gap-4 mt-6">
-                              <button
-                                onClick={() => setShowEditModal(false)}
-                                className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-5 py-2 rounded-full hover:bg-gray-100 dark:hover:bg-[#1A1D21] transition"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => {
-                                  // TODO: send update request to backend
-                                  setShowEditModal(false);
-                                }}
-                                className="bg-green-600 text-white px-6 py-2 rounded-full font-semibold shadow-md hover:bg-green-700 transition-all"
-                              >
-                                Save Changes
-                              </button>
-                            </div>
-                          </div>
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </>
-              )}
-            </motion.div>
-          )}
-
-          {/* ✅ Only show these if profile is completed */}
-          {isPlayerData && activeSection === "tournaments" && (
-            <Section title="Tournaments Played">
-              {player.tournaments.length ? (
-                <div className="grid sm:grid-cols-2 gap-6">
-                  {player.tournaments.map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-4 bg-green-50 rounded-xl border border-green-100 shadow-sm hover:shadow-md transition"
-                    >
-                      <h4 className="font-semibold text-gray-800">{t.name}</h4>
-                      <p className="text-sm text-gray-600">
-                        Position: {t.position || "—"}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Joined: {new Date(t.joinedAt).toLocaleDateString()}
-                      </p>
+                        <FaPen className="text-xs" /> Edit
+                      </motion.button>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  No tournaments played yet.
-                </p>
-              )}
-            </Section>
-          )}
 
-          {isPlayerData && activeSection === "academy" && (
-            <Section title="Academy Information">
-              {player.academy ? (
-                <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white p-6 rounded-2xl shadow-md flex items-center justify-between">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                      <InfoCard
+                        label="Full Name"
+                        value={`${player.firstName} ${player.lastName}`}
+                      />
+                      <InfoCard label="Age" value={`${player.age} Years`} />
+                      <InfoCard label="Gender" value={player.gender} />
+                      <InfoCard
+                        label="Experience"
+                        value={player.experienceLevel}
+                        highlight
+                      />
+
+                      {/* Physical Stats Row */}
+                      <div className="md:col-span-2 grid grid-cols-3 gap-4 mt-2">
+                        <div className={`rounded-2xl p-4 text-center border ${dm ? "bg-green-950/30 border-green-900/30" : "bg-green-50 border-green-100"}`}>
+                          <p className={`text-xs uppercase font-bold tracking-wider ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                            Height
+                          </p>
+                          <p className={`text-lg font-bold mt-1 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                            {player.height || "-"}{" "}
+                            <span className={`text-xs font-normal ${dm ? "text-gray-500" : "text-gray-400"}`}>
+                              cm
+                            </span>
+                          </p>
+                        </div>
+                        <div className={`rounded-2xl p-4 text-center border ${dm ? "bg-green-950/30 border-green-900/30" : "bg-green-50 border-green-100"}`}>
+                          <p className={`text-xs uppercase font-bold tracking-wider ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                            Weight
+                          </p>
+                          <p className={`text-lg font-bold mt-1 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                            {player.weight || "-"}{" "}
+                            <span className={`text-xs font-normal ${dm ? "text-gray-500" : "text-gray-400"}`}>
+                              kg
+                            </span>
+                          </p>
+                        </div>
+                        <div className={`rounded-2xl p-4 text-center border ${dm ? "bg-green-950/30 border-green-900/30" : "bg-green-50 border-green-100"}`}>
+                          <p className={`text-xs uppercase font-bold tracking-wider ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                            Foot
+                          </p>
+                          <p className={`text-lg font-bold mt-1 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                            {player.dominantFoot || "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-2 mt-4">
+                        <h4 className={`text-sm font-bold mb-3 ${dm ? "text-gray-200" : "text-gray-900"}`}>
+                          Bio
+                        </h4>
+                        <div className={`p-5 rounded-2xl border text-sm leading-relaxed italic ${dm ? "bg-[#1a1a1a] border-green-900/20 text-gray-400" : "bg-gray-50 border-gray-100 text-gray-600"}`}>
+                          "
+                          {player.bio ||
+                            "No bio added yet. Click edit to add a description about your playing style."}
+                          "
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </SectionWrapper>
+            )}
+
+            {/* 2. TOURNAMENTS SECTION */}
+            {activeSection === "tournaments" && (
+              <SectionWrapper key="tournaments">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-3 bg-orange-100 text-orange-600 rounded-xl">
+                    <FaTrophy className="text-xl" />
+                  </div>
                   <div>
-                    <h4 className="font-bold text-lg">{player.academy}</h4>
-                    <p className="text-sm text-green-50">
-                      Joined on{" "}
-                      {new Date(player.academyJoinDate).toLocaleDateString()}
+                    <h3 className={`text-2xl font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                      Tournament History
+                    </h3>
+                    <p className={`text-sm ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                      Track your competitive journey.
                     </p>
                   </div>
-                  <GiSoccerKick className="text-4xl opacity-80" />
                 </div>
-              ) : (
-                <div className="text-center py-10 border border-dashed border-green-300 rounded-2xl bg-green-50">
-                  <p className="text-gray-700 font-medium mb-2">
-                    Not enrolled in any academy yet.
-                  </p>
-                  <button className="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition">
-                    Enroll Now
-                  </button>
-                </div>
-              )}
-            </Section>
-          )}
 
-          {isPlayerData && activeSection === "performance" && (
-            <Section title="Performance Overview">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-center">
-                <StatCard
-                  label="Tournaments Played"
-                  value={player.tournamentsPlayed}
-                />
-                <StatCard label="Badges" value={player.badges} />
-                <StatCard label="Ratings" value={`${player.ratings}/5`} />
-                <StatCard label="Regional Rank" value={player.regionalRank} />
-                <StatCard label="National Rank" value={player.nationalRank} />
-              </div>
-            </Section>
-          )}
-
-          {isPlayerData && activeSection === "achievements" && (
-            <Section title="Achievements & Badges">
-              {player.badges > 0 ? (
-                <div className="flex flex-wrap gap-4">
-                  {[...Array(player.badges)].map((_, i) => (
-                    <div
-                      key={i}
-                      className="w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center shadow-md text-white font-bold"
-                    >
-                      🏅
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">
-                  No badges earned yet. Participate in more tournaments!
-                </p>
-              )}
-            </Section>
-          )}
-
-          {isPlayerData && activeSection === "settings" && (
-            <motion.div
-              key="settings"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.4 }}
-              className="bg-white rounded-2xl shadow-md border border-gray-100 p-8"
-            >
-              <h3 className="text-2xl font-bold text-gray-900 mb-6">
-                Settings
-              </h3>
-
-              {/* Theme Toggle */}
-              <div className="flex items-center justify-between py-3 border-b border-gray-100">
-                <p className="font-medium text-gray-700">Dark Mode</p>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
-                </label>
-              </div>
-
-              {/* Account Management */}
-              <div className="py-4 border-b border-gray-100">
-                <h4 className="text-sm font-semibold text-gray-600 mb-2">
-                  Account Management
-                </h4>
-                <button className="text-green-600 font-medium hover:underline text-sm">
-                  Change Password
-                </button>
-                <p className="text-xs text-gray-500 mt-1">
-                  Update your login credentials securely.
-                </p>
-              </div>
-
-              {/* Notifications */}
-              <div className="py-4 border-b border-gray-100">
-                <h4 className="text-sm font-semibold text-gray-600 mb-2">
-                  Notifications
-                </h4>
-                <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-3 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      className="accent-green-600"
-                      defaultChecked
-                    />
-                    Match Reminders
-                  </label>
-                  <label className="flex items-center gap-3 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      className="accent-green-600"
-                      defaultChecked
-                    />
-                    Tournament Updates
-                  </label>
-                  <label className="flex items-center gap-3 text-sm text-gray-700">
-                    <input type="checkbox" className="accent-green-600" />
-                    Academy Announcements
-                  </label>
-                </div>
-              </div>
-
-              {/* Privacy */}
-              <div className="py-4 border-b border-gray-100">
-                <h4 className="text-sm font-semibold text-gray-600 mb-2">
-                  Privacy Settings
-                </h4>
-                <label className="block text-sm text-gray-700 mb-1">
-                  Profile Visibility
-                </label>
-                <select className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500">
-                  <option>Public</option>
-                  <option>Friends Only</option>
-                  <option>Private</option>
-                </select>
-                <div className="mt-2 flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    className="accent-green-600"
-                    defaultChecked
+                {player.tournaments?.length > 0 ? (
+                  <div className="grid grid-cols-1 gap-4">
+                    {player.tournaments.map((t, idx) => (
+                      <motion.div
+                        key={idx}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-2xl shadow-sm hover:shadow-md transition-all group ${dm ? "bg-[#1a1a1a] border border-green-900/20 hover:border-yellow-600/30" : "bg-white border border-gray-100 hover:border-green-200"}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${dm ? "bg-green-950/40 text-green-600 group-hover:bg-green-900/50 group-hover:text-yellow-400" : "bg-gray-100 text-gray-400 group-hover:bg-green-100 group-hover:text-green-600"}`}>
+                            <IoMdFootball className="text-xl" />
+                          </div>
+                          <div>
+                            <h4 className={`font-bold ${dm ? "text-gray-200" : "text-gray-800"}`}>
+                              {t.name}
+                            </h4>
+                            <p className={`text-xs mt-0.5 flex items-center gap-2 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                              <span>
+                                {new Date(t.joinedAt).toLocaleDateString()}
+                              </span>{" "}
+                              •{" "}
+                              <span className="text-green-600 font-medium">
+                                {t.position || "Player"}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-3 sm:mt-0">
+                          <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${dm ? "bg-green-950/30 text-green-400 border-green-900/30" : "bg-gray-50 text-gray-600 border-gray-100"}`}>
+                            Played
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    message="No tournaments played yet."
+                    icon={<GiWhistle />}
                   />
-                  Show stats publicly
-                </div>
-              </div>
+                )}
+              </SectionWrapper>
+            )}
 
-              {/* Logout */}
-              <div className="pt-6 text-center">
-                <button
-                  className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-full font-semibold shadow-md transition"
-                  onClick={handleLogout}
-                >
-                  Logout
-                </button>
-                <p className="text-xs text-gray-500 mt-2">
-                  Logging out will end your current session.
-                </p>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            {/* 3. ACADEMY SECTION */}
+            {activeSection === "academy" && (
+              <SectionWrapper key="academy">
+                <div className="mb-6">
+                  <h3 className={`text-2xl font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                    Academy Details
+                  </h3>
+                </div>
 
-        {/* ⚠️ Popup for locked sections */}
-        <AnimatePresence>
-          {showPopup && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50"
-            >
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.9, opacity: 0 }}
-                className="bg-white rounded-2xl p-8 shadow-xl text-center max-w-sm mx-4"
-              >
-                <h4 className="text-xl font-bold text-gray-800 mb-3">
-                  Complete Your Profile
-                </h4>
-                <p className="text-gray-600 mb-6">
-                  You need to complete your profile before accessing other
-                  sections.
-                </p>
-                <div className="flex justify-center gap-4">
+                {academyDetails ? (
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-3xl p-8 text-white shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
+                      <FaSchool className="text-[150px]" />
+                    </div>
+
+                    <div className="relative z-10">
+                      <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wide">
+                        Current Academy
+                      </span>
+                      <h2 className="text-3xl font-extrabold mt-4 mb-2">
+                        {academyDetails.name}
+                      </h2>
+                      <p className="text-emerald-100 text-sm mb-8">
+                        Member since{" "}
+                        {new Date(academyDetails.establishedAt).toLocaleDateString()}
+                      </p>
+
+                      <div className="flex gap-4">
+                        <button className="bg-white text-emerald-700 px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-emerald-50 transition">
+                          View Academy
+                        </button>
+                        <button className="bg-emerald-700/50 backdrop-blur text-white px-6 py-2.5 rounded-xl font-bold text-sm border border-emerald-500/30 hover:bg-emerald-700 transition">
+                          Contact Coach
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`border-2 border-dashed rounded-3xl p-10 flex flex-col items-center justify-center text-center ${dm ? "border-green-900/30 bg-[#141414]" : "border-gray-200 bg-gray-50/50"}`}>
+                    <FaSchool className={`text-4xl mb-4 ${dm ? "text-green-800" : "text-gray-300"}`} />
+                    <h4 className={`text-lg font-bold ${dm ? "text-gray-300" : "text-gray-700"}`}>
+                      Not enrolled in an academy
+                    </h4>
+                    <p className={`text-sm mt-2 mb-6 max-w-xs ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                      Join an academy to get professional training and track
+                      your progress.
+                    </p>
+                    <button className="bg-gray-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-gray-800 transition">
+                      Explore Academies
+                    </button>
+                  </div>
+                )}
+              </SectionWrapper>
+            )}
+
+            {/* 4. PERFORMANCE SECTION */}
+            {activeSection === "performance" && (
+              <SectionWrapper key="performance">
+                <h3 className={`text-2xl font-bold mb-6 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                  Performance Stats
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <StatCard
+                    label="Matches"
+                    value={player.tournamentsPlayed || 0}
+                    icon={<IoMdFootball />}
+                    color="blue"
+                  />
+                  <StatCard
+                    label="Badges"
+                    value={player.badges || 0}
+                    icon={<FaMedal />}
+                    color="yellow"
+                  />
+                  <StatCard
+                    label="Rating"
+                    value={player.ratings || "N/A"}
+                    icon={<FaChartLine />}
+                    color="green"
+                  />
+                  <StatCard
+                    label="Regional"
+                    value={`#${player.regionalRank || "-"}`}
+                    sub="Rank"
+                    color="purple"
+                  />
+                  <StatCard
+                    label="National"
+                    value={`#${player.nationalRank || "-"}`}
+                    sub="Rank"
+                    color="red"
+                  />
+                </div>
+              </SectionWrapper>
+            )}
+
+            {/* 5. ACHIEVEMENTS SECTION */}
+            {activeSection === "achievements" && (
+              <SectionWrapper key="achievements">
+                <h3 className={`text-2xl font-bold mb-6 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                  Badges & Awards
+                </h3>
+                {player.badges > 0 ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    {[...Array(player.badges)].map((_, i) => (
+                      <motion.div
+                        key={i}
+                        whileHover={{ y: -5, rotate: 2 }}
+                        className="aspect-square bg-gradient-to-br from-amber-100 to-orange-100 border border-amber-200 rounded-2xl flex flex-col items-center justify-center p-4 text-center shadow-sm"
+                      >
+                        <span className="text-4xl mb-2">🏅</span>
+                        <span className="text-xs font-bold text-amber-800 uppercase">
+                          Winner
+                        </span>
+                        <span className="text-[10px] text-amber-600">
+                          Tournament {i + 1}
+                        </span>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <EmptyState
+                    message="No badges earned yet."
+                    icon={<FaMedal />}
+                  />
+                )}
+              </SectionWrapper>
+            )}
+
+            {/* 6. SETTINGS SECTION */}
+            {activeSection === "settings" && (
+              <SectionWrapper key="settings">
+                <h3 className={`text-2xl font-bold mb-6 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                  Account Settings
+                </h3>
+                <div className="space-y-3">
+                  {/* DARK MODE TOGGLE */}
+                  <div className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-colors text-left border ${dm ? "bg-[#1a1a1a] border-green-900/20" : "bg-white border-transparent hover:bg-gray-50 hover:border-gray-100"}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${dm ? "bg-yellow-500/20 text-yellow-400" : "bg-gray-100 text-gray-600"}`}>
+                      {dm ? <FaMoon /> : <FaSun />}
+                    </div>
+                    <div className="flex-1">
+                      <h4 className={`font-bold ${dm ? "text-gray-200" : "text-gray-800"}`}>Dark Mode</h4>
+                      <p className={`text-xs ${dm ? "text-gray-500" : "text-gray-500"}`}>Switch between light and dark theme</p>
+                    </div>
+                    {/* Toggle Switch */}
+                    <button
+                      onClick={() => dispatch(toggleDarkMode())}
+                      className={`relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-offset-2 ${dm ? "bg-green-600 focus:ring-green-500 focus:ring-offset-[#1a1a1a]" : "bg-gray-300 focus:ring-green-500 focus:ring-offset-white"}`}
+                    >
+                      <motion.div
+                        layout
+                        transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                        className={`absolute top-0.5 w-6 h-6 rounded-full shadow-md ${dm ? "left-[30px] bg-yellow-400" : "left-0.5 bg-white"}`}
+                      />
+                    </button>
+                  </div>
+
+                  <SettingsItem
+                    icon={<FaUser />}
+                    title="Account Privacy"
+                    desc="Manage who can see your profile"
+                    dm={dm}
+                  />
+                  <SettingsItem
+                    icon={<GiWhistle />}
+                    title="Notifications"
+                    desc="Match reminders and updates"
+                    dm={dm}
+                  />
                   <button
-                    onClick={() => navigate("/profile-complete")}
-                    className="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                    onClick={handleLogout}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-colors text-left group ${dm ? "bg-red-950/30 text-red-400 hover:bg-red-950/50" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                   >
-                    Complete Profile
-                  </button>
-                  <button
-                    onClick={() => setShowPopup(false)}
-                    className="border border-gray-300 px-5 py-2 rounded-full hover:bg-gray-100 transition"
-                  >
-                    Cancel
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${dm ? "bg-red-950/50 text-red-400 group-hover:bg-red-900/50" : "bg-red-100 text-red-600 group-hover:bg-red-200"}`}>
+                      <FaSignOutAlt />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">Log Out</h4>
+                      <p className="text-xs opacity-70">
+                        Sign out of your account
+                      </p>
+                    </div>
                   </button>
                 </div>
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
+              </SectionWrapper>
+            )}
+          </AnimatePresence>
+        </main>
+      </div>
+
+      {/* --- EDIT MODAL --- */}
+      <AnimatePresence>
+        {showEditModal && (
+          <EditModal
+            onClose={() => setShowEditModal(false)}
+            formData={formData}
+            setFormData={setFormData}
+            // Add your submit handler here passing formData
+            onSubmit={() => {
+              handleUpdate();
+              // Call API here
+              setShowEditModal(false);
+              window.location.reload();
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
 
-// Helper Components
-function Info({ label, value }) {
-  return (
-    <div>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-gray-800 font-medium">{value}</p>
-    </div>
-  );
-}
+// --- SUB COMPONENTS ---
 
-function Section({ title, children }) {
+const SectionWrapper = ({ children }) => {
+  // Read dark mode from localStorage for sub-components
+  const isDark = typeof window !== 'undefined' && localStorage.getItem('darkMode') === 'true';
   return (
     <motion.div
-      key={title}
-      initial={{ opacity: 0, y: 15 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -15 }}
-      transition={{ duration: 0.4 }}
-      className="bg-white rounded-2xl shadow-md border border-gray-100 p-8"
+      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -10, scale: 0.98 }}
+      transition={{ duration: 0.3 }}
+      className={`rounded-3xl shadow-xl p-6 md:p-8 transition-colors duration-300 ${isDark ? "bg-[#141414] border border-green-900/20 shadow-green-950/20" : "bg-white border border-white shadow-gray-200/50"}`}
     >
-      <h3 className="text-2xl font-bold text-gray-900 mb-6">{title}</h3>
       {children}
     </motion.div>
   );
-}
+};
 
-function StatCard({ label, value }) {
+const InfoCard = ({ label, value, highlight }) => {
+  const isDark = typeof window !== 'undefined' && localStorage.getItem('darkMode') === 'true';
   return (
-    <div className="bg-green-50 border border-green-100 rounded-xl p-6 shadow-sm hover:shadow-md transition">
-      <p className="text-sm text-gray-600">{label}</p>
-      <p className="text-xl font-bold text-green-700 mt-1">{value}</p>
-    </div>
-  );
-}
-
-{
-  /* Reusable Components */
-}
-function FormField({ label, type = "text", defaultValue }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+    <div className={`border-b py-2 ${isDark ? "border-green-900/20" : "border-gray-100"}`}>
+      <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-500" : "text-gray-400"}`}>
         {label}
-      </label>
-      <input
-        type={type}
-        defaultValue={defaultValue}
-        placeholder={`Enter ${label.toLowerCase()}`}
-        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#1A1D21] text-gray-800 dark:text-gray-200 px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none transition-all"
-      />
-    </div>
-  );
-}
-
-function FormSelect({ label, defaultValue, options }) {
-  return (
-    <div>
-      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        {label}
-      </label>
-      <select
-        defaultValue={defaultValue || ""}
-        className="w-full rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-[#1A1D21] text-gray-800 dark:text-gray-200 px-3 py-2 focus:ring-2 focus:ring-green-500 outline-none transition-all"
+      </p>
+      <p
+        className={`text-lg font-semibold mt-1 ${
+          highlight ? (isDark ? "text-yellow-400" : "text-green-600") : (isDark ? "text-gray-200" : "text-gray-900")
+        }`}
       >
-        <option value="">Select {label.toLowerCase()}</option>
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
+        {value || "—"}
+      </p>
     </div>
   );
-}
+};
+
+const StatCard = ({ label, value, sub, icon, color }) => {
+  const isDark = typeof window !== 'undefined' && localStorage.getItem('darkMode') === 'true';
+  const colorStyles = isDark ? {
+    blue: "bg-blue-950/40 text-blue-400",
+    green: "bg-green-950/40 text-green-400",
+    yellow: "bg-yellow-950/40 text-yellow-400",
+    purple: "bg-purple-950/40 text-purple-400",
+    red: "bg-red-950/40 text-red-400",
+  } : {
+    blue: "bg-blue-50 text-blue-600",
+    green: "bg-green-50 text-green-600",
+    yellow: "bg-yellow-50 text-yellow-600",
+    purple: "bg-purple-50 text-purple-600",
+    red: "bg-red-50 text-red-600",
+  };
+
+  return (
+    <motion.div
+      whileHover={{ y: -4 }}
+      className={`p-5 rounded-2xl shadow-sm text-center border ${isDark ? "bg-[#1a1a1a] border-green-900/20" : "bg-white border-gray-100"}`}
+    >
+      {icon && (
+        <div
+          className={`w-10 h-10 mx-auto rounded-full flex items-center justify-center text-lg mb-3 ${
+            colorStyles[color || "green"]
+          }`}
+        >
+          {icon}
+        </div>
+      )}
+      <div className={`text-2xl font-black ${isDark ? "text-gray-100" : "text-gray-900"}`}>{value}</div>
+      <div className={`text-xs font-bold uppercase tracking-wide mt-1 ${isDark ? "text-gray-500" : "text-gray-500"}`}>
+        {label} {sub}
+      </div>
+    </motion.div>
+  );
+};
+
+const EmptyState = ({ message, icon }) => (
+  <div className="flex flex-col items-center justify-center py-16 text-center">
+    <div className="text-5xl text-gray-200 mb-4">{icon}</div>
+    <p className="text-gray-500 font-medium">{message}</p>
+  </div>
+);
+
+const SettingsItem = ({ icon, title, desc, dm }) => (
+  <button className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-colors text-left group border ${dm ? "border-transparent hover:bg-green-950/20 hover:border-green-900/20" : "border-transparent hover:bg-gray-50 hover:border-gray-100"}`}>
+    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${dm ? "bg-green-950/40 text-green-500 group-hover:bg-green-900/40" : "bg-gray-100 text-gray-600 group-hover:bg-white group-hover:shadow-sm"}`}>
+      {icon}
+    </div>
+    <div className="flex-1">
+      <h4 className={`font-bold ${dm ? "text-gray-200" : "text-gray-800"}`}>{title}</h4>
+      <p className={`text-xs ${dm ? "text-gray-500" : "text-gray-500"}`}>{desc}</p>
+    </div>
+    <div className={dm ? "text-gray-600" : "text-gray-300"}>›</div>
+  </button>
+);
+
+const EditModal = ({ onClose, formData, setFormData, onSubmit }) => {
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl max-h-[85vh] flex flex-col overflow-hidden"
+      >
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-bold text-lg text-gray-800">Edit Profile</h3>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-200 rounded-full transition"
+          >
+            <FaTimes />
+          </button>
+        </div>
+
+        <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+          <form
+            className="grid grid-cols-1 md:grid-cols-2 gap-5"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+          >
+            <FormField
+              label="First Name"
+              name="firstName"
+              value={formData.firstName}
+              onChange={handleChange}
+            />
+            <FormField
+              label="Last Name"
+              name="lastName"
+              value={formData.lastName}
+              onChange={handleChange}
+            />
+            <FormField
+              label="Display Name"
+              name="displayName"
+              value={formData.displayName}
+              onChange={handleChange}
+            />
+            <FormField
+              label="Age"
+              name="age"
+              type="number"
+              value={formData.age}
+              onChange={handleChange}
+            />
+            <div className="md:col-span-2 grid grid-cols-2 gap-5">
+              <FormField
+                label="Height (cm)"
+                name="height"
+                type="number"
+                value={formData.height}
+                onChange={handleChange}
+              />
+              <FormField
+                label="Weight (kg)"
+                name="weight"
+                type="number"
+                value={formData.weight}
+                onChange={handleChange}
+              />
+            </div>
+            <FormField
+              label="Position"
+              name="position"
+              value={formData.position}
+              onChange={handleChange}
+            />
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
+                Dominant Foot
+              </label>
+              <select
+                name="dominantFoot"
+                value={formData.dominantFoot}
+                onChange={handleChange}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all"
+              >
+                <option value="">Select Foot</option>
+                <option value="Right">Right</option>
+                <option value="Left">Left</option>
+                <option value="Both">Both</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
+                Bio
+              </label>
+              <textarea
+                name="bio"
+                rows="3"
+                value={formData.bio}
+                onChange={handleChange}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 focus:ring-2 focus:ring-green-500 outline-none resize-none"
+              ></textarea>
+            </div>
+          </form>
+        </div>
+
+        <div className="p-5 border-t border-gray-100 bg-white flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-6 py-2.5 rounded-xl text-gray-600 font-bold hover:bg-gray-50 transition"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            className="px-8 py-2.5 rounded-xl bg-green-600 text-white font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition"
+          >
+            Save Changes
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const FormField = ({ label, name, type = "text", value, onChange }) => (
+  <div>
+    <label className="block text-xs font-bold text-gray-500 uppercase mb-1.5">
+      {label}
+    </label>
+    <input
+      type={type}
+      name={name}
+      value={value || ""}
+      onChange={onChange}
+      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none transition-all placeholder:text-gray-400"
+      placeholder={`Enter ${label}`}
+    />
+  </div>
+);

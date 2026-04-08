@@ -11,20 +11,6 @@ import api from "../api/axios.js";
 function LandingPage() {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Check if the user has an access token
-    const checkAuth = async () => {
-      try {
-        const res = await api.get("/auth/verify-token");
-        // If the token is valid, navigate to the home page
-        navigate("/home");
-      } catch (error) {
-        console.error("Authentication check failed:", error);
-      }
-    };
-    checkAuth();
-  }, [navigate]);
-
   return (
     <>
       <Header />

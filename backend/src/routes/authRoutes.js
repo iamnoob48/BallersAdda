@@ -1,5 +1,6 @@
 import express from 'express';
-import { registerUser, loginUser, googleAuthCallback, verifyAccessToken,  getUserProfile, refreshAccessToken, logoutUser} from '../controllers/authControllers.js';
+import { registerUser, loginUser, googleAuthCallback, verifyUser,  getUserProfile, refreshAccessToken, logoutUser} from '../controllers/authControllers.js';
+import { verifyAccessToken } from '../middleware/authMiddleware.js';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 
@@ -22,9 +23,7 @@ router.get('/google/callback', passport.authenticate('google', {
 }), googleAuthCallback);
 
 //For verify token route
-router.get('/verify-token', verifyAccessToken, (req, res)=>{
-    res.status(200).json({message: 'Access token is valid', user: req.user});
-})
+router.get('/verify-token', verifyAccessToken, verifyUser)
 
 //For getting the profile picture
 router.get('/profile', verifyAccessToken, getUserProfile)

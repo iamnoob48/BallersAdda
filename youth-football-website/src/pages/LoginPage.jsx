@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { useState } from "react";
+import { use, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FiPhone } from "react-icons/fi";
@@ -7,6 +7,8 @@ import OTP from "../LandingComponents/OTP";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios";
+import { useDispatch } from "react-redux";
+import { loginSuccess, verifyUser } from "../redux/slices/authSlice.js";
 
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({
@@ -17,9 +19,9 @@ export default function LoginPage() {
   const [isPhone, setIsPhone] = useState(false);
   const [isPhoneLogin, setIsPhoneLogin] = useState(false);
   const [errors, setErrors] = useState([]);
-  const prefix = "/api/v1/auth";
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   //For validating email
   const validateEmail = (email) => {
@@ -45,6 +47,8 @@ export default function LoginPage() {
         email: loginData.email,
         password: loginData.password,
       });
+      //Dispatch login success action
+      dispatch(loginSuccess(res.data.user));
       //Succesful login navigate to home page
       navigate("/home");
     } catch (error) {
@@ -54,12 +58,16 @@ export default function LoginPage() {
 
   //For google login
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:4000/api/v1/auth/google";
+    window.location.href = "http://localhost:4001/api/v1/auth/google";
   };
 
   const handleChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
+  //For dispatching login success action
+  // useEffect(() => {
+  //   dispatch(verifyUser());
+  // }, [dispatch]);
 
   return (
     <section

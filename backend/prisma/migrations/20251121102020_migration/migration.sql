@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Academy" ADD COLUMN     "rating" DOUBLE PRECISION DEFAULT 0.0;

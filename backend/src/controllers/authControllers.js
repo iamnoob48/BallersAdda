@@ -97,7 +97,7 @@ export const loginUser = async (req,res)=>{
             sameSite: 'strict',
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
-        res.status(200).json({message: 'User logged in successfully', accessToken: accessToken, refreshToken: refreshToken});
+        res.status(200).json({message: 'User logged in successfully', accessToken: accessToken, refreshToken: refreshToken, user: user});
        
 
         
@@ -160,7 +160,7 @@ export const googleAuthCallback = (req, res)=>{
             maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
         });
         //Redirecting to home page
-        res.redirect('http://localhost:5175/home');
+        res.redirect('http://localhost:5173/auth/success');
 
         
     } catch (error) {
@@ -171,21 +171,29 @@ export const googleAuthCallback = (req, res)=>{
 }
 
 //For verifying the access token middleware
-export const verifyAccessToken = (req, res, next)=>{
-    const accessToken = req.cookies.accessToken;
-    if(!accessToken){
-        return res.status(401).json({message: 'No access token provided'});
-    }
+export const verifyUser = async (req, res) => {
     try {
-        const user = jwt.verify(accessToken, process.env.ACCESS_TOKEN_JWT_SECRET);
-        req.user = user;
-        next();
-        
+      // `req.user` was set by verifyAccessToken
+      const userId = req.user.id;
+  
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, profilePic: true, username: true },
+      });
+  
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+  
+      res.status(200).json({
+        success: true,
+        user,
+      });
     } catch (error) {
-        return res.status(403).json({message: 'Invalid access token'});
-        
+      console.error("Error verifying user:", error);
+      res.status(500).json({ message: "Server error" });
     }
-}
+  };
 
 //For fetching the user profile picture
 export const getUserProfile = async (req,res)=>{

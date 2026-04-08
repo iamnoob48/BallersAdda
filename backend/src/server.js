@@ -1,6 +1,7 @@
 import express from 'express';
 import authRoutes from './routes/authRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
+import academyRoutes from './routes/academyRoutes.js'
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 
@@ -13,9 +14,12 @@ app.use(express.json());
 app.use(cookieParser());
 
 //For auth endpoints
-app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/auth', authRoutes);
 //For player detailing routes
-app.use('/api/v1/player',playerRoutes)
+app.use('/api/v1/player',playerRoutes);
+
+//For academy routes
+app.use('/api/v1/academy', academyRoutes);
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Youth Football Website Backend!');

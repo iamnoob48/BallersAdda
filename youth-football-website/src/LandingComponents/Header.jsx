@@ -29,7 +29,7 @@ function Header() {
           : "bg-transparent border-green-400 py-4"
       }`}
     >
-      <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-green-600 flex items-center gap-1 hover:scale-105 transition-transform duration-300">
           <a href="/">
             Ballers<span className="text-gray-800 font-normal">Adda</span>

@@ -7,6 +7,7 @@ import OTP from "../LandingComponents/OTP.jsx";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios.js";
+import { useDispatch } from "react-redux";
 
 export default function SignUp() {
   const [signUpData, setSignUpData] = useState({
@@ -20,6 +21,7 @@ export default function SignUp() {
   const [errors, setErrors] = useState([]);
 
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   //For validating email
   const validateEmail = (email) => {
@@ -50,6 +52,9 @@ export default function SignUp() {
         email: signUpData.email,
         password: signUpData.password,
       });
+      //Dispatch login success action
+      dispatch(loginSuccess(res.data));
+
       //Succesful signup navigate to home page
       navigate("/home");
     } catch (error) {
@@ -61,7 +66,7 @@ export default function SignUp() {
   };
   //For Google Sign In
   const handleGoogleSignIn = () => {
-    window.location.href = "http://localhost:4000/api/v1/auth/google";
+    window.location.href = "http://localhost:4001/api/v1/auth/google";
   };
 
   const handleChange = (e) => {

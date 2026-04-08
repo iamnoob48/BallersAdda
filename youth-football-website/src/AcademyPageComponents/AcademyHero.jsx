@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { useState, useMemo } from "react";
-import { FaSearch } from "react-icons/fa";
-import { Search, MapPin, ArrowRight } from "lucide-react";
+import { Search, ArrowRight } from "lucide-react";
+import { FaFilter } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import FilterSidebar from "./FilterSideBar";
 import AcademyResults from "./AcademyResults";
@@ -15,6 +15,7 @@ export default function AcademyPage({ userAcademy }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState({ location: [], rating: [], ageGroup: "" });
   const [viewMode, setViewMode] = useState("list");
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Pagination state
   const [page, setPage] = useState(1);
@@ -22,8 +23,12 @@ export default function AcademyPage({ userAcademy }) {
 
   // Check if any filter is active
   const hasActiveFilters = filters.location.length > 0 || filters.rating.length > 0 || filters.ageGroup;
+  const activeFilterCount =
+    (filters.location.length > 0 ? 1 : 0) +
+    (filters.rating.length > 0 ? 1 : 0) +
+    (filters.ageGroup ? 1 : 0);
 
-  // RTK Query: use filter endpoint when filters are active, otherwise use default
+  // RTK Query
   const filterParams = {
     page,
     limit,
@@ -60,7 +65,7 @@ export default function AcademyPage({ userAcademy }) {
   return (
     <div className={`min-h-screen relative overflow-hidden transition-colors duration-300 ${dm ? "bg-[#121212]" : "bg-gradient-to-b from-green-50 via-white to-green-100"}`}>
       {/* Hero Section */}
-      <section className={`relative z-10 pt-32 pb-20 px-6 overflow-hidden transition-colors duration-300 ${dm ? "bg-[#121212]" : "bg-white"}`}>
+      <section className={`relative z-10 pt-20 md:pt-32 pb-14 md:pb-20 px-6 overflow-hidden transition-colors duration-300 ${dm ? "bg-[#121212]" : "bg-white"}`}>
         {/* Dot pattern */}
         <div className={`absolute inset-0 -z-10 h-full w-full [background-size:22px_22px] [mask-image:radial-gradient(ellipse_60%_60%_at_50%_50%,#000_70%,transparent_100%)] ${dm ? "bg-[#121212] bg-[radial-gradient(#87A98D20_1.5px,transparent_1.5px)]" : "bg-white bg-[radial-gradient(#cbd5e1_1.5px,transparent_1.5px)]"}`}></div>
 
@@ -86,7 +91,7 @@ export default function AcademyPage({ userAcademy }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className={`text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] ${dm ? "text-gray-100" : "text-gray-900"}`}
+            className={`text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.1] ${dm ? "text-gray-100" : "text-gray-900"}`}
           >
             Kickstart Your <br className="hidden md:block" />
             <span className={`text-transparent bg-clip-text ${dm ? "bg-gradient-to-r from-[#00FF88] via-[#00DCFF] to-[#00FF88]" : "bg-gradient-to-r from-green-600 via-emerald-500 to-teal-500"}`}>
@@ -99,7 +104,7 @@ export default function AcademyPage({ userAcademy }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className={`text-lg max-w-2xl mx-auto leading-relaxed ${dm ? "text-gray-400" : "text-gray-500"}`}
+            className={`text-base md:text-lg max-w-2xl mx-auto leading-relaxed ${dm ? "text-gray-400" : "text-gray-500"}`}
           >
             Find top-rated academies, connect with expert coaches, and elevate
             your game. The best pitch is the one closest to you.
@@ -153,7 +158,31 @@ export default function AcademyPage({ userAcademy }) {
         </div>
       </section>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 pb-20 flex flex-col md:flex-row gap-8 mt-10">
+      {/* ── Mobile filter toggle button ── */}
+      <div className="md:hidden sticky top-0 z-30 px-4 py-3">
+        <button
+          onClick={() => setMobileFiltersOpen(true)}
+          className={`w-full flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm border transition-all ${
+            activeFilterCount > 0
+              ? dm
+                ? "bg-[#00FF88]/10 border-[#00FF88]/30 text-[#00FF88]"
+                : "bg-green-50 border-green-200 text-green-700"
+              : dm
+                ? "bg-[#1a1a1a] border-[#87A98D]/15 text-gray-400"
+                : "bg-white border-gray-200 text-gray-600 shadow-sm"
+          }`}
+        >
+          <FaFilter className="text-xs" />
+          Filters
+          {activeFilterCount > 0 && (
+            <span className={`w-5 h-5 rounded-full text-[10px] flex items-center justify-center font-bold ${dm ? "bg-[#00FF88] text-[#121212]" : "bg-green-600 text-white"}`}>
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 md:px-6 pb-20 flex flex-col md:flex-row gap-8 mt-4 md:mt-10">
         {/* FILTER SIDEBAR */}
         <FilterSidebar
           filters={filters}
@@ -163,6 +192,8 @@ export default function AcademyPage({ userAcademy }) {
           }}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          mobileOpen={mobileFiltersOpen}
+          onMobileClose={() => setMobileFiltersOpen(false)}
         />
 
         {/* RESULTS + Pagination */}

@@ -1,20 +1,24 @@
 import jwt from 'jsonwebtoken';
 
+/**
+ * Middleware: verifies the JWT access token from cookies.
+ * Sets req.user = { id } on success.
+ */
+export const verifyAccessToken = (req, res, next) => {
+  const token = req.cookies?.accessToken;
 
-//For verifying the access token middleware
+  if (!token) {
+    return res.status(401).json({ message: 'No access token provided' });
+  }
 
-export const verifyAccessToken = (req, res, next)=>{
-    const accessToken = req.cookies.accessToken;
-    if(!accessToken){
-        return res.status(401).json({message: 'No access token provided'});
+  try {
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_JWT_SECRET);
+    req.user = decoded; // { id, iat, exp }
+    next();
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Access token expired' });
     }
-    try {
-        const user = jwt.verify(accessToken, process.env.ACCESS_TOKEN_JWT_SECRET);
-        req.user = user;
-        next();
-        
-    } catch (error) {
-        return res.status(403).json({message: 'Invalid access token'});
-        
-    }
-}
+    return res.status(403).json({ message: 'Invalid access token' });
+  }
+};

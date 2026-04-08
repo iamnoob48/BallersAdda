@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import PlayerProfilePage from "../ProfilePageComponents/PlayerProfilePage";
-import NavBar from "../HomeComponents/Navbar";
 import api from "../api/axios";
 
 function ProfilePage() {
@@ -21,14 +20,11 @@ function ProfilePage() {
 
   return (
     <div>
-      <NavBar />
-      <div className="mt-15">
-        {player ? (
-          <PlayerProfilePage player={player} />
-        ) : (
-          <PlayerProfilePage player={null} />
-        )}
-      </div>
+      {player ? (
+        <PlayerProfilePage player={player} />
+      ) : (
+        <PlayerProfilePage player={null} />
+      )}
     </div>
   );
 }

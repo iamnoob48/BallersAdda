@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { use, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FiPhone } from "react-icons/fi";
@@ -8,7 +8,7 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios";
 import { useDispatch } from "react-redux";
-import { loginSuccess, verifyUser } from "../redux/slices/authSlice.js";
+import { loginSuccess } from "../redux/slices/authSlice.js";
 
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({
@@ -18,45 +18,49 @@ export default function LoginPage() {
   const [phoneNum, setPhoneNum] = useState("");
   const [isPhone, setIsPhone] = useState(false);
   const [isPhoneLogin, setIsPhoneLogin] = useState(false);
-  const [errors, setErrors] = useState([]);
+  const [errors, setErrors] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
 
-  //For validating email
-  const validateEmail = (email) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-  };
+  const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-  //Send data to backend
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle login logic here
-    try {
-      if (!validateEmail(loginData.email)) {
-        setErrors("Please enter a valid email address.");
-        return;
-      }
-      if (!loginData.password || loginData.password.length < 6) {
-        setErrors("Password must be at least 6 characters long.");
-        return;
-      }
+    setErrors("");
 
+    const trimmedEmail = loginData.email.trim().toLowerCase();
+
+    if (!validateEmail(trimmedEmail)) {
+      setErrors("Please enter a valid email address.");
+      return;
+    }
+    if (!loginData.password || loginData.password.length < 8) {
+      setErrors("Password must be at least 8 characters long.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
       const res = await api.post("/auth/login", {
-        email: loginData.email,
+        email: trimmedEmail,
         password: loginData.password,
       });
-      //Dispatch login success action
+
+      // Dispatch with the safe user object returned by the backend
       dispatch(loginSuccess(res.data.user));
-      //Succesful login navigate to home page
       navigate("/home");
     } catch (error) {
-      console.error("Login failed:", error);
+      const message =
+        error.response?.data?.message ||
+        "An unexpected error occurred. Please try again later.";
+      setErrors(message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  //For google login
   const handleGoogleLogin = () => {
     window.location.href = "http://localhost:4001/api/v1/auth/google";
   };
@@ -64,10 +68,6 @@ export default function LoginPage() {
   const handleChange = (e) => {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
-  //For dispatching login success action
-  // useEffect(() => {
-  //   dispatch(verifyUser());
-  // }, [dispatch]);
 
   return (
     <section
@@ -120,11 +120,12 @@ export default function LoginPage() {
 
             <motion.button
               type="submit"
+              disabled={submitting}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition"
+              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Login
+              {submitting ? "Logging in..." : "Login"}
             </motion.button>
             {errors && (
               <div>
@@ -157,7 +158,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <Link
               to="/Register"
               className="text-green-600 font-medium hover:underline"
@@ -201,7 +202,7 @@ export default function LoginPage() {
 
               <div className="relative group">
                 <PhoneInput
-                  country={"in"} // set to 'in' for India, or keep 'us' if you prefer
+                  country={"in"}
                   value={phoneNum}
                   onChange={(phone) => setPhoneNum(phone)}
                   inputProps={{
@@ -218,7 +219,7 @@ export default function LoginPage() {
               </div>
 
               <p className="text-xs text-gray-500 mt-1">
-                You’ll receive an OTP on this number
+                You'll receive an OTP on this number
               </p>
             </motion.div>
 
@@ -242,7 +243,7 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-sm text-gray-600">
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <Link
               to="/Register"
               className="text-green-600 font-medium hover:underline"

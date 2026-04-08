@@ -8,6 +8,7 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios.js";
 import { useDispatch } from "react-redux";
+import { verifyUser } from "../redux/slices/authSlice.js";
 
 export default function SignUp() {
   const [signUpData, setSignUpData] = useState({
@@ -18,7 +19,8 @@ export default function SignUp() {
   const [isPhone, setIsPhone] = useState(false);
   const [isPhoneLogin, setIsPhoneLogin] = useState(false);
   const [phoneNum, setPhoneNum] = useState("");
-  const [errors, setErrors] = useState([]);
+  const [errors, setErrors] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -32,36 +34,43 @@ export default function SignUp() {
   //For submiting the form
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!signUpData.username) {
+    setErrors("");
+
+    const trimmedUsername = signUpData.username.trim();
+    const trimmedEmail = signUpData.email.trim().toLowerCase();
+
+    if (!trimmedUsername) {
       setErrors("Username is required.");
       return;
     }
-    if (!validateEmail(signUpData.email)) {
+    if (!validateEmail(trimmedEmail)) {
       setErrors("Please enter a valid email address.");
       return;
     }
-    if (!signUpData.password || signUpData.password.length < 6) {
-      setErrors("Password must be at least 6 characters long.");
+    if (!signUpData.password || signUpData.password.length < 8) {
+      setErrors("Password must be at least 8 characters long.");
       return;
     }
 
-    // Handle sign-up logic here
     try {
-      const res = await api.post("/auth/register", {
-        username: signUpData.username,
-        email: signUpData.email,
+      setSubmitting(true);
+      await api.post("/auth/register", {
+        username: trimmedUsername,
+        email: trimmedEmail,
         password: signUpData.password,
       });
-      //Dispatch login success action
-      dispatch(loginSuccess(res.data));
 
-      //Succesful signup navigate to home page
+      // Registration sets cookies — verify them to populate Redux state
+      await dispatch(verifyUser()).unwrap();
       navigate("/home");
     } catch (error) {
       const message =
         error.response?.data?.message ||
+        error?.message ||
         "An unexpected error occurred. Please try again later.";
       setErrors(message);
+    } finally {
+      setSubmitting(false);
     }
   };
   //For Google Sign In
@@ -142,9 +151,10 @@ export default function SignUp() {
               type="submit"
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition"
+              disabled={submitting}
+              className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg shadow-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Register
+              {submitting ? "Registering..." : "Register"}
             </motion.button>
             {errors && (
               <div>

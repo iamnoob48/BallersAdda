@@ -5,34 +5,38 @@ import {
   FaList,
   FaThLarge,
   FaUser,
-  FaChevronDown
+  FaChevronDown,
+  FaTimes,
 } from "react-icons/fa";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSelector } from "react-redux";
 
-function FilterSidebar({ 
-  filters, 
-  setFilters, 
-  viewMode, 
+function FilterSidebar({
+  filters,
+  setFilters,
+  viewMode,
   setViewMode,
-  availableCities = ["Hyderabad", "Bangalore", "Delhi", "Chennai", "Mumbai", "Pune", "Gohana", "Sonipat"] 
+  mobileOpen = false,
+  onMobileClose,
+  availableCities = ["Hyderabad", "Bangalore", "Delhi", "Chennai", "Mumbai", "Pune", "Gohana", "Sonipat"],
 }) {
   const dm = useSelector((state) => state.theme.darkMode);
-  
+
   const handleRatingChange = (ratingVal) => {
     setFilters((prev) => ({
       ...prev,
-      rating: prev.rating.includes(ratingVal) ? [] : [ratingVal]
+      rating: prev.rating.includes(ratingVal) ? [] : [ratingVal],
     }));
   };
 
-  return (
-    <motion.aside
-      initial={{ x: -20, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className={`md:w-1/4 w-full shadow-xl rounded-3xl p-6 h-fit sticky top-24 border transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15 shadow-black/20" : "bg-white border-gray-100 shadow-gray-100/50"}`}
-    >
+  const activeCount =
+    (filters.location.length > 0 ? 1 : 0) +
+    (filters.rating.length > 0 ? 1 : 0) +
+    (filters.ageGroup ? 1 : 0);
+
+  // Filter content — shared between desktop sidebar and mobile sheet
+  const filterContent = (
+    <>
       {/* HEADER */}
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-2">
@@ -41,14 +45,25 @@ function FilterSidebar({
           </div>
           <h3 className={`text-xl font-extrabold tracking-tight ${dm ? "text-gray-100" : "text-gray-900"}`}>Filters</h3>
         </div>
-        {(filters.location.length > 0 || filters.rating.length > 0 || filters.ageGroup) && (
-          <button 
-            onClick={() => setFilters({ location: [], rating: [], ageGroup: "" })}
-            className={`text-xs font-bold transition-colors ${dm ? "text-gray-500 hover:text-[#00FF88]" : "text-gray-400 hover:text-green-600"}`}
-          >
-            CLEAR ALL
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {activeCount > 0 && (
+            <button
+              onClick={() => setFilters({ location: [], rating: [], ageGroup: "" })}
+              className={`text-xs font-bold transition-colors ${dm ? "text-gray-500 hover:text-[#00FF88]" : "text-gray-400 hover:text-green-600"}`}
+            >
+              CLEAR ALL
+            </button>
+          )}
+          {/* Mobile close button */}
+          {onMobileClose && (
+            <button
+              onClick={onMobileClose}
+              className={`md:hidden p-2 rounded-xl ${dm ? "hover:bg-[#2a2a2a] text-gray-400" : "hover:bg-gray-100 text-gray-500"}`}
+            >
+              <FaTimes />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* LOCATION FILTER */}
@@ -68,9 +83,7 @@ function FilterSidebar({
           >
             <option value="">Anywhere</option>
             {availableCities.map((loc) => (
-              <option key={loc} value={loc}>
-                {loc}
-              </option>
+              <option key={loc} value={loc}>{loc}</option>
             ))}
           </select>
           <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${dm ? "text-gray-500" : "text-gray-400"}`}>
@@ -132,7 +145,7 @@ function FilterSidebar({
             <option value="adults">Adults (16+)</option>
           </select>
           <div className={`absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${dm ? "text-gray-500" : "text-gray-400"}`}>
-             <FaChevronDown className="text-xs" />
+            <FaChevronDown className="text-xs" />
           </div>
         </div>
       </div>
@@ -171,7 +184,61 @@ function FilterSidebar({
           </button>
         </div>
       </div>
-    </motion.aside>
+
+      {/* Mobile: Apply button */}
+      {onMobileClose && (
+        <button
+          onClick={onMobileClose}
+          className={`mt-6 w-full py-3 rounded-2xl font-bold text-sm md:hidden ${dm ? "bg-[#00FF88] text-[#121212]" : "bg-green-600 text-white"}`}
+        >
+          Show Results {activeCount > 0 && `(${activeCount} filter${activeCount > 1 ? "s" : ""})`}
+        </button>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {/* ── Desktop: classic sticky sidebar ── */}
+      <motion.aside
+        initial={{ x: -20, opacity: 0 }}
+        animate={{ x: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className={`hidden md:block md:w-1/4 w-full shadow-xl rounded-3xl p-6 h-fit sticky top-24 border transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15 shadow-black/20" : "bg-white border-gray-100 shadow-gray-100/50"}`}
+      >
+        {filterContent}
+      </motion.aside>
+
+      {/* ── Mobile: slide-up bottom sheet ── */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={onMobileClose}
+              className="fixed inset-0 bg-black/50 z-50 md:hidden"
+            />
+            {/* Sheet */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className={`fixed bottom-0 left-0 right-0 z-50 md:hidden max-h-[85vh] overflow-y-auto rounded-t-3xl p-6 ${dm ? "bg-[#1a1a1a]" : "bg-white"}`}
+            >
+              {/* Handle */}
+              <div className="flex justify-center mb-4">
+                <div className={`w-10 h-1 rounded-full ${dm ? "bg-gray-700" : "bg-gray-300"}`} />
+              </div>
+              {filterContent}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 

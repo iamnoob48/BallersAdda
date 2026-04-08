@@ -8,7 +8,7 @@ export const verifyUser = createAsyncThunk(
       const res = await api.get("/auth/verify-token", { withCredentials: true });
       return res.data.user;
     } catch (err) {
-      return rejectWithValue(err.response?.data || "Verification failed");
+      return rejectWithValue(err.response?.data?.message || "Verification failed");
     }
   }
 );
@@ -17,7 +17,7 @@ const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: null,
-    isAuthenticated: null, // <== very important
+    isAuthenticated: null, // null = unknown, true/false = resolved
     loading: false,
     error: null,
   },
@@ -32,25 +32,32 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.loading = false;
+      state.error = null;
+    },
+    clearAuthError: (state) => {
+      state.error = null;
     },
   },
   extraReducers: (builder) => {
     builder
       .addCase(verifyUser.pending, (state) => {
         state.loading = true;
+        state.error = null;
       })
       .addCase(verifyUser.fulfilled, (state, action) => {
         state.user = action.payload;
         state.isAuthenticated = true;
         state.loading = false;
+        state.error = null;
       })
-      .addCase(verifyUser.rejected, (state) => {
+      .addCase(verifyUser.rejected, (state, action) => {
         state.user = null;
         state.isAuthenticated = false;
         state.loading = false;
+        state.error = action.payload || "Verification failed";
       });
   },
 });
 
-export const { loginSuccess, logout } = authSlice.actions;
+export const { loginSuccess, logout, clearAuthError } = authSlice.actions;
 export default authSlice.reducer;

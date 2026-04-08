@@ -1,10 +1,9 @@
-import React, { useMemo, useState, useRef, useEffect } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
   motion,
   AnimatePresence,
   useScroll,
   useTransform,
-  useSpring,
 } from "framer-motion";
 import {
   FiMapPin,
@@ -13,101 +12,110 @@ import {
   FiFilter,
   FiGrid,
   FiList,
-  FiX,
-  FiCheck,
   FiChevronDown,
 } from "react-icons/fi";
-import { FaTrophy, FaFutbol, FaUsers } from "react-icons/fa";
+import { FaTrophy, FaUsers } from "react-icons/fa";
 import { useSelector } from "react-redux";
+import { useGetTournamentsQuery } from "../redux/slices/tournamentSlice";
 
-// --- Mock Data ---
-const sampleTournaments = [
-  {
-    id: 1,
-    name: "Hyderabad U-18 Cup",
-    dateISO: "2025-11-12",
-    dateLabel: "Nov 12, 2025",
-    location: "Hyderabad",
-    type: "Knockout",
-    prize: 10000,
-    prizeLabel: "₹10,000",
-    level: "U-18",
-    totalSeats: 16,
-    seatsLeft: 4,
-    imageGradient: "from-green-500 to-emerald-700",
-  },
-  {
-    id: 2,
-    name: "Chennai Juniors League",
-    dateISO: "2025-12-02",
-    dateLabel: "Dec 2, 2025",
-    location: "Chennai",
-    type: "League",
-    prize: 8000,
-    prizeLabel: "₹8,000",
-    level: "U-16",
-    totalSeats: 10,
-    seatsLeft: 6,
-    imageGradient: "from-blue-500 to-indigo-700",
-  },
-  {
-    id: 3,
-    name: "Mumbai Elite Tournament",
-    dateISO: "2025-11-20",
-    dateLabel: "Nov 20, 2025",
-    location: "Mumbai",
-    type: "Knockout",
-    prize: 15000,
-    prizeLabel: "₹15,000",
-    level: "Open",
-    totalSeats: 32,
-    seatsLeft: 24,
-    imageGradient: "from-purple-500 to-pink-700",
-  },
-  {
-    id: 4,
-    name: "Hyderabad School League",
-    dateISO: "2025-11-30",
-    dateLabel: "Nov 30, 2025",
-    location: "Hyderabad",
-    type: "League",
-    prize: 5000,
-    prizeLabel: "₹5,000",
-    level: "U-14",
-    totalSeats: 12,
-    seatsLeft: 0,
-    imageGradient: "from-orange-400 to-red-600",
-  },
-  {
-    id: 5,
-    name: "Bangalore Super Cup",
-    dateISO: "2025-12-15",
-    dateLabel: "Dec 15, 2025",
-    location: "Bangalore",
-    type: "Knockout",
-    prize: 25000,
-    prizeLabel: "₹25,000",
-    level: "Open",
-    totalSeats: 20,
-    seatsLeft: 18,
-    imageGradient: "from-teal-400 to-cyan-600",
-  },
-];
+// ── Helpers ─────────────────────────────────────────────────────────────
 
-// --- Components ---
+/** Map backend tournament object → card-friendly shape */
+const mapTournament = (t) => {
+  const maxTeams = t.maxTeams ?? 0;
+  const registeredTeams = t._count?.teams ?? 0;
+  const seatsLeft = Math.max(maxTeams - registeredTeams, 0);
 
+  // Pick a deterministic gradient based on id
+  const gradients = [
+    "from-green-500 to-emerald-700",
+    "from-blue-500 to-indigo-700",
+    "from-purple-500 to-pink-700",
+    "from-orange-400 to-red-600",
+    "from-teal-400 to-cyan-600",
+  ];
+
+  return {
+    id: t.id,
+    tournamentUid: t.tournamentUid,
+    name: t.name,
+    description: t.description,
+    location: t.location,
+    category: t.category || "Open",
+    startDate: t.startDate,
+    dateLabel: new Date(t.startDate).toLocaleDateString("en-IN", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    dateISO: t.startDate,
+    price: Number(t.price) || 0,
+    prizeLabel: `₹${Number(t.price)?.toLocaleString("en-IN") || 0}`,
+    registrationFee: Number(t.registrationFee) || 0,
+    registrationDeadline: t.registrationDeadline,
+    status: t.status,
+    maxTeams,
+    totalSeats: maxTeams,
+    seatsLeft,
+    registeredTeams,
+    registeredPlayers: t._count?.players ?? 0,
+    imageGradient: gradients[t.id % gradients.length],
+  };
+};
+
+const formatDate = (iso) =>
+  new Date(iso).toLocaleDateString("en-IN", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+
+// =====================================================================
+//  Main Component
+// =====================================================================
 export default function TournamentPage() {
   const dm = useSelector((state) => state.theme.darkMode);
   const [view, setView] = useState("grid");
   const [query, setQuery] = useState("");
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [page, setPage] = useState(1);
 
   const [filters, setFilters] = useState({
     city: "All",
-    type: "All",
-    level: "All",
+    status: "All",
   });
-  const [sortBy, setSortBy] = useState("recommended");
+  const [sortBy, setSortBy] = useState("date-asc");
+
+  // ── RTK Query — live backend data ──────────────────────────────────
+  const {
+    data: apiResponse,
+    isLoading,
+    isFetching,
+    error: apiError,
+  } = useGetTournamentsQuery({
+    page,
+    limit: 12,
+    status: filters.status !== "All" ? filters.status : undefined,
+    location: filters.city !== "All" ? filters.city : undefined,
+    sort: sortBy !== "recommended" ? sortBy : "date-asc",
+  });
+
+  const tournaments = useMemo(() => {
+    if (!apiResponse?.data) return [];
+    return apiResponse.data.map(mapTournament);
+  }, [apiResponse]);
+
+  const pagination = apiResponse?.pagination;
+
+  // Client-side search filter (on top of server-side filters)
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return tournaments;
+    return tournaments.filter((t) => {
+      const searchStr = `${t.name} ${t.location} ${t.category}`.toLowerCase();
+      return searchStr.includes(q);
+    });
+  }, [query, tournaments]);
 
   const containerRef = useRef(null);
   const { scrollY } = useScroll();
@@ -115,47 +123,17 @@ export default function TournamentPage() {
   const heroTextY = useTransform(scrollY, [0, 500], [0, 200]);
   const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
   const bgY = useTransform(scrollY, [0, 500], [0, 100]);
-  const shape1Y = useTransform(scrollY, [0, 500], [0, -150]);
-  const shape2Y = useTransform(scrollY, [0, 500], [0, -80]);
-
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    let items = sampleTournaments.filter((t) => {
-      if (filters.city !== "All" && t.location !== filters.city) return false;
-      if (filters.type !== "All" && t.type !== filters.type) return false;
-      if (filters.level !== "All" && t.level !== filters.level) return false;
-      if (q) {
-        const searchStr =
-          `${t.name} ${t.location} ${t.level} ${t.type}`.toLowerCase();
-        if (!searchStr.includes(q)) return false;
-      }
-      return true;
-    });
-
-    if (sortBy === "prize-desc") {
-      items = items.sort((a, b) => b.prize - a.prize);
-    } else if (sortBy === "date-asc") {
-      items = items.sort((a, b) => new Date(a.dateISO) - new Date(b.dateISO));
-    } else {
-      items = items.sort((a, b) => {
-        if (a.seatsLeft === 0 && b.seatsLeft > 0) return 1;
-        if (b.seatsLeft === 0 && a.seatsLeft > 0) return -1;
-        return new Date(a.dateISO) - new Date(b.dateISO);
-      });
-    }
-    return items;
-  }, [query, filters, sortBy]);
 
   const resetFilters = () => {
-    setFilters({ city: "All", type: "All", level: "All" });
+    setFilters({ city: "All", status: "All" });
     setQuery("");
-    setSortBy("recommended");
+    setSortBy("date-asc");
+    setPage(1);
   };
 
   const activeFilterCount =
     (filters.city !== "All" ? 1 : 0) +
-    (filters.type !== "All" ? 1 : 0) +
-    (filters.level !== "All" ? 1 : 0);
+    (filters.status !== "All" ? 1 : 0);
 
   return (
     <div
@@ -163,25 +141,25 @@ export default function TournamentPage() {
       ref={containerRef}
     >
       {/* ================= HERO SECTION ================= */}
-      <section className={`relative h-[55vh] md:h-[60vh] flex items-center justify-center overflow-hidden ${dm ? "bg-[#121212]" : "bg-gray-50"}`}>
-        <motion.div style={{ y: bgY }} className="absolute inset-0 z-0">
-          <div className={`absolute inset-0 ${dm ? "bg-gradient-to-b from-[#0a1a0f]/50 via-[#121212] to-[#121212]" : "bg-gradient-to-b from-green-50/50 via-gray-50 to-gray-50"}`} />
-          <div className={`absolute inset-0 [background-size:24px_24px] ${dm ? "opacity-15 bg-[radial-gradient(#00FF88_1px,transparent_1px)]" : "opacity-40 bg-[radial-gradient(#22c55e_1px,transparent_1px)]"}`} />
-        </motion.div>
-
+      <section className={`relative h-[55vh] md:h-[65vh] flex items-center justify-center overflow-hidden ${dm ? "bg-[#0a0f12]" : "bg-white"}`}>
+        {/* Breathing glow */}
         <motion.div
-          style={{ y: shape1Y }}
-          className={`absolute top-1/4 left-10 text-9xl z-0 blur-[2px] ${dm ? "text-[#00FF88]/5" : "text-green-600/5"}`}
-        >
-          <FaFutbol />
-        </motion.div>
-        <motion.div
-          style={{ y: shape2Y }}
-          className={`absolute bottom-1/4 right-10 text-[12rem] z-0 ${dm ? "text-[#00FF88]/5" : "text-green-600/10"}`}
-        >
-          <FaFutbol />
-        </motion.div>
+          animate={{ scale: [1, 1.2, 1], opacity: dm ? [0.3, 0.6, 0.3] : [0.15, 0.3, 0.15] }}
+          transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+          className={`absolute inset-0 blur-[100px] rounded-full ${dm ? "bg-green-500/20" : "bg-green-400/25"}`}
+        />
 
+        {/* Secondary accent glow */}
+        <motion.div
+          animate={{ scale: [1.1, 0.9, 1.1], opacity: dm ? [0.15, 0.35, 0.15] : [0.1, 0.2, 0.1] }}
+          transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+          className={`absolute -top-20 -right-20 w-[500px] h-[500px] blur-[120px] rounded-full ${dm ? "bg-[#00DCFF]/15" : "bg-emerald-300/20"}`}
+        />
+
+        {/* Dot grid */}
+        <div className={`absolute inset-0 [background-size:24px_24px] ${dm ? "opacity-10 bg-[radial-gradient(#00FF88_1px,transparent_1px)]" : "opacity-30 bg-[radial-gradient(#d1d5db_1px,transparent_1px)]"}`} />
+
+        {/* Text */}
         <motion.div
           style={{ y: heroTextY, opacity: heroOpacity }}
           className="relative z-10 text-center px-4 max-w-4xl mx-auto"
@@ -190,7 +168,7 @@ export default function TournamentPage() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
-            className={`text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight ${dm ? "text-gray-100" : "text-gray-900"}`}
+            className={`text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tight leading-tight ${dm ? "text-white" : "text-gray-900"}`}
           >
             Compete on the <br />
             <span className={`text-transparent bg-clip-text ${dm ? "bg-gradient-to-r from-[#00FF88] to-[#00DCFF]" : "bg-gradient-to-r from-green-600 to-emerald-500"}`}>
@@ -202,13 +180,14 @@ export default function TournamentPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
-            className={`mt-6 text-lg md:text-xl max-w-2xl mx-auto ${dm ? "text-gray-400" : "text-gray-600"}`}
+            className={`mt-6 text-lg md:text-xl max-w-2xl mx-auto ${dm ? "text-gray-400" : "text-gray-500"}`}
           >
             Discover tournaments, join leagues, and showcase your skills. The
             journey to pro starts here.
           </motion.p>
         </motion.div>
 
+        {/* Bottom fade */}
         <div className={`absolute bottom-0 left-0 w-full h-32 z-10 pointer-events-none ${dm ? "bg-gradient-to-t from-[#121212] to-transparent" : "bg-gradient-to-t from-gray-50 to-transparent"}`} />
       </section>
 
@@ -236,22 +215,26 @@ export default function TournamentPage() {
               <div className={`h-8 w-px mx-2 ${dm ? "bg-[#87A98D]/15" : "bg-gray-200"}`} />
 
               <div className="flex items-center gap-2">
-                {[
-                  { key: "city", options: ["All Cities", "Hyderabad", "Mumbai", "Chennai", "Bangalore"], stateKey: "city" },
-                  { key: "type", options: ["All Types", "Knockout", "League"], stateKey: "type" },
-                  { key: "level", options: ["All Levels", "U-14", "U-16", "U-18", "Open"], stateKey: "level" },
-                ].map(({ key, options, stateKey }) => (
-                  <select
-                    key={key}
-                    value={filters[stateKey]}
-                    onChange={(e) => setFilters((s) => ({ ...s, [stateKey]: e.target.value }))}
-                    className={`bg-transparent text-sm font-medium cursor-pointer outline-none ${dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-700 hover:text-green-700"}`}
-                  >
-                    {options.map((opt) => (
-                      <option key={opt} value={opt === options[0] ? "All" : opt}>{opt}</option>
-                    ))}
-                  </select>
-                ))}
+                <select
+                  value={filters.status}
+                  onChange={(e) => { setFilters((s) => ({ ...s, status: e.target.value })); setPage(1); }}
+                  className={`bg-transparent text-sm font-medium cursor-pointer outline-none ${dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-700 hover:text-green-700"}`}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="UPCOMING">Upcoming</option>
+                  <option value="ONGOING">Ongoing</option>
+                  <option value="COMPLETED">Completed</option>
+                </select>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+                  className={`bg-transparent text-sm font-medium cursor-pointer outline-none ${dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-700 hover:text-green-700"}`}
+                >
+                  <option value="date-asc">Nearest First</option>
+                  <option value="date-desc">Latest First</option>
+                  <option value="prize-desc">Highest Prize</option>
+                </select>
               </div>
 
               <div className="flex-1" />
@@ -319,24 +302,25 @@ export default function TournamentPage() {
                     className={`overflow-hidden border-t pt-3 ${dm ? "border-[#87A98D]/10" : "border-gray-100"}`}
                   >
                     <div className="grid grid-cols-2 gap-3 mb-3">
-                      {[
-                        { val: filters.city, onChange: (v) => setFilters(s => ({ ...s, city: v })), opts: ['All Cities:All', 'Hyderabad', 'Mumbai', 'Chennai'] },
-                        { val: filters.type, onChange: (v) => setFilters(s => ({ ...s, type: v })), opts: ['All Types:All', 'Knockout', 'League'] },
-                        { val: filters.level, onChange: (v) => setFilters(s => ({ ...s, level: v })), opts: ['All Levels:All', 'U-14', 'U-16', 'U-18', 'Open'] },
-                        { val: sortBy, onChange: setSortBy, opts: ['Recommended:recommended', 'Prize: High-Low:prize-desc'] },
-                      ].map(({ val, onChange, opts }, idx) => (
-                        <select
-                          key={idx}
-                          value={val}
-                          onChange={(e) => onChange(e.target.value)}
-                          className={`w-full p-2 rounded-lg text-sm border ${dm ? "bg-[#121212] border-[#87A98D]/20 text-gray-300" : "bg-gray-50 border-gray-200"}`}
-                        >
-                          {opts.map((o) => {
-                            const [label, value] = o.includes(':') ? o.split(':') : [o, o];
-                            return <option key={label} value={value}>{label}</option>;
-                          })}
-                        </select>
-                      ))}
+                      <select
+                        value={filters.status}
+                        onChange={(e) => { setFilters(s => ({ ...s, status: e.target.value })); setPage(1); }}
+                        className={`w-full p-2 rounded-lg text-sm border ${dm ? "bg-[#121212] border-[#87A98D]/20 text-gray-300" : "bg-gray-50 border-gray-200"}`}
+                      >
+                        <option value="All">All Statuses</option>
+                        <option value="UPCOMING">Upcoming</option>
+                        <option value="ONGOING">Ongoing</option>
+                        <option value="COMPLETED">Completed</option>
+                      </select>
+                      <select
+                        value={sortBy}
+                        onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+                        className={`w-full p-2 rounded-lg text-sm border ${dm ? "bg-[#121212] border-[#87A98D]/20 text-gray-300" : "bg-gray-50 border-gray-200"}`}
+                      >
+                        <option value="date-asc">Nearest First</option>
+                        <option value="date-desc">Latest First</option>
+                        <option value="prize-desc">Highest Prize</option>
+                      </select>
                     </div>
                     <div className="flex justify-between items-center pt-2">
                       <button
@@ -361,67 +345,138 @@ export default function TournamentPage() {
         </motion.div>
       </div>
 
-      {/* ================= RESULTS GRID ================= */}
+      {/* ================= RESULTS ================= */}
       <section className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-12">
         <div className="flex items-center justify-between mb-6">
           <h2 className={`font-bold text-xl ${dm ? "text-gray-100" : "text-gray-900"}`}>
-            Upcoming Tournaments{" "}
-            <span className={`font-normal text-base ml-1 ${dm ? "text-gray-500" : "text-gray-400"}`}>
-              ({results.length})
-            </span>
+            Tournaments{" "}
+            {pagination && (
+              <span className={`font-normal text-base ml-1 ${dm ? "text-gray-500" : "text-gray-400"}`}>
+                ({pagination.totalItems})
+              </span>
+            )}
           </h2>
+          {isFetching && !isLoading && (
+            <span className={`text-xs animate-pulse ${dm ? "text-[#00FF88]" : "text-green-600"}`}>Refreshing...</span>
+          )}
         </div>
 
-        <motion.div
-          layout
-          className={
-            view === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-              : "flex flex-col gap-4"
-          }
-        >
-          <AnimatePresence mode="popLayout">
-            {results.map((t) => (
-              <TournamentCard key={t.id} data={t} view={view} dm={dm} />
-            ))}
-          </AnimatePresence>
-
-          {results.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="col-span-full py-20 text-center"
-            >
-              <div className={`inline-flex p-4 rounded-full mb-4 ${dm ? "bg-[#1a1a1a]" : "bg-gray-100"}`}>
-                <FiSearch className={`text-3xl ${dm ? "text-gray-500" : "text-gray-400"}`} />
+        {/* Loading skeleton */}
+        {isLoading && (
+          <div className={view === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6" : "flex flex-col gap-4"}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className={`animate-pulse rounded-2xl overflow-hidden ${dm ? "bg-[#1a1a1a]" : "bg-white"}`}>
+                <div className={`h-40 ${dm ? "bg-[#2a2a2a]" : "bg-gray-200"}`} />
+                <div className="p-5 space-y-3">
+                  <div className={`h-4 rounded w-3/4 ${dm ? "bg-[#2a2a2a]" : "bg-gray-200"}`} />
+                  <div className={`h-3 rounded w-1/2 ${dm ? "bg-[#2a2a2a]" : "bg-gray-200"}`} />
+                  <div className={`h-3 rounded w-2/3 ${dm ? "bg-[#2a2a2a]" : "bg-gray-200"}`} />
+                  <div className={`h-10 rounded-xl ${dm ? "bg-[#2a2a2a]" : "bg-gray-200"}`} />
+                </div>
               </div>
-              <h3 className={`text-lg font-semibold ${dm ? "text-gray-200" : "text-gray-800"}`}>
-                No tournaments found
-              </h3>
-              <p className={`mb-6 ${dm ? "text-gray-500" : "text-gray-500"}`}>
-                Try adjusting your filters or search for something else.
-              </p>
-              <button
-                onClick={resetFilters}
-                className={`px-6 py-2 rounded-full transition ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90" : "bg-green-600 text-white hover:bg-green-700"}`}
-              >
-                Reset Filters
-              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Error state */}
+        {apiError && !isLoading && (
+          <div className="col-span-full py-20 text-center">
+            <h3 className={`text-lg font-semibold ${dm ? "text-gray-200" : "text-gray-800"}`}>
+              Failed to load tournaments
+            </h3>
+            <p className={`mb-4 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+              {apiError?.data?.message || "Something went wrong. Please try again."}
+            </p>
+            <button
+              onClick={() => setPage(1)}
+              className={`px-6 py-2 rounded-full transition ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90" : "bg-green-600 text-white hover:bg-green-700"}`}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Results grid */}
+        {!isLoading && !apiError && (
+          <>
+            <motion.div
+              layout
+              className={
+                view === "grid"
+                  ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+                  : "flex flex-col gap-4"
+              }
+            >
+              <AnimatePresence mode="popLayout">
+                {results.map((t) => (
+                  <TournamentCard key={t.id} data={t} view={view} dm={dm} />
+                ))}
+              </AnimatePresence>
+
+              {results.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="col-span-full py-20 text-center"
+                >
+                  <div className={`inline-flex p-4 rounded-full mb-4 ${dm ? "bg-[#1a1a1a]" : "bg-gray-100"}`}>
+                    <FiSearch className={`text-3xl ${dm ? "text-gray-500" : "text-gray-400"}`} />
+                  </div>
+                  <h3 className={`text-lg font-semibold ${dm ? "text-gray-200" : "text-gray-800"}`}>
+                    No tournaments found
+                  </h3>
+                  <p className={`mb-6 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                    Try adjusting your filters or search for something else.
+                  </p>
+                  <button
+                    onClick={resetFilters}
+                    className={`px-6 py-2 rounded-full transition ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90" : "bg-green-600 text-white hover:bg-green-700"}`}
+                  >
+                    Reset Filters
+                  </button>
+                </motion.div>
+              )}
             </motion.div>
-          )}
-        </motion.div>
+
+            {/* Pagination */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-10">
+                <button
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => setPage((p) => p - 1)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-30 disabled:cursor-not-allowed ${dm ? "bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]" : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"}`}
+                >
+                  Previous
+                </button>
+                <span className={`text-sm ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                  Page {pagination.currentPage} of {pagination.totalPages}
+                </span>
+                <button
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => setPage((p) => p + 1)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition disabled:opacity-30 disabled:cursor-not-allowed ${dm ? "bg-[#1a1a1a] text-gray-300 hover:bg-[#2a2a2a]" : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"}`}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
     </div>
   );
 }
 
-// ================= SUB-COMPONENTS =================
-
+// =====================================================================
+//  TournamentCard (kept inline — same pattern as before)
+// =====================================================================
 const TournamentCard = ({ data, view, dm }) => {
-  const isFull = data.seatsLeft === 0;
+  const isFull = data.totalSeats > 0 && data.seatsLeft === 0;
   const fillPercentage =
-    ((data.totalSeats - data.seatsLeft) / data.totalSeats) * 100;
-  const isFillingFast = !isFull && data.seatsLeft <= 5;
+    data.totalSeats > 0
+      ? ((data.totalSeats - data.seatsLeft) / data.totalSeats) * 100
+      : 0;
+  const isFillingFast = !isFull && data.totalSeats > 0 && data.seatsLeft <= 5;
 
   return (
     <motion.article
@@ -446,13 +501,22 @@ const TournamentCard = ({ data, view, dm }) => {
         <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#fff_2px,transparent_2px)] [background-size:12px_12px]" />
 
         <div className="absolute inset-0 flex items-center justify-center text-white/90 font-bold text-3xl tracking-widest uppercase opacity-30">
-          {data.type.substring(0, 3)}
+          {data.category?.substring(0, 3) || "TRN"}
         </div>
 
         <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
           <span className={`backdrop-blur text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase tracking-wide ${dm ? "bg-[#121212]/80 text-gray-200" : "bg-white/90 text-gray-900"}`}>
-            {data.level}
+            {data.category}
           </span>
+          {data.status && data.status !== "UPCOMING" && (
+            <span className={`backdrop-blur text-[10px] font-bold px-2 py-1 rounded shadow-sm uppercase tracking-wide ${
+              data.status === "ONGOING"
+                ? "bg-yellow-500/90 text-yellow-900"
+                : "bg-gray-500/80 text-white"
+            }`}>
+              {data.status}
+            </span>
+          )}
         </div>
       </div>
 
@@ -464,15 +528,15 @@ const TournamentCard = ({ data, view, dm }) => {
       >
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span
-              className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
-                data.type === "League"
-                  ? dm ? "bg-purple-900/30 text-purple-400 border-purple-800/30" : "bg-purple-50 text-purple-700 border-purple-100"
-                  : dm ? "bg-orange-900/30 text-orange-400 border-orange-800/30" : "bg-orange-50 text-orange-700 border-orange-100"
-              }`}
-            >
-              {data.type}
-            </span>
+            {data.registrationFee > 0 && (
+              <span
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${
+                  dm ? "bg-purple-900/30 text-purple-400 border-purple-800/30" : "bg-purple-50 text-purple-700 border-purple-100"
+                }`}
+              >
+                ₹{data.registrationFee.toLocaleString("en-IN")} entry
+              </span>
+            )}
             {isFillingFast && (
               <span className="text-[10px] font-bold text-red-500 animate-pulse">
                 Filling Fast!
@@ -493,6 +557,12 @@ const TournamentCard = ({ data, view, dm }) => {
               <FiMapPin className={`w-4 h-4 mr-2 ${dm ? "text-gray-600" : "text-gray-400"}`} />
               {data.location}
             </div>
+            {data.registeredPlayers > 0 && (
+              <div className={`flex items-center text-sm ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                <FaUsers className={`w-4 h-4 mr-2 ${dm ? "text-gray-600" : "text-gray-400"}`} />
+                {data.registeredPlayers} players registered
+              </div>
+            )}
           </div>
         </div>
 
@@ -516,14 +586,14 @@ const TournamentCard = ({ data, view, dm }) => {
               <span>{data.prizeLabel}</span>
             </div>
 
-            {view === "grid" && (
+            {view === "grid" && data.totalSeats > 0 && (
               <div className={`text-xs font-medium ${dm ? "text-gray-500" : "text-gray-400"}`}>
                 {isFull ? "Full" : `${data.seatsLeft} spots left`}
               </div>
             )}
           </div>
 
-          {view === "grid" && !isFull && (
+          {view === "grid" && !isFull && data.totalSeats > 0 && (
             <div className={`h-1.5 w-full rounded-full mb-4 overflow-hidden ${dm ? "bg-[#2a2a2a]" : "bg-gray-100"}`}>
               <div
                 className={`h-full rounded-full ${

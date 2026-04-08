@@ -1,5 +1,6 @@
 import "./App.css";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import LandingPage from "./pages/LandingPage.jsx";
 import AcademyList from "./pages/AcademyList.jsx";
 import SignUp from "./pages/SignUp";
@@ -13,28 +14,40 @@ import AuthSuccess from "./LoggedInPages/AuthSuccess";
 import AcademyPage from "./pages/AcademyPage.jsx";
 import AcademyViewPage from "./pages/AcademyViewPage";
 import AcademyDetailsPageTest from "./AcademyDetailsPage/test-api";
+import AppLayout from "./components/AppLayout";
 
 function App() {
+  const { isAuthenticated } = useSelector((state) => state.auth);
+
   return (
     <>
       <Router>
         <Routes>
-          <Route path="/" element={<LandingPage />}></Route>
+          {/* Public routes — no sidebar */}
           <Route
-            path="/tournaments"
+            path="/"
             element={
-              <ProtectedRoute>
-                <PlayerTournamentPage />
-              </ProtectedRoute>
+              isAuthenticated ? <Navigate to="/home" /> : <LandingPage />
             }
-          ></Route>
+          />
           <Route path="/Register" element={<SignUp />} />
           <Route path="/Login" element={<LoginPage />} />
+          <Route path="/auth/success" element={<AuthSuccess />} />
+
+          {/* Protected routes — wrapped in AppLayout (sidebar + nav) */}
           <Route
             path="/home"
             element={
               <ProtectedRoute>
-                <HomePage />
+                <AppLayout><HomePage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tournaments"
+            element={
+              <ProtectedRoute>
+                <AppLayout><PlayerTournamentPage /></AppLayout>
               </ProtectedRoute>
             }
           />
@@ -42,17 +55,23 @@ function App() {
             path="/profile"
             element={
               <ProtectedRoute>
-                <ProfilePage />
+                <AppLayout><ProfilePage /></AppLayout>
               </ProtectedRoute>
             }
           />
-          <Route path="/profile-complete" element={<CompleteProfilePage />} />
-          <Route path="/auth/success" element={<AuthSuccess />} />
+          <Route
+            path="/profile-complete"
+            element={
+              <ProtectedRoute>
+                <AppLayout><CompleteProfilePage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/academies"
             element={
               <ProtectedRoute>
-                <AcademyPage />
+                <AppLayout><AcademyPage /></AppLayout>
               </ProtectedRoute>
             }
           />
@@ -60,7 +79,7 @@ function App() {
             path="/academy/details/:id"
             element={
               <ProtectedRoute>
-                <AcademyViewPage />
+                <AppLayout><AcademyViewPage /></AppLayout>
               </ProtectedRoute>
             }
           />
@@ -68,7 +87,7 @@ function App() {
             path="/test"
             element={
               <ProtectedRoute>
-                <AcademyDetailsPageTest />
+                <AppLayout><AcademyDetailsPageTest /></AppLayout>
               </ProtectedRoute>
             }
           />

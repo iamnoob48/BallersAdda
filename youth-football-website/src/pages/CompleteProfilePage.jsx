@@ -5,9 +5,21 @@ import { useSelector } from "react-redux";
 import api from "../api/axios";
 import { useNavigate } from "react-router-dom";
 
+// ── Constants (must match backend validation) ───────────────────────────
+const POSITIONS = [
+  "Goalkeeper", "Defender", "Midfielder", "Forward",
+  "Center Back", "Full Back", "Wing Back",
+  "Central Midfielder", "Attacking Midfielder", "Defensive Midfielder",
+  "Winger", "Striker",
+];
+const GENDERS = ["Male", "Female", "Other"];
+const FEET = ["Right", "Left", "Both"];
+
 export default function CompleteProfilePage() {
   const dm = useSelector((state) => state.theme.darkMode);
   const [step, setStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -27,31 +39,73 @@ export default function CompleteProfilePage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const next = () => setStep((s) => Math.min(s + 1, 3));
-  const prev = () => setStep((s) => Math.max(s - 1, 1));
+  const next = () => {
+    // Validate step 1 required fields before proceeding
+    if (step === 1) {
+      if (!form.firstName.trim() || !form.lastName.trim()) {
+        setError("First name and last name are required.");
+        return;
+      }
+    }
+    setError("");
+    setStep((s) => Math.min(s + 1, 3));
+  };
+  const prev = () => { setError(""); setStep((s) => Math.max(s - 1, 1)); };
+
+  /**
+   * Sanitize form data before sending — convert empty strings to null,
+   * parse numeric fields, trim text fields.
+   */
+  const sanitizeFormData = () => {
+    const trimOrNull = (v) => (v && v.trim() ? v.trim() : null);
+    const intOrNull = (v) => {
+      const n = parseInt(v, 10);
+      return isNaN(n) ? null : n;
+    };
+    const floatOrNull = (v) => {
+      const n = parseFloat(v);
+      return isNaN(n) ? null : n;
+    };
+
+    return {
+      firstName: form.firstName.trim(),
+      lastName: form.lastName.trim(),
+      displayName: trimOrNull(form.displayName),
+      bio: trimOrNull(form.bio),
+      age: intOrNull(form.age),
+      gender: trimOrNull(form.gender),
+      height: floatOrNull(form.height),
+      weight: floatOrNull(form.weight),
+      position: trimOrNull(form.position),
+      dominantFoot: trimOrNull(form.dominantFoot),
+    };
+  };
 
   const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    // Final validation
+    if (!form.firstName.trim() || !form.lastName.trim()) {
+      setError("First name and last name are required.");
+      return;
+    }
+
+    const age = parseInt(form.age, 10);
+    if (form.age && (isNaN(age) || age < 3 || age > 100)) {
+      setError("Age must be between 3 and 100.");
+      return;
+    }
+
     try {
-      e.preventDefault();
-      await api
-        .post("/player/createPlayerProfile", {
-          firstName: form.firstName,
-          lastName: form.lastName,
-          displayName: form.displayName,
-          bio: form.bio,
-          age: form.age,
-          gender: form.gender,
-          height: form.height,
-          weight: form.weight,
-          position: form.position,
-          dominantFoot: form.dominantFoot,
-        })
-        .then(() => {
-          console.log("Profile submitted successfully");
-        });
+      setSubmitting(true);
+      await api.post("/player/createPlayerProfile", sanitizeFormData());
       navigate("/profile");
-    } catch (error) {
-      console.log("Error submitting profile:", error);
+    } catch (err) {
+      const message = err.response?.data?.message || "Failed to create profile. Please try again.";
+      setError(message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -75,6 +129,10 @@ export default function CompleteProfilePage() {
           Complete Your Player Profile
         </h1>
 
+        {error && (
+          <p className="text-sm text-red-400 text-center mb-4">{error}</p>
+        )}
+
         <AnimatePresence mode="wait">
           <motion.form
             key={step}
@@ -89,11 +147,11 @@ export default function CompleteProfilePage() {
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>First Name</label>
+                    <label className={labelCls}>First Name *</label>
                     <input name="firstName" value={form.firstName} onChange={handleChange} required className={inputCls} />
                   </div>
                   <div>
-                    <label className={labelCls}>Last Name</label>
+                    <label className={labelCls}>Last Name *</label>
                     <input name="lastName" value={form.lastName} onChange={handleChange} required className={inputCls} />
                   </div>
                 </div>
@@ -113,24 +171,24 @@ export default function CompleteProfilePage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Age</label>
-                    <input name="age" type="number" value={form.age} onChange={handleChange} className={inputCls} />
+                    <input name="age" type="number" min="3" max="100" value={form.age} onChange={handleChange} className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Gender</label>
                     <select name="gender" value={form.gender} onChange={handleChange} className={inputCls}>
                       <option value="">Select...</option>
-                      {["Male", "Female", "Other"].map((opt) => <option key={opt}>{opt}</option>)}
+                      {GENDERS.map((opt) => <option key={opt}>{opt}</option>)}
                     </select>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className={labelCls}>Height (cm)</label>
-                    <input name="height" type="number" value={form.height} onChange={handleChange} className={inputCls} />
+                    <input name="height" type="number" min="1" max="300" value={form.height} onChange={handleChange} className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls}>Weight (kg)</label>
-                    <input name="weight" type="number" value={form.weight} onChange={handleChange} className={inputCls} />
+                    <input name="weight" type="number" min="1" max="300" value={form.weight} onChange={handleChange} className={inputCls} />
                   </div>
                 </div>
               </>
@@ -142,14 +200,14 @@ export default function CompleteProfilePage() {
                   <label className={labelCls}>Preferred Position</label>
                   <select name="position" value={form.position} onChange={handleChange} className={inputCls}>
                     <option value="">Select...</option>
-                    {["Goalkeeper", "Defender", "Midfielder", "Forward", "Winger"].map((opt) => <option key={opt}>{opt}</option>)}
+                    {POSITIONS.map((opt) => <option key={opt}>{opt}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className={labelCls}>Dominant Foot</label>
                   <select name="dominantFoot" value={form.dominantFoot} onChange={handleChange} className={inputCls}>
                     <option value="">Select...</option>
-                    {["Right", "Left", "Both"].map((opt) => <option key={opt}>{opt}</option>)}
+                    {FEET.map((opt) => <option key={opt}>{opt}</option>)}
                   </select>
                 </div>
                 <p className={`text-sm text-center mt-4 ${dm ? "text-gray-500" : "text-gray-500"}`}>
@@ -182,9 +240,10 @@ export default function CompleteProfilePage() {
               ) : (
                 <button
                   type="submit"
-                  className={`px-6 py-2 rounded-full font-semibold shadow-md ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                  disabled={submitting}
+                  className={`px-6 py-2 rounded-full font-semibold shadow-md disabled:opacity-50 disabled:cursor-not-allowed ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90" : "bg-green-600 hover:bg-green-700 text-white"}`}
                 >
-                  Submit
+                  {submitting ? "Submitting..." : "Submit"}
                 </button>
               )}
             </div>

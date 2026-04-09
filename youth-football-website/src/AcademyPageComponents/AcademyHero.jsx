@@ -17,6 +17,8 @@ export default function AcademyPage({ userAcademy }) {
   const [viewMode, setViewMode] = useState("list");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
+  //For dark mode or not
+ 
   // Pagination state
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);

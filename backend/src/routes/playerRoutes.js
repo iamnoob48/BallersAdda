@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
-import { getPlayerProfile, enterPlayerProfile, updatePlayerProfile, getAcademyDetailsOfPlayer } from '../controllers/playerController.js';
+import { getPlayerProfile, enterPlayerProfile, updatePlayerProfile, getAcademyDetailsOfPlayer, joinAcademy } from '../controllers/playerController.js';
 
 
 
@@ -19,6 +19,7 @@ router.post('/updatePlayerProfile', verifyAccessToken, updatePlayerProfile);
 //Route for fetching academy details of player based on academy id
 router.get('/academyDetailsOfPlayer', verifyAccessToken, getAcademyDetailsOfPlayer);
 
-
+//Route for a player to join academy
+router.post('/joinAcademy', verifyAccessToken, joinAcademy);
 
 export default router;

@@ -18,13 +18,7 @@ function NavBar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const navLinks = [
-    { name: "Home", path: "/home" },
-    { name: "Tournaments", path: "/tournaments" },
-    { name: "Academies", path: "/academies" },
-    { name: "Community", path: "/community" },
-    { name: "LeaderBoard", path: "/leaderboard" },
-  ];
+  
   const IconButton = ({ icon: Icon, size = 32, onClick }) => (
     <Button
       variant="ghost"
@@ -55,30 +49,12 @@ function NavBar() {
           </Link>
         </h1>
 
-        <ul className={`hidden md:flex gap-10 font-medium ${dm ? "text-gray-300" : "text-gray-800"}`}>
-          {navLinks.map((item) => (
-            <li key={item.name} className="relative group cursor-pointer">
-              <Link
-                to={item.path}
-                className={`transition-all duration-300 ${dm ? "group-hover:text-[#00FF88]" : "group-hover:text-green-600"}`}
-              >
-                {item.name}
-              </Link>
-              <span className={`absolute left-0 -bottom-1 w-0 h-[2px] transition-all duration-300 group-hover:w-full ${dm ? "bg-[#00FF88]" : "bg-green-600"}`}></span>
-            </li>
-          ))}
-        </ul>
+        
 
         <div className="hidden md:flex gap-4 items-center ">
           <IconButton icon={FiMessageCircle} size={25} />
           <IconButton icon={IoMdNotifications} size={25} />
-          <img
-            src={user?.profilePic || "/default-avatar.png"}
-            alt="profile"
-            className={`w-10 h-10 rounded-full object-cover border shadow-sm cursor-pointer ml-2 ${dm ? "border-[#00FF88]/30" : "border-green-300"}`}
-            referrerPolicy="no-referrer"
-            onClick={() => navigate("/profile")}
-          />
+          
         </div>
       </div>
     </nav>

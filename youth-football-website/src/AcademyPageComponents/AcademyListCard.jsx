@@ -53,7 +53,7 @@ export default function AcademyListCard({ academy }) {
         </div>
 
         <motion.img
-          src={image}
+          src={academy.academyLogoURL}
           alt={name}
           className="w-full h-full object-cover"
           variants={{

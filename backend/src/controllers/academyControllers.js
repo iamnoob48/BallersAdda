@@ -1,4 +1,5 @@
 import prisma from "../prismaClient.js";
+import { cacheGet } from "../config/cacheUtils.js";
 
 // ── Shared pagination helpers ───────────────────────────────────────────
 const parsePagination = (query) => {
@@ -40,21 +41,25 @@ const ACADEMY_LIST_SELECT = {
 export const getAcademyDetails = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
+    const cacheKey = `academy:list:page:${page}:limit:${limit}`;
 
-    const [totalAcademies, academies] = await Promise.all([
-      prisma.academy.count(),
-      prisma.academy.findMany({
-        skip,
-        take: limit,
-        orderBy: { id: "asc" },
-        select: ACADEMY_LIST_SELECT,
-      }),
-    ]);
-
-    return res.status(200).json({
-      data: academies,
-      pagination: paginationMeta(totalAcademies, page, limit),
+    const { data: result } = await cacheGet(cacheKey, 180, async () => {
+      const [totalAcademies, academies] = await Promise.all([
+        prisma.academy.count(),
+        prisma.academy.findMany({
+          skip,
+          take: limit,
+          orderBy: { id: "asc" },
+          select: ACADEMY_LIST_SELECT,
+        }),
+      ]);
+      return {
+        data: academies,
+        pagination: paginationMeta(totalAcademies, page, limit),
+      };
     });
+
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching academies:", error);
     return res.status(500).json({ message: "Server error" });
@@ -70,121 +75,125 @@ export const getAcademyDetailsById = async (req, res) => {
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ message: "Invalid academy ID" });
     }
+    const cacheKey = `academy:detail:${id}`;
 
-    const academy = await prisma.academy.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        state: true,
-        city: true,
-        address: true,
-        country: true,
-        contactEmail: true,
-        contactPhone: true,
-        description: true,
-        establishedAt: true,
-        academyLogoURL: true,
-        rating: true,
-        noOfStudents: true,
+    const { data: cached } = await cacheGet(cacheKey, 300, async () => {
+      const academy = await prisma.academy.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          state: true,
+          city: true,
+          address: true,
+          country: true,
+          contactEmail: true,
+          contactPhone: true,
+          description: true,
+          establishedAt: true,
+          academyLogoURL: true,
+          rating: true,
+          noOfStudents: true,
 
-        pricingPlans: {
-          where: { active: true }, // only show active plans
-          select: {
-            id: true,
-            slug: true,
-            title: true,
-            description: true,
-            currency: true,
-            features: true,
-            isDefault: true,
-            recommended: true,
-            active: true,
-            priceCents: true,
-            billingCycle: true,
+          pricingPlans: {
+            where: { active: true },
+            select: {
+              id: true,
+              slug: true,
+              title: true,
+              description: true,
+              currency: true,
+              features: true,
+              isDefault: true,
+              recommended: true,
+              active: true,
+              priceCents: true,
+              billingCycle: true,
+            },
+          },
+
+          coaches: {
+            take: 10,
+            select: {
+              id: true,
+              profilePicLogo: true,
+              firstName: true,
+              lastName: true,
+              bio: true,
+              experienceYears: true,
+            },
+          },
+
+          schedules: {
+            orderBy: { id: "asc" },
+            select: {
+              dayOfWeek: true,
+              isActive: true,
+              startTime: true,
+              endTime: true,
+            },
+          },
+
+          pictures: {
+            where: { isActive: true },
+            orderBy: { isPrimary: "desc" },
+            select: {
+              id: true,
+              pictureURL: true,
+            },
           },
         },
+      });
 
-        coaches: {
-          take: 10,
-          select: {
-            id: true,
-            profilePicLogo: true,
-            firstName: true,
-            lastName: true,
-            bio: true,
-            experienceYears: true,
-          },
-        },
+      if (!academy) return null;
 
-        schedules: {
-          orderBy: { id: "asc" },
-          select: {
-            dayOfWeek: true,
-            isActive: true,
-            startTime: true,
-            endTime: true,
-          },
-        },
+      const DAY_MAP = {
+        monday: "Mon", tuesday: "Tue", wednesday: "Wed",
+        thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
+      };
+      const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-        pictures: {
-          where: { isActive: true }, // only show active (non-deleted) pictures
-          orderBy: { isPrimary: "desc" },
-          select: {
-            id: true,
-            pictureURL: true,
-          },
-        },
-      },
+      const scheduleObj = ALL_DAYS.reduce((acc, d) => {
+        acc[d] = { active: false, startTime: null, endTime: null };
+        return acc;
+      }, {});
+
+      for (const s of academy.schedules) {
+        const key = s.dayOfWeek ? (DAY_MAP[s.dayOfWeek.trim().toLowerCase()] ?? s.dayOfWeek.slice(0, 3)) : null;
+        if (!key) continue;
+        scheduleObj[key] = {
+          active: Boolean(s.isActive),
+          startTime: s.startTime ?? null,
+          endTime: s.endTime ?? null,
+        };
+      }
+
+      return {
+        id: academy.id,
+        name: academy.name,
+        state: academy.state,
+        city: academy.city,
+        address: academy.address,
+        country: academy.country,
+        contactEmail: academy.contactEmail,
+        contactPhone: academy.contactPhone,
+        description: academy.description,
+        establishedAt: academy.establishedAt,
+        academyLogoURL: academy.academyLogoURL,
+        rating: academy.rating,
+        noOfStudents: academy.noOfStudents,
+        pricing: academy.pricingPlans,
+        coaches: academy.coaches,
+        schedule: scheduleObj,
+        pictures: academy.pictures,
+      };
     });
 
-    if (!academy) {
+    if (!cached) {
       return res.status(404).json({ message: "Academy not found" });
     }
 
-    // --- Normalize schedules into a Mon–Sun object ───────────────────
-    const DAY_MAP = {
-      monday: "Mon", tuesday: "Tue", wednesday: "Wed",
-      thursday: "Thu", friday: "Fri", saturday: "Sat", sunday: "Sun",
-    };
-    const ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-    const scheduleObj = ALL_DAYS.reduce((acc, d) => {
-      acc[d] = { active: false, startTime: null, endTime: null };
-      return acc;
-    }, {});
-
-    for (const s of academy.schedules) {
-      const key = s.dayOfWeek ? (DAY_MAP[s.dayOfWeek.trim().toLowerCase()] ?? s.dayOfWeek.slice(0, 3)) : null;
-      if (!key) continue;
-      scheduleObj[key] = {
-        active: Boolean(s.isActive),
-        startTime: s.startTime ?? null,
-        endTime: s.endTime ?? null,
-      };
-    }
-
-    const payload = {
-      id: academy.id,
-      name: academy.name,
-      state: academy.state,
-      city: academy.city,
-      address: academy.address,
-      country: academy.country,
-      contactEmail: academy.contactEmail,
-      contactPhone: academy.contactPhone,
-      description: academy.description,
-      establishedAt: academy.establishedAt,
-      academyLogoURL: academy.academyLogoURL,
-      rating: academy.rating,
-      noOfStudents: academy.noOfStudents,
-      pricing: academy.pricingPlans,
-      coaches: academy.coaches,
-      schedule: scheduleObj,
-      pictures: academy.pictures,
-    };
-
-    return res.status(200).json({ academy: payload });
+    return res.status(200).json({ academy: cached });
   } catch (error) {
     console.error("Error fetching academy details:", error);
     return res.status(500).json({ message: "Server error" });
@@ -199,36 +208,38 @@ export const filterAcademies = async (req, res) => {
     const { page, limit, skip } = parsePagination(req.query);
     const { city, rating } = req.query;
 
-    // Build dynamic where clause
-    const where = {};
-
-    if (city) {
-      where.city = { equals: city, mode: "insensitive" };
-    }
-
     if (rating) {
       const parsed = parseFloat(rating);
       if (isNaN(parsed) || parsed < 0 || parsed > 5) {
         return res.status(400).json({ message: "Rating must be between 0 and 5" });
       }
-      where.rating = { gte: parsed };
     }
 
-    const [totalFiltered, academies] = await Promise.all([
-      prisma.academy.count({ where }),
-      prisma.academy.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy: { id: "asc" },
-        select: ACADEMY_LIST_SELECT,
-      }),
-    ]);
+    const cacheKey = `academy:filter:${city || "all"}:${rating || "any"}:p${page}:l${limit}`;
 
-    return res.status(200).json({
-      data: academies,
-      pagination: paginationMeta(totalFiltered, page, limit),
+    const { data: result } = await cacheGet(cacheKey, 180, async () => {
+      const where = {};
+      if (city) where.city = { equals: city, mode: "insensitive" };
+      if (rating) where.rating = { gte: parseFloat(rating) };
+
+      const [totalFiltered, academies] = await Promise.all([
+        prisma.academy.count({ where }),
+        prisma.academy.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy: { id: "asc" },
+          select: ACADEMY_LIST_SELECT,
+        }),
+      ]);
+
+      return {
+        data: academies,
+        pagination: paginationMeta(totalFiltered, page, limit),
+      };
     });
+
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Error filtering academies:", error);
     return res.status(500).json({ message: "Server error" });

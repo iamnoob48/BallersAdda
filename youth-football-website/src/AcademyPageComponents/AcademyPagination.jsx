@@ -1,13 +1,6 @@
-import React, { useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  MoreHorizontal,
-} from "lucide-react";
-import { cn } from "@/lib/utils"; // specific to shadcn projects
+import { useMemo } from "react";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -16,49 +9,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useSelector } from "react-redux";
 
-// --- Helper to generate range with ellipses ---
-const generatePaginationRange = (currentPage, totalPages, maxButtons = 7) => {
-  if (totalPages <= maxButtons) {
-    return Array.from({ length: totalPages }, (_, i) => i + 1);
+// --- Generate page numbers with ellipses ---
+const getRange = (current, total, max = 7) => {
+  if (total <= max) return Array.from({ length: total }, (_, i) => i + 1);
+
+  const left = Math.max(current - 1, 1);
+  const right = Math.min(current + 1, total);
+  const showLeftDots = left > 2;
+  const showRightDots = right < total - 2;
+
+  if (!showLeftDots && showRightDots) {
+    return [...Array.from({ length: 5 }, (_, i) => i + 1), "...", total];
   }
-
-  const siblingCount = 1; // How many numbers on each side of current page
-  const firstPageIndex = 1;
-  const lastPageIndex = totalPages;
-
-  const leftSiblingIndex = Math.max(currentPage - siblingCount, 1);
-  const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages);
-
-  const shouldShowLeftDots = leftSiblingIndex > 2;
-  const shouldShowRightDots = rightSiblingIndex < totalPages - 2;
-
-  // Case 2: No left dots, but right dots (start of list)
-  if (!shouldShowLeftDots && shouldShowRightDots) {
-    const leftItemCount = 3 + 2 * siblingCount;
-    const leftRange = Array.from({ length: leftItemCount }, (_, i) => i + 1);
-    return [...leftRange, "...", totalPages];
+  if (showLeftDots && !showRightDots) {
+    return [1, "...", ...Array.from({ length: 5 }, (_, i) => total - 4 + i)];
   }
-
-  // Case 3: No right dots, but left dots (end of list)
-  if (shouldShowLeftDots && !shouldShowRightDots) {
-    const rightItemCount = 3 + 2 * siblingCount;
-    const rightRange = Array.from(
-      { length: rightItemCount },
-      (_, i) => totalPages - rightItemCount + i + 1
-    );
-    return [firstPageIndex, "...", ...rightRange];
+  if (showLeftDots && showRightDots) {
+    return [1, "...", ...Array.from({ length: right - left + 1 }, (_, i) => left + i), "...", total];
   }
-
-  // Case 4: Both dots (middle of list)
-  if (shouldShowLeftDots && shouldShowRightDots) {
-    const middleRange = Array.from(
-      { length: rightSiblingIndex - leftSiblingIndex + 1 },
-      (_, i) => leftSiblingIndex + i
-    );
-    return [firstPageIndex, "...", ...middleRange, "...", lastPageIndex];
-  }
-
   return [];
 };
 
@@ -70,238 +40,92 @@ export const AcademyPagination = ({
   onPageSizeChange,
   maxButtons = 7,
   showFirstLast = true,
-  compact = false,
   className,
   pageSizeOptions = [10, 20, 50, 100],
 }) => {
+  const dm = useSelector((state) => state.theme.darkMode);
   const totalPages = Math.ceil(totalItems / pageSize);
-  const paginationRange = useMemo(
-    () => generatePaginationRange(currentPage, totalPages, maxButtons),
-    [currentPage, totalPages, maxButtons]
-  );
+  const pages = useMemo(() => getRange(currentPage, totalPages, maxButtons), [currentPage, totalPages, maxButtons]);
 
-  // Handlers
-  const handlePageChange = (page) => {
-    if (page >= 1 && page <= totalPages && page !== currentPage) {
-      onPageChange(page);
-    }
+  const go = (p) => {
+    if (p >= 1 && p <= totalPages && p !== currentPage) onPageChange(p);
   };
 
   const isFirst = currentPage === 1;
   const isLast = currentPage === totalPages;
 
-  // --- Render: Compact Mobile Mode ---
-  if (compact) {
-    return (
-      <div
-        className={cn(
-          "flex items-center justify-between w-full gap-2 p-2 bg-gray-50 rounded-lg shadow-sm border border-gray-100",
-          className
-        )}
-        role="navigation"
-        aria-label="Pagination"
-      >
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={isFirst}
-          className="h-8 w-8 p-0 text-gray-600"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        <div className="flex flex-col items-center">
-          <span className="text-sm font-medium text-gray-700">
-            Page {currentPage} of {totalPages}
-          </span>
-          <span className="text-xs text-gray-500 sr-only md:not-sr-only">
-            {totalItems} items
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {onPageSizeChange && (
-            <Select
-              value={String(pageSize)}
-              onValueChange={(val) => onPageSizeChange(Number(val))}
-            >
-              <SelectTrigger className="h-8 w-[70px] text-xs bg-white">
-                <SelectValue placeholder={pageSize} />
-              </SelectTrigger>
-              <SelectContent>
-                {pageSizeOptions.map((size) => (
-                  <SelectItem key={size} value={String(size)}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={isLast}
-            className="h-8 w-8 p-0 text-gray-600"
-            aria-label="Next page"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  // --- Render: Full Desktop Mode ---
-  return (
-    <div
-      className={cn("flex flex-wrap items-center gap-4", className)}
-      role="navigation"
-      aria-label="Pagination"
+  const navBtn = (label, icon, onClick, disabled) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className={cn(
+        "h-9 w-9",
+        dm
+          ? "text-gray-500 hover:text-[#00FF88] hover:bg-[#00FF88]/10 disabled:text-gray-700"
+          : "text-gray-400 hover:text-green-600 hover:bg-green-50 disabled:text-gray-300"
+      )}
     >
-      {/* Screen Reader Live Region */}
-      <div className="sr-only" aria-live="polite">
-        Page {currentPage} of {totalPages}
-      </div>
+      {icon}
+    </Button>
+  );
 
-      <div className="flex items-center gap-1 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
-        {/* First Page */}
-        {showFirstLast && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handlePageChange(1)}
-            disabled={isFirst}
-            className="h-9 w-9 text-gray-500 hover:text-green-600 hover:bg-green-50"
-            aria-label="First page"
-          >
-            <ChevronsLeft className="h-4 w-4" />
-          </Button>
+  return (
+    <div className={cn("flex flex-wrap items-center justify-center gap-3", className)} role="navigation" aria-label="Pagination">
+      <div className={cn(
+        "flex items-center gap-1 p-1 rounded-xl border",
+        dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-200 shadow-sm"
+      )}>
+        {showFirstLast && navBtn("First page", <ChevronsLeft className="h-4 w-4" />, () => go(1), isFirst)}
+        {navBtn("Previous", <ChevronLeft className="h-4 w-4" />, () => go(currentPage - 1), isFirst)}
+
+        {pages.map((p, i) =>
+          p === "..." ? (
+            <div key={`dots-${i}`} className="flex items-center justify-center w-9 h-9">
+              <MoreHorizontal className={cn("h-4 w-4", dm ? "text-gray-600" : "text-gray-400")} />
+            </div>
+          ) : (
+            <Button
+              key={p}
+              variant={p === currentPage ? "default" : "ghost"}
+              size="icon"
+              onClick={() => go(p)}
+              aria-current={p === currentPage ? "page" : undefined}
+              className={cn(
+                "h-9 w-9 text-sm font-medium transition-colors",
+                p === currentPage
+                  ? dm
+                    ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90 border-0"
+                    : "bg-green-600 text-white hover:bg-green-700 border-0"
+                  : dm
+                    ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/10"
+                    : "text-gray-600 hover:text-green-700 hover:bg-green-50"
+              )}
+            >
+              {p}
+            </Button>
+          )
         )}
 
-        {/* Previous */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handlePageChange(currentPage - 1)}
-          disabled={isFirst}
-          className="h-9 w-9 text-gray-500 hover:text-green-600 hover:bg-green-50"
-          aria-label="Previous page"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-
-        {/* Numbers Loop */}
-        <div className="flex items-center gap-1 mx-1">
-          <AnimatePresence mode="popLayout">
-            {paginationRange.map((pageNumber, index) => {
-              if (pageNumber === "...") {
-                return (
-                  <motion.div
-                    key={`ellipsis-${index}`}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className="flex items-center justify-center w-9 h-9"
-                  >
-                    <MoreHorizontal className="h-4 w-4 text-gray-400" />
-                  </motion.div>
-                );
-              }
-
-              const isSelected = pageNumber === currentPage;
-
-              return (
-                <motion.div
-                  key={pageNumber}
-                  layout
-                  initial={{ opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <Button
-                    variant={isSelected ? "default" : "ghost"}
-                    size="icon"
-                    onClick={() => handlePageChange(Number(pageNumber))}
-                    aria-current={isSelected ? "page" : undefined}
-                    aria-label={`Page ${pageNumber}`}
-                    className={cn(
-                      "h-9 w-9 relative overflow-hidden transition-all duration-300",
-                      isSelected
-                        ? "bg-gradient-to-br from-green-600 to-purple-600 text-white shadow-md hover:opacity-90 border-0"
-                        : "text-gray-600 hover:bg-green-50 hover:text-green-700"
-                    )}
-                  >
-                    <span className="relative z-10">{pageNumber}</span>
-                    {isSelected && (
-                      <motion.div
-                        layoutId="activePageIndicator"
-                        className="absolute inset-0 bg-gradient-to-br from-green-600 to-purple-600"
-                        initial={false}
-                        transition={{
-                          type: "spring",
-                          stiffness: 500,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-                  </Button>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-
-        {/* Next */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => handlePageChange(currentPage + 1)}
-          disabled={isLast}
-          className="h-9 w-9 text-gray-500 hover:text-green-600 hover:bg-green-50"
-          aria-label="Next page"
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-
-        {/* Last Page */}
-        {showFirstLast && (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={isLast}
-            className="h-9 w-9 text-gray-500 hover:text-green-600 hover:bg-green-50"
-            aria-label="Last page"
-          >
-            <ChevronsRight className="h-4 w-4" />
-          </Button>
-        )}
+        {navBtn("Next", <ChevronRight className="h-4 w-4" />, () => go(currentPage + 1), isLast)}
+        {showFirstLast && navBtn("Last page", <ChevronsRight className="h-4 w-4" />, () => go(totalPages), isLast)}
       </div>
 
-      {/* Page Size Selector */}
       {onPageSizeChange && (
-        <div className="flex items-center gap-2 ml-2">
-          <span className="text-sm text-gray-500 hidden sm:inline-block">
-            Rows:
-          </span>
-          <Select
-            value={String(pageSize)}
-            onValueChange={(val) => onPageSizeChange(Number(val))}
-          >
-            <SelectTrigger className="h-9 w-[70px] bg-white border-gray-200 text-gray-600 focus:ring-green-500/20">
+        <div className="flex items-center gap-2">
+          <span className={cn("text-sm hidden sm:inline", dm ? "text-gray-500" : "text-gray-500")}>Rows:</span>
+          <Select value={String(pageSize)} onValueChange={(val) => onPageSizeChange(Number(val))}>
+            <SelectTrigger className={cn(
+              "h-9 w-[70px] text-sm",
+              dm ? "bg-[#1a1a1a] border-[#87A98D]/20 text-gray-300" : "bg-white border-gray-200 text-gray-600"
+            )}>
               <SelectValue placeholder={pageSize} />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={dm ? "bg-[#1a1a1a] border-[#87A98D]/20" : ""}>
               {pageSizeOptions.map((size) => (
-                <SelectItem
-                  key={size}
-                  value={String(size)}
-                  className="cursor-pointer hover:bg-green-50 focus:bg-green-50"
-                >
+                <SelectItem key={size} value={String(size)} className={dm ? "text-gray-300 focus:bg-[#00FF88]/10 focus:text-[#00FF88]" : "focus:bg-green-50"}>
                   {size}
                 </SelectItem>
               ))}

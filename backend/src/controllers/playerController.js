@@ -1,4 +1,5 @@
 import prisma from '../prismaClient.js';
+import { cacheGet, cacheDel } from '../config/cacheUtils.js';
 
 // ── Validation helpers ──────────────────────────────────────────────────
 const VALID_POSITIONS = [
@@ -17,43 +18,44 @@ const VALID_FEET = ['Left', 'Right', 'Both'];
 export const getPlayerProfile = async (req, res) => {
   try {
     const userId = req.user.id;
+    const cacheKey = `player:profile:${userId}`;
 
-    // Run both queries in parallel for speed
-    const [user, playerProfile] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: { profilePic: true },
-      }),
-      prisma.playerProfile.findUnique({
-        where: { userId },
-        include: {
-          tournaments: {
-            include: {
-              tournament: {
-                select: {
-                  id: true,
-                  name: true,
-                  location: true,
-                  startDate: true,
-                  endDate: true,
-                  status: true,
-                  category: true,
+    const { data: result } = await cacheGet(cacheKey, 600, async () => {
+      const [user, playerProfile] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { profilePic: true },
+        }),
+        prisma.playerProfile.findUnique({
+          where: { userId },
+          include: {
+            tournaments: {
+              include: {
+                tournament: {
+                  select: {
+                    id: true,
+                    name: true,
+                    location: true,
+                    startDate: true,
+                    endDate: true,
+                    status: true,
+                    category: true,
+                  },
                 },
               },
             },
           },
-        },
-      }),
-    ]);
+        }),
+      ]);
 
-    if (!playerProfile) {
+      return { playerProfile, profilePic: user?.profilePic || null };
+    });
+
+    if (!result.playerProfile) {
       return res.status(404).json({ message: 'Player profile not found' });
     }
 
-    return res.status(200).json({
-      playerProfile,
-      profilePic: user?.profilePic || null,
-    });
+    return res.status(200).json(result);
   } catch (error) {
     console.error('Error fetching player profile:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -120,6 +122,9 @@ export const enterPlayerProfile = async (req, res) => {
         dominantFoot: dominantFoot || null,
       },
     });
+
+    // Invalidate player cache on creation
+    await cacheDel(`player:profile:${userId}`);
 
     return res.status(201).json({ message: 'Player profile created successfully', playerProfile: newProfile });
   } catch (error) {
@@ -205,6 +210,9 @@ export const updatePlayerProfile = async (req, res) => {
       data,
     });
 
+    // Invalidate player cache on update
+    await cacheDel(`player:profile:${userId}`);
+
     return res.status(200).json({ message: 'Player profile updated successfully', playerProfile: updated });
   } catch (error) {
     console.error('Update player profile error:', error);
@@ -261,3 +269,57 @@ export const getAcademyDetailsOfPlayer = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 };
+
+//For a player to join academy
+export const joinAcademy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { academyId } = req.body;
+    const playerProfile = await prisma.playerProfile.findUnique({
+      where: { userId },
+      select: { academyId: true },
+    });
+    if (playerProfile.academyId) {
+      return res.status(400).json({ message: 'Player is already part of an academy' });
+    }
+    if (!playerProfile) {
+      return res.status(404).json({ message: 'Player profile not found' });
+    }
+    if (playerProfile.academyId) {
+      return res.status(404).json({ message: 'Player is already part of an academy' });
+    }
+    const academy = await prisma.academy.findUnique({
+      where: { id: academyId },
+      select: {
+        id: true,
+        name: true,
+        state: true,
+        city: true,
+        address: true,
+        country: true,
+        contactEmail: true,
+        contactPhone: true,
+        description: true,
+        establishedAt: true,
+        academyLogoURL: true,
+        rating: true,
+        noOfStudents: true,
+      },
+    });
+    if (!academy) {
+      return res.status(404).json({ message: 'Academy not found' });
+    }
+    const updated = await prisma.playerProfile.update({
+      where: { userId },
+      data: { academyId },
+    });
+    return res.status(200).json({ message: 'Player joined academy successfully', playerProfile: updated });
+
+
+  } catch (error) {
+    console.error("Error joining academy:", error);
+    return res.status(500).json({ message: "Server error" });
+
+  }
+
+}

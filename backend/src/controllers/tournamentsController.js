@@ -1,4 +1,5 @@
 import prisma from "../prismaClient.js";
+import { cacheGet } from "../config/cacheUtils.js";
 
 // ── Shared pagination helpers ───────────────────────────────────────────
 const parsePagination = (query) => {
@@ -65,53 +66,59 @@ export const getAllTournaments = async (req, res) => {
     if (sort === "date-desc") orderBy = { startDate: "desc" };
     if (sort === "prize-desc") orderBy = { price: "desc" };
 
-    // --- Parallel queries (count + data) for efficiency ---
-    const [totalItems, tournaments] = await Promise.all([
-      prisma.tournament.count({ where }),
-      prisma.tournament.findMany({
-        where,
-        skip,
-        take: limit,
-        orderBy,
-        select: {
-          id: true,
-          tournamentUid: true,
-          name: true,
-          description: true,
-          location: true,
-          startDate: true,
-          endDate: true,
-          price: true,
-          category: true,
-          registrationFee: true,
-          registrationDeadline: true,
-          maxTeams: true,
-          maxPlayersPerTeam: true,
-          status: true,
-          createdAt: true,
-          _count: {
-            select: {
-              players: true,
-              teams: true,
+    // --- Cache key from query params ---
+    const cacheKey = `tournament:list:${req.query.status || "all"}:${req.query.location || "all"}:${req.query.category || "all"}:${sort || "date-asc"}:p${page}:l${limit}`;
+
+    const { data: result } = await cacheGet(cacheKey, 120, async () => {
+      const [totalItems, tournaments] = await Promise.all([
+        prisma.tournament.count({ where }),
+        prisma.tournament.findMany({
+          where,
+          skip,
+          take: limit,
+          orderBy,
+          select: {
+            id: true,
+            tournamentUid: true,
+            name: true,
+            description: true,
+            location: true,
+            startDate: true,
+            endDate: true,
+            price: true,
+            category: true,
+            registrationFee: true,
+            registrationDeadline: true,
+            maxTeams: true,
+            maxPlayersPerTeam: true,
+            status: true,
+            createdAt: true,
+            _count: {
+              select: {
+                players: true,
+                teams: true,
+              },
             },
           },
+        }),
+      ]);
+
+      const totalPages = Math.ceil(totalItems / limit);
+
+      return {
+        data: tournaments,
+        pagination: {
+          currentPage: page,
+          limit,
+          totalItems,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1,
         },
-      }),
-    ]);
-
-    const totalPages = Math.ceil(totalItems / limit);
-
-    return res.status(200).json({
-      data: tournaments,
-      pagination: {
-        currentPage: page,
-        limit,
-        totalItems,
-        totalPages,
-        hasNextPage: page < totalPages,
-        hasPrevPage: page > 1,
-      },
+      };
     });
+
+    return res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching tournaments:", error);
     return res.status(500).json({ message: "Server error" });

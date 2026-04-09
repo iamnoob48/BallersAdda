@@ -78,6 +78,8 @@ model Tournament {
   maxPlayersPerTeam    Int?
   status               Status             @default(UPCOMING)
   organizerId          Int?
+  isPublic             Boolean            @default(true)
+  venueImage           String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
   players              PlayerTournament[]
@@ -145,7 +147,7 @@ model Academy {
   rating           Float?            @default(0.0)
   detailedInfo     String?
   primaryPictureId Int?              @unique
-  userId           Int               @unique
+  userId           Int?               @unique
   primaryPicture   AcademyPicture?   @relation("PrimaryPicture", fields: [primaryPictureId], references: [id])
   user             User?             @relation(fields: [userId], references: [id])
   pictures         AcademyPicture[]

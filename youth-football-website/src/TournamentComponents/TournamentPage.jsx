@@ -17,6 +17,7 @@ import {
 import { FaTrophy, FaUsers } from "react-icons/fa";
 import { useSelector } from "react-redux";
 import { useGetTournamentsQuery } from "../redux/slices/tournamentSlice";
+import WorldMap from "../components/WorldMap";
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
@@ -156,8 +157,47 @@ export default function TournamentPage() {
           className={`absolute -top-20 -right-20 w-[500px] h-[500px] blur-[120px] rounded-full ${dm ? "bg-[#00DCFF]/15" : "bg-emerald-300/20"}`}
         />
 
-        {/* Dot grid */}
-        <div className={`absolute inset-0 [background-size:24px_24px] ${dm ? "opacity-10 bg-[radial-gradient(#00FF88_1px,transparent_1px)]" : "opacity-30 bg-[radial-gradient(#d1d5db_1px,transparent_1px)]"}`} />
+        {/* World Map background */}
+        <div className={`absolute inset-0 flex items-center justify-center pointer-events-none ${dm ? "opacity-40" : "opacity-30"}`}>
+          <div className="w-full max-w-6xl px-4">
+            <WorldMap
+              lineColor={dm ? "#00ff55" : "#006331"}
+              dots={[
+                {
+            start: {
+              lat: 64.2008,
+              lng: -149.4937,
+            }, // Alaska (Fairbanks)
+            end: {
+              lat: 34.0522,
+              lng: -118.2437,
+            }, // Los Angeles
+          },
+          {
+            start: { lat: 64.2008, lng: -149.4937 }, // Alaska (Fairbanks)
+            end: { lat: -15.7975, lng: -47.8919 }, // Brazil (Brasília)
+          },
+          {
+            start: { lat: -15.7975, lng: -47.8919 }, // Brazil (Brasília)
+            end: { lat: 38.7223, lng: -9.1393 }, // Lisbon
+          },
+          {
+            start: { lat: 51.5074, lng: -0.1278 }, // London
+            end: { lat: 28.6139, lng: 77.209 }, // New Delhi
+          },
+          {
+            start: { lat: 28.6139, lng: 77.209 }, // New Delhi
+            end: { lat: 43.1332, lng: 131.9113 }, // Vladivostok
+          },
+          {
+            start: { lat: 28.6139, lng: 77.209 }, // New Delhi
+            end: { lat: -1.2921, lng: 36.8219 }, // Nairobi
+          },
+                
+              ]}
+            />
+          </div>
+        </div>
 
         {/* Text */}
         <motion.div

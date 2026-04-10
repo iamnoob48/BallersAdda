@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerUser, loginUser, googleAuthCallback, verifyUser,  getUserProfile, refreshAccessToken, logoutUser} from '../controllers/authControllers.js';
+import { registerUser, loginUser, googleAuthCallback, verifyUser, getUserProfile, refreshAccessToken, logoutUser, checkEmail } from '../controllers/authControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
@@ -32,6 +32,9 @@ router.get('/profile', verifyAccessToken, getUserProfile)
 router.post('/refresh-token', refreshAccessToken)
 
 //For logout route
-router.post('/logout',logoutUser)
+router.post('/logout', logoutUser)
+
+//For checking username existence
+router.get('/check-email/:email', checkEmail);
 
 export default router;

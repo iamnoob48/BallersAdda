@@ -57,6 +57,8 @@ model PlayerProfile {
   user              User               @relation(fields: [userId], references: [id])
   tournaments       PlayerTournament[]
   teams             Team[]             @relation("PlayerProfileToTeam")
+  attendances       SessionAttendance[]
+  academyStats      PlayerAcademyStats[]
 
   @@index([academyId])
   @@index([tournamentRatings])
@@ -84,6 +86,7 @@ model Tournament {
   updatedAt            DateTime           @updatedAt
   players              PlayerTournament[]
   teams                Team[]
+  matches              Match[]
   organizer            User?              @relation("OrganizedTournaments", fields: [organizerId], references: [id])
 
   @@index([status])
@@ -155,6 +158,9 @@ model Academy {
   schedules        AcademySchedule[]
   coaches          Coach[]
   players          PlayerProfile[]
+  sessions         AcademySession[]
+  matches          Match[]
+  playerStats      PlayerAcademyStats[]
 
   @@index([name])
 }
@@ -236,6 +242,73 @@ model Coach {
   teams           Team[]
 
   @@index([academyId])
+}
+
+model AcademySession {
+  id         Int                 @id @default(autoincrement())
+  date       DateTime            @default(now())
+  type       String              @default("TRAINING")
+  academyId  Int
+  academy    Academy             @relation(fields: [academyId], references: [id])
+  attendance SessionAttendance[]
+
+  @@index([academyId])
+  @@index([date])
+}
+
+model SessionAttendance {
+  id        Int            @id @default(autoincrement())
+  isPresent Boolean        @default(true)
+  sessionId Int
+  session   AcademySession @relation(fields: [sessionId], references: [id])
+  playerId  Int
+  player    PlayerProfile  @relation(fields: [playerId], references: [id])
+
+  @@unique([sessionId, playerId])
+  @@index([playerId])
+}
+
+model Match {
+  id           Int       @id @default(autoincrement())
+  date         DateTime  @default(now())
+  matchType    MatchType @default(OFFICIAL_TOURNAMENT)
+  
+  tournamentId Int?
+  tournament   Tournament? @relation(fields: [tournamentId], references: [id])
+  
+  academyId    Int?
+  academy      Academy?    @relation(fields: [academyId], references: [id])
+}
+
+model PlayerAcademyStats {
+  id                Int           @id @default(autoincrement())
+  
+  officialCaps      Int           @default(0) 
+  officialGoals     Int           @default(0)
+  officialAssists   Int           @default(0)
+  officialMotm      Int           @default(0) 
+  officialAvgRating Float         @default(0.0)
+
+  practiceMatches   Int           @default(0) 
+  practiceGoals     Int           @default(0)
+  practiceAssists   Int           @default(0)
+  practiceMotm      Int           @default(0) 
+  practiceAvgRating Float         @default(0.0)
+  
+  playerId          Int
+  player            PlayerProfile @relation(fields: [playerId], references: [id])
+  
+  academyId         Int
+  academy           Academy       @relation(fields: [academyId], references: [id])
+
+  @@unique([playerId, academyId])
+  @@index([playerId])
+  @@index([academyId])
+}
+
+enum MatchType {
+  OFFICIAL_TOURNAMENT
+  INTERNAL_PRACTICE
 }
 
 enum Role {

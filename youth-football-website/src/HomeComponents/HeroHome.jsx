@@ -133,7 +133,7 @@ export default function HeroHome() {
               <motion.button
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
-                onClick={() => hasAcademy ? navigate(`/academy/details/${academy.id}`) : navigate("/academies")}
+                onClick={() => hasAcademy ? navigate("/my-academy") : navigate("/academies")}
                 className={`px-8 py-3.5 rounded-xl font-bold text-lg shadow-sm transition-all border-2 ${dm ? "bg-transparent border-[#87A98D]/30 text-[#00FF88] hover:bg-[#00FF88]/10" : "bg-white border-green-100 text-green-700 hover:bg-green-50"}`}
               >
                 {hasAcademy ? "View Academy" : "Find Academy"}

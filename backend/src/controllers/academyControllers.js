@@ -245,3 +245,123 @@ export const filterAcademies = async (req, res) => {
     return res.status(500).json({ message: "Server error" });
   }
 };
+
+// =====================================================================
+//  POST /academy/register — Register a new academy club
+// =====================================================================
+import { setAuthCookies } from "./authControllers.js";
+
+export const registerAcademy = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { name, country, city, state, address, licenseNo, contactEmail, contactPhone, coachesUsernames = [] } = req.body;
+
+    if (!name || !city || !state || !country || !address) {
+      return res.status(400).json({ message: "Academy Name, City, and State are required." });
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (user.role === "ACADEMY") {
+      return res.status(400).json({ message: "User is already an academy owner." });
+    }
+
+    // Validate coaches
+    const foundCoaches = [];
+    const invalidUsernames = [];
+
+    if (coachesUsernames.length > 0) {
+      for (const username of coachesUsernames) {
+        if (!username.trim()) continue;
+        const coachUser = await prisma.user.findFirst({
+          where: { username: { equals: username, mode: 'insensitive' } }
+        });
+        if (coachUser) {
+          foundCoaches.push(coachUser);
+        } else {
+          invalidUsernames.push(username);
+        }
+      }
+    }
+
+    if (invalidUsernames.length > 0) {
+      return res.status(400).json({
+        message: "Some coach usernames were not found.",
+        invalidUsernames
+      });
+    }
+
+    // Start transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Create Academy
+      const newAcademy = await tx.academy.create({
+        data: {
+          name,
+          country,
+          city,
+          state,
+          address,
+          licenseNo: licenseNo || null,
+          contactEmail: contactEmail || null,
+          contactPhone: contactPhone || null,
+          userId: userId,
+          verified: false // defaults to false
+        }
+      });
+
+      // 2. Upgrade current user to ACADEMY
+      const updatedOwner = await tx.user.update({
+        where: { id: userId },
+        data: { role: "ACADEMY" }
+      });
+
+      // 3. Link or upgrade coaches
+      for (const coachUser of foundCoaches) {
+        // Upgrade role to COACH if not already
+        if (coachUser.role !== "ACADEMY" && coachUser.role !== "ADMIN") {
+          await tx.user.update({
+            where: { id: coachUser.id },
+            data: { role: "COACH" }
+          });
+        }
+
+        // Upsert coach profile
+        await tx.coach.upsert({
+          where: { userId: coachUser.id },
+          create: {
+            userId: coachUser.id,
+            academyId: newAcademy.id,
+            firstName: "Pending", // temporary until completed
+            lastName: coachUser.username || "Coach"
+          },
+          update: {
+            academyId: newAcademy.id
+          }
+        });
+      }
+
+      return { newAcademy, updatedOwner };
+    });
+
+    // Re-issue JWT since role changed
+    setAuthCookies(res, result.updatedOwner);
+
+    return res.status(201).json({
+      message: "Academy registered successfully.",
+      user: {
+        id: result.updatedOwner.id,
+        email: result.updatedOwner.email,
+        username: result.updatedOwner.username,
+        profilePic: result.updatedOwner.profilePic,
+        role: result.updatedOwner.role,
+        isVerified: result.updatedOwner.isVerified
+      },
+      academy: result.newAcademy
+    });
+
+  } catch (error) {
+    console.error("Error registering academy:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};

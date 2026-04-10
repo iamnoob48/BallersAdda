@@ -14,6 +14,9 @@ import AuthSuccess from "./LoggedInPages/AuthSuccess";
 import AcademyPage from "./pages/AcademyPage.jsx";
 import AcademyViewPage from "./pages/AcademyViewPage";
 import AcademyDetailsPageTest from "./AcademyDetailsPage/test-api";
+import PaymentPage from "./pages/PaymentPage";
+import PlayerAcademyDashboard from "./pages/PlayerAcademyDashboard";
+import AcademyRegistration from "./pages/AcademyRegistration";
 import AppLayout from "./components/AppLayout";
 
 function App() {
@@ -88,6 +91,30 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><AcademyDetailsPageTest /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/academy/payment/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout><PaymentPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-academy"
+            element={
+              <ProtectedRoute>
+                <AppLayout><PlayerAcademyDashboard /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/register-academy"
+            element={
+              <ProtectedRoute>
+                <AppLayout><AcademyRegistration /></AppLayout>
               </ProtectedRoute>
             }
           />

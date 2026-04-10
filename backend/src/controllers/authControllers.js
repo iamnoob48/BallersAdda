@@ -27,7 +27,7 @@ const generateRefreshToken = (user) =>
   jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_JWT_SECRET, { expiresIn: '7d' });
 
 // Helper: set both cookies on a response
-const setAuthCookies = (res, user) => {
+export const setAuthCookies = (res, user) => {
   const accessToken = generateAccessToken(user);
   const refreshToken = generateRefreshToken(user);
   res.cookie('accessToken', accessToken, accessCookieOpts);
@@ -112,7 +112,7 @@ export const loginUser = async (req, res) => {
     setAuthCookies(res, user);
 
     // Update lastLogin timestamp (fire‑and‑forget)
-    prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => {});
+    prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => { });
 
     // Never leak the password hash to the client
     const { password: _pw, ...safeUser } = user;
@@ -220,4 +220,33 @@ export const logoutUser = (_req, res) => {
   res.clearCookie('accessToken', { httpOnly: true, secure: isProduction, sameSite: isProduction ? 'strict' : 'lax' });
   res.clearCookie('refreshToken', { httpOnly: true, secure: isProduction, sameSite: isProduction ? 'strict' : 'lax' });
   return res.status(200).json({ message: 'User logged out successfully' });
+};
+
+// =====================================================================
+//  GET /auth/check-username/:username
+// =====================================================================
+export const checkEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    if (!email) return res.status(400).json({ valid: false, message: "Email required" });
+
+    const user = await prisma.user.findFirst({
+      where: {
+        email: {
+          equals: email,
+          mode: 'insensitive',
+        },
+      },
+      select: { id: true, email: true, role: true, profilePic: true },
+    });
+
+    if (user) {
+      return res.status(200).json({ exists: true, user: { id: user.id, email: user.email, role: user.role, profilePic: user.profilePic } });
+    } else {
+      return res.status(404).json({ exists: false, message: "Email not found" });
+    }
+  } catch (error) {
+    console.error("Error checking email:", error);
+    return res.status(500).json({ valid: false, message: "Server error" });
+  }
 };

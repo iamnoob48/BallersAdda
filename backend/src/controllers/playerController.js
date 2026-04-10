@@ -274,19 +274,22 @@ export const getAcademyDetailsOfPlayer = async (req, res) => {
 export const joinAcademy = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { academyId } = req.body;
+    const academyId = parseInt(req.body.academyId, 10);
+
+    if (!academyId || isNaN(academyId)) {
+      return res.status(400).json({ message: 'Valid academyId is required' });
+    }
+
     const playerProfile = await prisma.playerProfile.findUnique({
       where: { userId },
       select: { academyId: true },
     });
-    if (playerProfile.academyId) {
-      return res.status(400).json({ message: 'Player is already part of an academy' });
-    }
+
     if (!playerProfile) {
       return res.status(404).json({ message: 'Player profile not found' });
     }
     if (playerProfile.academyId) {
-      return res.status(404).json({ message: 'Player is already part of an academy' });
+      return res.status(400).json({ message: 'Player is already part of an academy' });
     }
     const academy = await prisma.academy.findUnique({
       where: { id: academyId },
@@ -313,7 +316,12 @@ export const joinAcademy = async (req, res) => {
       where: { userId },
       data: { academyId },
     });
-    return res.status(200).json({ message: 'Player joined academy successfully', playerProfile: updated });
+    const updateAcademy = await prisma.academy.update({
+      where: { id: academyId },
+      data: { noOfStudents: academy.noOfStudents + 1 },
+    });
+
+    return res.status(200).json({ message: 'Player joined academy successfully', playerProfile: updated, academy: updateAcademy });
 
 
   } catch (error) {

@@ -80,13 +80,24 @@ export const academyApi = createApi({
     // 📌 Example: Join academy (for future)
     joinAcademy: builder.mutation({
       query: (academyId) => ({
-        url: `/academy/join/${academyId}`,
+        url: `/player/joinAcademy`,
         method: "POST",
+        body: { academyId },
       }),
       invalidatesTags: (result, error, id) => [
         { type: "Academy", id },
         { type: "AcademyList", id: "LIST" },
       ],
+    }),
+
+    // 📌 Register new academy (B2B)
+    registerAcademy: builder.mutation({
+      query: (body) => ({
+        url: `/academy/register`,
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["AcademyList"],
     }),
   }),
 });
@@ -96,4 +107,5 @@ export const {
   useGetAcademyByIdQuery,
   useFilterAcademiesQuery,
   useJoinAcademyMutation,
+  useRegisterAcademyMutation,
 } = academyApi;

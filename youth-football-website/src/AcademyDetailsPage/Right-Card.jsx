@@ -1,9 +1,26 @@
 import { motion } from "framer-motion";
 import { Phone, Mail, Share2, Heart } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 
 const RightCard = ({ ACADEMY_DATA }) => {
   const dm = useSelector((state) => state.theme.darkMode);
+  const navigate = useNavigate();
+
+  const handleJoinAcademy = () => {
+    navigate(`/academy/payment/${ACADEMY_DATA.academy.id}`, {
+      state: {
+        academy: {
+          id: ACADEMY_DATA.academy.id,
+          name: ACADEMY_DATA.academy.name,
+        },
+        plan: "Football Coaching",
+        price: ACADEMY_DATA.pricing?.[0]?.priceCents
+          ? ACADEMY_DATA.pricing[0].priceCents / 100
+          : 2999,
+      },
+    });
+  };
 
   return (
     <motion.aside
@@ -47,6 +64,7 @@ const RightCard = ({ ACADEMY_DATA }) => {
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
+            onClick={handleJoinAcademy}
             className={`w-full font-bold py-3.5 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 ${dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90 shadow-[#00FF88]/10" : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200"}`}
           >
             Join This Academy

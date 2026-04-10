@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAcademyDetails, getAcademyDetailsById, filterAcademies } from '../controllers/academyControllers.js';
+import { getAcademyDetails, getAcademyDetailsById, filterAcademies, registerAcademy } from '../controllers/academyControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
 
 
@@ -11,6 +11,9 @@ router.get('/details', verifyAccessToken, getAcademyDetails);
 router.get('/details/:id', verifyAccessToken, getAcademyDetailsById);
 //For filtering academies by city, rating, ageGroup
 router.get('/filter', verifyAccessToken, filterAcademies);
+
+//For registering a new academy and linking coaches
+router.post('/register', verifyAccessToken, registerAcademy);
 
 
 

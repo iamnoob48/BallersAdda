@@ -37,7 +37,17 @@ export const tournamentApi = createApi({
         return error?.data || { message: "Unable to fetch tournaments" };
       },
     }),
+
+    getTournamentById: builder.query({
+      query: (id) => `/tournament/${id}`,
+      providesTags: (result, error, id) => [{ type: "Tournament", id }],
+      transformResponse: (response) => response.tournament,
+      transformErrorResponse: (error) => {
+        console.error("Tournament detail error:", error);
+        return error?.data || { message: "Unable to fetch tournament details" };
+      },
+    }),
   }),
 });
 
-export const { useGetTournamentsQuery } = tournamentApi;
+export const { useGetTournamentsQuery, useGetTournamentByIdQuery } = tournamentApi;

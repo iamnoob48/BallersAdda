@@ -16,6 +16,8 @@
     "bcrypt": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
+    "date-fn": "^0.0.2",
+    "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "dotted-map": "^3.1.0",
     "express": "^5.1.0",

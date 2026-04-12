@@ -16,60 +16,13 @@ import {
 } from "react-icons/fi";
 import { FaTrophy, FaUsers } from "react-icons/fa";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { useGetTournamentsQuery } from "../redux/slices/tournamentSlice";
 import WorldMap from "../components/WorldMap";
-
-// ── Helpers ─────────────────────────────────────────────────────────────
-
-/** Map backend tournament object → card-friendly shape */
-const mapTournament = (t) => {
-  const maxTeams = t.maxTeams ?? 0;
-  const registeredTeams = t._count?.teams ?? 0;
-  const seatsLeft = Math.max(maxTeams - registeredTeams, 0);
-
-  // Pick a deterministic gradient based on id
-  const gradients = [
-    "from-green-500 to-emerald-700",
-    "from-blue-500 to-indigo-700",
-    "from-purple-500 to-pink-700",
-    "from-orange-400 to-red-600",
-    "from-teal-400 to-cyan-600",
-  ];
-
-  return {
-    id: t.id,
-    tournamentUid: t.tournamentUid,
-    name: t.name,
-    description: t.description,
-    location: t.location,
-    category: t.category || "Open",
-    startDate: t.startDate,
-    dateLabel: new Date(t.startDate).toLocaleDateString("en-IN", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    }),
-    dateISO: t.startDate,
-    price: Number(t.price) || 0,
-    prizeLabel: `₹${Number(t.price)?.toLocaleString("en-IN") || 0}`,
-    registrationFee: Number(t.registrationFee) || 0,
-    registrationDeadline: t.registrationDeadline,
-    status: t.status,
-    maxTeams,
-    totalSeats: maxTeams,
-    seatsLeft,
-    registeredTeams,
-    registeredPlayers: t._count?.players ?? 0,
-    imageGradient: gradients[t.id % gradients.length],
-  };
-};
-
-const formatDate = (iso) =>
-  new Date(iso).toLocaleDateString("en-IN", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+import {
+  getTournamentPrimaryAction,
+  mapTournamentToCardModel,
+} from "../lib/tournamentUtils";
 
 // =====================================================================
 //  Main Component
@@ -103,7 +56,7 @@ export default function TournamentPage() {
 
   const tournaments = useMemo(() => {
     if (!apiResponse?.data) return [];
-    return apiResponse.data.map(mapTournament);
+    return apiResponse.data.map(mapTournamentToCardModel);
   }, [apiResponse]);
 
   const pagination = apiResponse?.pagination;
@@ -123,7 +76,6 @@ export default function TournamentPage() {
 
   const heroTextY = useTransform(scrollY, [0, 500], [0, 200]);
   const heroOpacity = useTransform(scrollY, [0, 300], [1, 0]);
-  const bgY = useTransform(scrollY, [0, 500], [0, 100]);
 
   const resetFilters = () => {
     setFilters({ city: "All", status: "All" });
@@ -511,12 +463,24 @@ export default function TournamentPage() {
 //  TournamentCard (kept inline — same pattern as before)
 // =====================================================================
 const TournamentCard = ({ data, view, dm }) => {
+  const navigate = useNavigate();
   const isFull = data.totalSeats > 0 && data.seatsLeft === 0;
   const fillPercentage =
     data.totalSeats > 0
       ? ((data.totalSeats - data.seatsLeft) / data.totalSeats) * 100
       : 0;
   const isFillingFast = !isFull && data.totalSeats > 0 && data.seatsLeft <= 5;
+  const canOpenDetails = data.status === "ONGOING" || data.status === "COMPLETED";
+  const primaryLabel = canOpenDetails
+    ? getTournamentPrimaryAction(data.status)
+    : isFull
+      ? "Registration Closed"
+      : getTournamentPrimaryAction(data.status);
+
+  const handlePrimaryAction = () => {
+    if (!canOpenDetails && isFull) return;
+    navigate(`/tournament/${data.id}`, { state: { tournament: data } });
+  };
 
   return (
     <motion.article
@@ -645,18 +609,19 @@ const TournamentCard = ({ data, view, dm }) => {
           )}
 
           <button
-            disabled={isFull}
+            disabled={!canOpenDetails && isFull}
+            onClick={handlePrimaryAction}
             className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
-              isFull
+              !canOpenDetails && isFull
                 ? dm ? "bg-[#2a2a2a] text-gray-600 cursor-not-allowed" : "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : dm ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90 hover:shadow-lg hover:shadow-[#00FF88]/10 active:scale-95" : "bg-gray-900 text-white hover:bg-green-600 hover:shadow-lg hover:shadow-green-600/20 active:scale-95"
             }`}
           >
-            {isFull ? (
-              "Registration Closed"
+            {!canOpenDetails && isFull ? (
+              primaryLabel
             ) : (
               <>
-                Register Now <FiChevronDown className="-rotate-90" />
+                {primaryLabel} <FiChevronDown className="-rotate-90" />
               </>
             )}
           </button>

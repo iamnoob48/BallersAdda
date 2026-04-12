@@ -5,7 +5,7 @@ import { verifyUser } from "../redux/slices/authSlice";
 
 function ProtectedRoute({ children }) {
   const dispatch = useDispatch();
-  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated, loading, isCoachProfileIncomplete } = useSelector((state) => state.auth);
 
   useEffect(() => {
     // Only verify if we don’t already know the auth state
@@ -22,7 +22,17 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  return isAuthenticated ? children : <Navigate to="/login" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Intercept Coaches who haven't completed their setup
+  // To prevent infinite redirect loops, only redirect if they aren't already on the setup page
+  if (isCoachProfileIncomplete && window.location.pathname !== "/coach-setup") {
+    return <Navigate to="/coach-setup" replace />;
+  }
+
+  return children;
 }
 
 export default ProtectedRoute;

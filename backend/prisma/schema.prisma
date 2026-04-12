@@ -161,6 +161,7 @@ model Academy {
   sessions         AcademySession[]
   matches          Match[]
   playerStats      PlayerAcademyStats[]
+  invites          AcademyInvite[]
 
   @@index([name])
 }
@@ -342,4 +343,19 @@ enum BillingCycle {
   MONTH
   YEAR
   SESSION
+}
+
+// THE HOLDING AREA
+model AcademyInvite {
+  id        Int      @id @default(autoincrement())
+  email     String   
+  role      Role     @default(COACH)
+  status    String   @default("PENDING") // PENDING, ACCEPTED
+  
+  academyId Int
+  academy   Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([email, academyId]) 
 }

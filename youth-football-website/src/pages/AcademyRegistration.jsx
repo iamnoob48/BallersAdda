@@ -61,7 +61,7 @@ export default function AcademyRegistration() {
     setCoachStatus(prev => ({ ...prev, [index]: 'loading' }));
     try {
       const { data } = await api.get(`/auth/check-email/${email}`);
-      setCoachStatus(prev => ({ ...prev, [index]: data.exists ? 'valid' : 'invalid' }));
+      setCoachStatus(prev => ({ ...prev, [index]: data.exists ? 'valid' : 'ghost' }));
     } catch (err) {
       setCoachStatus(prev => ({ ...prev, [index]: 'invalid' }));
     }
@@ -277,11 +277,12 @@ export default function AcademyRegistration() {
                       onChange={(e) => handleCoachChange(i, e.target.value)}
                       className={`w-full px-4 py-3 pr-10 rounded-xl border text-sm outline-none transition-all ${
                         dm ? "bg-[#121212] border-[#87A98D]/20 text-gray-200 placeholder:text-gray-600 focus:border-[#00FF88]/50" : "bg-gray-50 border-gray-200 placeholder:text-gray-400 focus:border-emerald-500"
-                      } ${coachStatus[i] === 'invalid' ? 'border-red-500' : coachStatus[i] === 'valid' ? (dm ? 'border-[#00FF88]/50' : 'border-emerald-400') : ''}`}
+                      } ${coachStatus[i] === 'invalid' ? 'border-red-500' : coachStatus[i] === 'valid' ? (dm ? 'border-[#00FF88]/50' : 'border-emerald-400') : coachStatus[i] === 'ghost' ? 'border-yellow-500/50' : ''}`}
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       {coachStatus[i] === 'loading' && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
                       {coachStatus[i] === 'valid' && <CheckCircle2 className={`w-4 h-4 ${dm ? "text-[#00FF88]" : "text-emerald-500"}`} />}
+                      {coachStatus[i] === 'ghost' && <Mail className="w-4 h-4 text-yellow-500" title="Unregistered user - Email invite will be sent!" />}
                       {coachStatus[i] === 'invalid' && <XCircle className="w-4 h-4 text-red-500" />}
                     </div>
                   </div>

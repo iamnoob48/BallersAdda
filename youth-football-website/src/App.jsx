@@ -17,6 +17,8 @@ import AcademyDetailsPageTest from "./AcademyDetailsPage/test-api";
 import PaymentPage from "./pages/PaymentPage";
 import PlayerAcademyDashboard from "./pages/PlayerAcademyDashboard";
 import AcademyRegistration from "./pages/AcademyRegistration";
+import CoachSetupPage from "./pages/CoachSetupPage";
+import CoachDashboard from "./pages/CoachDashboard";
 import AppLayout from "./components/AppLayout";
 
 function App() {
@@ -115,6 +117,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><AcademyRegistration /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/coach-setup"
+            element={
+              <ProtectedRoute>
+                <AppLayout><CoachSetupPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/coach-dashboard"
+            element={
+              <ProtectedRoute>
+                <AppLayout><CoachDashboard /></AppLayout>
               </ProtectedRoute>
             }
           />

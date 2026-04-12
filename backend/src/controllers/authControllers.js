@@ -184,7 +184,15 @@ export const verifyUser = async (req, res) => {
       return res.status(403).json({ message: 'Account is suspended or deleted' });
     }
 
-    return res.status(200).json({ success: true, user });
+    let isCoachProfileIncomplete = false;
+    if (user.role === 'COACH') {
+      const coach = await prisma.coach.findUnique({ where: { userId: user.id } });
+      if (coach && coach.firstName === 'Pending') {
+        isCoachProfileIncomplete = true;
+      }
+    }
+
+    return res.status(200).json({ success: true, user, isCoachProfileIncomplete });
   } catch (error) {
     console.error('Verify user error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -243,7 +251,7 @@ export const checkEmail = async (req, res) => {
     if (user) {
       return res.status(200).json({ exists: true, user: { id: user.id, email: user.email, role: user.role, profilePic: user.profilePic } });
     } else {
-      return res.status(404).json({ exists: false, message: "Email not found" });
+      return res.status(200).json({ exists: false, message: "Email not found" });
     }
   } catch (error) {
     console.error("Error checking email:", error);

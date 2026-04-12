@@ -254,10 +254,10 @@ import { setAuthCookies } from "./authControllers.js";
 export const registerAcademy = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { name, country, city, state, address, licenseNo, contactEmail, contactPhone, coachesUsernames = [] } = req.body;
+    const { name, country, city, state, address, licenseNo, contactEmail, contactPhone, coachesEmails = [] } = req.body;
 
     if (!name || !city || !state || !country || !address) {
-      return res.status(400).json({ message: "Academy Name, City, and State are required." });
+      return res.status(400).json({ message: "Academy Name, Country, City, State, and Address are required." });
     }
 
     const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -269,26 +269,35 @@ export const registerAcademy = async (req, res) => {
 
     // Validate coaches
     const foundCoaches = [];
-    const invalidUsernames = [];
+    const ghostEmails = [];
+    const invalidEmails = [];
 
-    if (coachesUsernames.length > 0) {
-      for (const username of coachesUsernames) {
-        if (!username.trim()) continue;
+    if (coachesEmails.length > 0) {
+      for (const email of coachesEmails) {
+        if (!email.trim()) continue;
+        
+        // Basic regex check before hitting DB
+        if (!/^\S+@\S+\.\S+$/.test(email)) {
+          invalidEmails.push(email);
+          continue;
+        }
+
         const coachUser = await prisma.user.findFirst({
-          where: { username: { equals: username, mode: 'insensitive' } }
+          where: { email: { equals: email, mode: 'insensitive' } }
         });
         if (coachUser) {
           foundCoaches.push(coachUser);
         } else {
-          invalidUsernames.push(username);
+          ghostEmails.push(email);
         }
       }
     }
 
-    if (invalidUsernames.length > 0) {
+    // ONLY structural errors block submission now
+    if (invalidEmails.length > 0) {
       return res.status(400).json({
-        message: "Some coach usernames were not found.",
-        invalidUsernames
+        message: "Some coach emails are improperly formatted.",
+        invalidEmails
       });
     }
 
@@ -316,7 +325,7 @@ export const registerAcademy = async (req, res) => {
         data: { role: "ACADEMY" }
       });
 
-      // 3. Link or upgrade coaches
+      // 3. Link or upgrade existing coaches (Scenario A)
       for (const coachUser of foundCoaches) {
         // Upgrade role to COACH if not already
         if (coachUser.role !== "ACADEMY" && coachUser.role !== "ADMIN") {
@@ -333,11 +342,24 @@ export const registerAcademy = async (req, res) => {
             userId: coachUser.id,
             academyId: newAcademy.id,
             firstName: "Pending", // temporary until completed
-            lastName: coachUser.username || "Coach"
+            lastName: coachUser.username || coachUser.email.split('@')[0] || "Coach"
           },
           update: {
             academyId: newAcademy.id
           }
+        });
+      }
+
+      // 4. Create AcademyInvites for ghost coaches (Scenario B)
+      if (ghostEmails.length > 0) {
+        await tx.academyInvite.createMany({
+          data: ghostEmails.map(email => ({
+            email: email.toLowerCase(),
+            status: "PENDING",
+            role: "COACH",
+            academyId: newAcademy.id
+          })),
+          skipDuplicates: true // prevent crashing if same email included twice
         });
       }
 

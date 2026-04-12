@@ -6,7 +6,7 @@ export const verifyUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const res = await api.get("/auth/verify-token", { withCredentials: true });
-      return res.data.user;
+      return res.data;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Verification failed");
     }
@@ -20,6 +20,7 @@ const authSlice = createSlice({
     isAuthenticated: null, // null = unknown, true/false = resolved
     loading: false,
     error: null,
+    isCoachProfileIncomplete: false,
   },
   reducers: {
     loginSuccess: (state, action) => {
@@ -48,7 +49,8 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(verifyUser.fulfilled, (state, action) => {
-        state.user = action.payload;
+        state.user = action.payload.user;
+        state.isCoachProfileIncomplete = action.payload.isCoachProfileIncomplete || false;
         state.isAuthenticated = true;
         state.loading = false;
         state.error = null;

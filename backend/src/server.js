@@ -4,6 +4,7 @@ import authRoutes from './routes/authRoutes.js';
 import playerRoutes from './routes/playerRoutes.js';
 import academyRoutes from './routes/academyRoutes.js';
 import tournamentRoutes from './routes/tournamentRoutes.js';
+import coachRoutes from './routes/coachRoutes.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 
@@ -30,6 +31,8 @@ app.use('/api/v1/player', playerRoutes);
 app.use('/api/v1/academy', academyRoutes);
 //For tournament routes
 app.use('/api/v1/tournament', tournamentRoutes);
+//For coach routes
+app.use('/api/v1/coach', coachRoutes);
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Youth Football Website Backend!');

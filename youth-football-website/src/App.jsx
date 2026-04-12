@@ -19,6 +19,7 @@ import PlayerAcademyDashboard from "./pages/PlayerAcademyDashboard";
 import AcademyRegistration from "./pages/AcademyRegistration";
 import CoachSetupPage from "./pages/CoachSetupPage";
 import CoachDashboard from "./pages/CoachDashboard";
+import TournamentRegistrationPage from "./TournamentRegistrationPage";
 import AppLayout from "./components/AppLayout";
 
 function App() {
@@ -53,6 +54,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><PlayerTournamentPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tournament/:id"
+            element={
+              <ProtectedRoute>
+                <AppLayout><TournamentRegistrationPage /></AppLayout>
               </ProtectedRoute>
             }
           />

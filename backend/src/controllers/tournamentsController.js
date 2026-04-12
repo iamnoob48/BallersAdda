@@ -91,6 +91,7 @@ export const getAllTournaments = async (req, res) => {
             registrationDeadline: true,
             maxTeams: true,
             maxPlayersPerTeam: true,
+            venueImage: true,
             status: true,
             createdAt: true,
             _count: {
@@ -121,6 +122,61 @@ export const getAllTournaments = async (req, res) => {
     return res.status(200).json(result);
   } catch (error) {
     console.error("Error fetching tournaments:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+/**
+ * GET /tournament/:id
+ * Fetch one tournament for the detail / registration page.
+ */
+export const getTournamentById = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ message: "Invalid tournament ID" });
+    }
+
+    const cacheKey = `tournament:detail:${id}`;
+
+    const { data: tournament } = await cacheGet(cacheKey, 300, async () => {
+      return prisma.tournament.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          tournamentUid: true,
+          name: true,
+          description: true,
+          location: true,
+          startDate: true,
+          endDate: true,
+          price: true,
+          category: true,
+          registrationFee: true,
+          registrationDeadline: true,
+          maxTeams: true,
+          maxPlayersPerTeam: true,
+          status: true,
+          venueImage: true,
+          createdAt: true,
+          _count: {
+            select: {
+              players: true,
+              teams: true,
+            },
+          },
+        },
+      });
+    });
+
+    if (!tournament) {
+      return res.status(404).json({ message: "Tournament not found" });
+    }
+
+    return res.status(200).json({ tournament });
+  } catch (error) {
+    console.error("Error fetching tournament detail:", error);
     return res.status(500).json({ message: "Server error" });
   }
 };

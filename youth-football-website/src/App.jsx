@@ -21,6 +21,7 @@ import CoachSetupPage from "./pages/CoachSetupPage";
 import CoachDashboard from "./pages/CoachDashboard";
 import TournamentRegistrationPage from "./TournamentRegistrationPage";
 import AppLayout from "./components/AppLayout";
+import JoinTeamPage from "./pages/JoinTeamPage";
 
 function App() {
   const { isAuthenticated } = useSelector((state) => state.auth);
@@ -39,6 +40,8 @@ function App() {
           <Route path="/Register" element={<SignUp />} />
           <Route path="/Login" element={<LoginPage />} />
           <Route path="/auth/success" element={<AuthSuccess />} />
+          {/* Public invite-acceptance page — no auth wrapper so guests can see team info */}
+          <Route path="/join" element={<JoinTeamPage />} />
 
           {/* Protected routes — wrapped in AppLayout (sidebar + nav) */}
           <Route

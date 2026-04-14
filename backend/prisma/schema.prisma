@@ -25,6 +25,7 @@ model User {
   coach                Coach?
   playerProfile        PlayerProfile?
   organizedTournaments Tournament[]   @relation("OrganizedTournaments")
+  captainedTeams       Team[]         @relation("TeamCaptain")
 
   @@index([email, role])
 }
@@ -81,6 +82,7 @@ model Tournament {
   status               Status             @default(UPCOMING)
   organizerId          Int?
   isPublic             Boolean            @default(true)
+  formatAndRules       String?
   venueImage           String?
   createdAt            DateTime           @default(now())
   updatedAt            DateTime           @updatedAt
@@ -113,22 +115,75 @@ model PlayerTournament {
 }
 
 model Team {
-  id                Int                @id @default(autoincrement())
-  name              String
-  coachName         String?
+  id                Int       @id @default(autoincrement())
+  name              String    // e.g., "Nandu's Ninjas" or "Elite FC U-15"
+  kitColour         String?   // Helps organizers avoid jersey color clashes
   logoUrl           String?
-  tournamentId      Int
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  
+  // State management for the Organizer's Dashboard
+  status            String    @default("PENDING") // PENDING, APPROVED, REJECTED
+  
+  // ------------------------------------------------------
+  // PATH A: THE ACADEMY SQUAD
+  // If registered by a Manager, link the business.
+  // ------------------------------------------------------
+  academyId         Int?
+  academy           Academy?  @relation(fields: [academyId], references: [id])
+  
+  // ------------------------------------------------------
+  // PATH B: THE INDEPENDENT TEAM
+  // If registered by a kid, link the Captain who made it.
+  // ------------------------------------------------------
+  captainId         Int?
+  captain           User?     @relation("TeamCaptain", fields: [captainId], references: [id])
+
+  // ------------------------------------------------------
+  // THE STAFF & DESTINATION
+  // ------------------------------------------------------
   coachId           Int?
-  tournamentPlayers PlayerTournament[]
-  coach             Coach?             @relation(fields: [coachId], references: [id])
-  tournament        Tournament         @relation(fields: [tournamentId], references: [id])
+  coach             Coach?    @relation(fields: [coachId], references: [id])
+  
+  tournamentId      Int
+  tournament        Tournament @relation(fields: [tournamentId], references: [id])
+
+  // ------------------------------------------------------
+  // THE PLAYERS & STATS
+  // ------------------------------------------------------
   players           PlayerProfile[]    @relation("PlayerProfileToTeam")
+  tournamentStats   PlayerTournament[] // Your junction table for match data
+  teamInvites       TeamInvite[]
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   @@index([tournamentId])
 }
+// This table is for the users who doesnt have any account
+model TeamInvite {
+  id          Int       @id @default(autoincrement())
 
+  // The target: who is being invited?
+  email       String
+
+  // The destination: which team are they joining?
+  teamId      Int
+  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // Magic-link token (UUID v4) — stored and matched via Redis cache
+  token       String    @unique
+
+  // Optional expiry so old invites can be cleaned up
+  expiresAt   DateTime?
+
+  // State management
+  status      String    @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Safety net: A captain cannot spam the exact same email 5 times for the same team
+  @@unique([email, teamId])
+}
 model Academy {
   id               Int               @id @default(autoincrement())
   academyLogoURL   String?
@@ -162,6 +217,7 @@ model Academy {
   matches          Match[]
   playerStats      PlayerAcademyStats[]
   invites          AcademyInvite[]
+  teams            Team[]
 
   @@index([name])
 }
@@ -318,6 +374,7 @@ enum Role {
   COACH
   SCOUT
   ADMIN
+  ORGANIZER
 }
 
 enum Status {

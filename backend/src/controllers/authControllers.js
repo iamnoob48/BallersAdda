@@ -21,10 +21,10 @@ const refreshCookieOpts = {
 
 // ── Token generators ────────────────────────────────────────────────────
 const generateAccessToken = (user) =>
-  jwt.sign({ id: user.id }, process.env.ACCESS_TOKEN_JWT_SECRET, { expiresIn: '15m' });
+  jwt.sign({ id: user.id, role: user.role }, process.env.ACCESS_TOKEN_JWT_SECRET, { expiresIn: '15m' });
 
 const generateRefreshToken = (user) =>
-  jwt.sign({ id: user.id }, process.env.REFRESH_TOKEN_JWT_SECRET, { expiresIn: '7d' });
+  jwt.sign({ id: user.id, role: user.role }, process.env.REFRESH_TOKEN_JWT_SECRET, { expiresIn: '7d' });
 
 // Helper: set both cookies on a response
 export const setAuthCookies = (res, user) => {

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
 import { FiPhone } from "react-icons/fi";
 import OTP from "../LandingComponents/OTP";
@@ -23,6 +23,9 @@ export default function LoginPage() {
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  // If the user came from /join?token=... we'll send them back there after login
+  const nextPath = searchParams.get("next") || "/home";
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -50,7 +53,7 @@ export default function LoginPage() {
 
       // Dispatch with the safe user object returned by the backend
       dispatch(loginSuccess(res.data.user));
-      navigate("/home");
+      navigate(nextPath);
     } catch (error) {
       const message =
         error.response?.data?.message ||

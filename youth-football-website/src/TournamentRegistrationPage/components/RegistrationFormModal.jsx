@@ -1,15 +1,82 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, ShieldAlert, Plus, ShieldCheck, Mail, CheckCircle2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, ShieldAlert, Plus, ShieldCheck, Mail, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { useVerifyRosterEmailsMutation, useRegisterTeamForTournamentMutation } from '../../redux/slices/tournamentSlice.js';
+
+const RosterEmailInput = ({ email, onChange, placeholder, dm, verifyEmails }) => {
+  const [status, setStatus] = React.useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid'
+  const [msg, setMsg] = React.useState('');
+
+  React.useEffect(() => {
+    if (!email || email.trim().length < 5 || !email.includes('@')) {
+      setStatus('idle');
+      setMsg('');
+      return;
+    }
+
+    setStatus('checking');
+    setMsg('Verifying user...');
+
+    const timer = setTimeout(async () => {
+      try {
+        await verifyEmails([email]).unwrap();
+        setStatus('valid');
+        setMsg('User exists');
+      } catch (err) {
+        setStatus('invalid');
+        setMsg('User not found / not a player');
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [email, verifyEmails]);
+
+  return (
+    <div className="relative">
+      {status === 'checking' ? (
+        <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
+      ) : status === 'valid' ? (
+        <CheckCircle2 className={`absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
+      ) : status === 'invalid' ? (
+        <XCircle className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+      ) : (
+        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      )}
+
+      <input 
+        type="email" 
+        value={email}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm outline-none transition-all ${
+          status === 'invalid' 
+            ? 'border-red-500/50 focus:border-red-500 bg-red-500/5' 
+            : status === 'valid' 
+              ? dm ? 'border-[#00FF88]/50 focus:border-[#00FF88] bg-[#00FF88]/5' : 'border-emerald-500/50 focus:border-emerald-500 bg-emerald-500/5'
+              : dm ? 'bg-[#121212] border-gray-800 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 focus:border-emerald-500'
+        }`} 
+      />
+      {msg && (
+        <p className={`text-[10px] absolute right-3 top-1/2 -translate-y-1/2 font-bold ${status === 'valid' ? (dm ? 'text-[#00FF88]' : 'text-emerald-600') : status === 'invalid' ? 'text-red-500' : 'text-gray-400'}`}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+};
 
 export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
   const dm = useSelector((s) => s.theme.darkMode);
+  
+  const [verifyEmails, { isLoading: isVerifying }] = useVerifyRosterEmailsMutation();
+  const [registerTeam, { isLoading: isRegistering }] = useRegisterTeamForTournamentMutation();
 
   // Form State
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     teamName: '',
+    teamLogo: null,
     kitColor: '#FF0000',
     captainPhone: '',
     captainDob: '',
@@ -23,7 +90,7 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
 
   if (!isOpen) return null;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError('');
 
     // Step 1 Validation
@@ -61,6 +128,20 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
         setError(`You must provide at least 5 players (found ${validEmails.length}).`);
         return;
       }
+
+      // Explicit Batch Verification Call
+      try {
+        await verifyEmails(validEmails).unwrap();
+        // If it succeeds, no errors were thrown, proceed to Step 4
+        setStep(s => s + 1);
+      } catch (err) {
+        if (err.data && err.data.failedEmails) {
+          setError(`Validation Failed: The following emails are not linked to active Player profiles: ${err.data.failedEmails.join(', ')}`);
+        } else {
+          setError('An error occurred verifying the roster.');
+        }
+      }
+      return;
     }
 
     setStep(s => s + 1);
@@ -71,19 +152,28 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
     setStep(s => s - 1);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.commitmentChecked) {
       setError('You must agree to the tournament commitment rules.');
       return;
     }
     setError('');
-    // Simulate API Call Success
-    setIsSuccess(true);
-    setTimeout(() => {
-      setIsSuccess(false);
-      setStep(1);
-      onClose();
-    }, 3000);
+    
+    try {
+      await registerTeam({
+        tournamentId: tournament.id,
+        formData
+      }).unwrap();
+      
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        setStep(1);
+        onClose();
+      }, 4000);
+    } catch (err) {
+      setError(err.data?.message || 'Failed to register the team. Please try again.');
+    }
   };
 
   const handleEmailChange = (index, value) => {
@@ -152,6 +242,15 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
                       onChange={e => setFormData({...formData, teamName: e.target.value})}
                       className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${dm ? 'bg-[#121212] border-gray-800 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 focus:border-emerald-500'}`} 
                       placeholder="FC Khairatabad"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase block mb-1">Team Logo (Optional)</label>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={e => setFormData({...formData, teamLogo: e.target.files[0]})}
+                      className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold ${dm ? 'bg-[#121212] border-gray-800 file:bg-[#00FF88]/10 file:text-[#00FF88] hover:file:bg-[#00FF88]/20 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 file:bg-emerald-100 file:text-emerald-700 hover:file:bg-emerald-200 focus:border-emerald-500'}`} 
                     />
                   </div>
                   <div>
@@ -232,16 +331,14 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
 
                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 pb-4">
                   {formData.emails.map((email, idx) => (
-                    <div key={idx} className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input 
-                        type="email" 
-                        value={email}
-                        onChange={(e) => handleEmailChange(idx, e.target.value)}
-                        placeholder={`[Player ${idx + 1} Email Address]`}
-                        className={`w-full pl-10 pr-4 py-3 rounded-xl border text-sm outline-none transition-all ${dm ? 'bg-[#121212] border-gray-800 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 focus:border-emerald-500'}`} 
-                      />
-                    </div>
+                    <RosterEmailInput 
+                      key={idx}
+                      email={email}
+                      onChange={(val) => handleEmailChange(idx, val)}
+                      placeholder={`[Player ${idx + 1} Email Address]`}
+                      dm={dm}
+                      verifyEmails={verifyEmails}
+                    />
                   ))}
                   
                   <button onClick={addEmailField} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 text-sm transition-colors ${dm ? 'border-gray-700 text-[#00FF88] hover:bg-gray-800/50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
@@ -310,12 +407,21 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
             ) : <div />}
 
             {step < 4 ? (
-              <button onClick={handleNext} className={`px-8 py-3 rounded-xl font-black text-sm flex items-center gap-1 transition-transform hover:scale-[1.02] shadow-lg ${dm ? 'bg-white text-[#121212]' : 'bg-gray-900 text-white'}`}>
-                Next Step <ChevronRight className="w-4 h-4 ml-1 -mr-1" />
+              <button 
+                onClick={handleNext} 
+                disabled={isVerifying}
+                className={`px-8 py-3 rounded-xl font-black text-sm flex items-center gap-1 transition-transform hover:scale-[1.02] shadow-lg disabled:opacity-50 disabled:hover:scale-100 ${dm ? 'bg-white text-[#121212]' : 'bg-gray-900 text-white'}`}
+              >
+                {isVerifying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Next Step'} 
+                {(!isVerifying) && <ChevronRight className="w-4 h-4 ml-1 -mr-1" />}
               </button>
             ) : (
-              <button onClick={handleSubmit} className={`w-full sm:w-auto px-8 py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] shadow-xl ${dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700'}`}>
-                Submit & Invite Squad
+              <button 
+                onClick={handleSubmit} 
+                disabled={isRegistering}
+                className={`w-full sm:w-auto px-8 py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition-transform hover:scale-[1.02] shadow-xl disabled:opacity-50 disabled:hover:scale-100 ${dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700'}`}
+              >
+                {isRegistering ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit & Invite Squad'}
               </button>
             )}
           </div>

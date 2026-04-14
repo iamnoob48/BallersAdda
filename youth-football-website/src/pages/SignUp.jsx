@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 import { FiPhone } from "react-icons/fi";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import OTP from "../LandingComponents/OTP.jsx";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
@@ -24,6 +24,8 @@ export default function SignUp() {
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [searchParams] = useSearchParams();
+  const nextPath = searchParams.get("next") || "/home";
 
   //For validating email
   const validateEmail = (email) => {
@@ -62,7 +64,7 @@ export default function SignUp() {
 
       // Registration sets cookies — verify them to populate Redux state
       await dispatch(verifyUser()).unwrap();
-      navigate("/home");
+      navigate(nextPath);
     } catch (error) {
       const message =
         error.response?.data?.message ||

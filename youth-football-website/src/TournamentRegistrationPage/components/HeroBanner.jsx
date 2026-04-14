@@ -85,7 +85,7 @@ export default function HeroBanner({ tournament, onPrimaryAction }) {
         <button
           type="button"
           onClick={onPrimaryAction}
-          className={`mt-6   rounded-md px-6 py-3 text-sm font-black transition-transform hover:scale-[1.02] ${
+          className={`mt-6 rounded-md px-6 py-3 text-sm font-black transition-transform hover:scale-[1.02] ${
             dm
               ? "bg-[#00FF88] text-[#121212]"
               : "bg-emerald-600 text-white shadow-lg shadow-emerald-400/20"

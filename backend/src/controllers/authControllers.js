@@ -7,8 +7,9 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 const accessCookieOpts = {
   httpOnly: true,
-  secure: isProduction,           // false in dev so cookies work on http://localhost
+  secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
+  path: '/',
   maxAge: 15 * 60 * 1000,        // 15 minutes
 };
 
@@ -16,15 +17,32 @@ const refreshCookieOpts = {
   httpOnly: true,
   secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
+  path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
+// Same options used for clearing — must match for the browser to drop the cookie
+const clearCookieOpts = {
+  httpOnly: true,
+  secure: isProduction,
+  sameSite: isProduction ? 'strict' : 'lax',
+  path: '/',
 };
 
 // ── Token generators ────────────────────────────────────────────────────
 const generateAccessToken = (user) =>
-  jwt.sign({ id: user.id, role: user.role }, process.env.ACCESS_TOKEN_JWT_SECRET, { expiresIn: '15m' });
+  jwt.sign(
+    { id: user.id, role: user.role, tokenVersion: user.tokenVersion ?? 0 },
+    process.env.ACCESS_TOKEN_JWT_SECRET,
+    { expiresIn: '15m' }
+  );
 
 const generateRefreshToken = (user) =>
-  jwt.sign({ id: user.id, role: user.role }, process.env.REFRESH_TOKEN_JWT_SECRET, { expiresIn: '7d' });
+  jwt.sign(
+    { id: user.id, role: user.role, tokenVersion: user.tokenVersion ?? 0 },
+    process.env.REFRESH_TOKEN_JWT_SECRET,
+    { expiresIn: '7d' }
+  );
 
 // Helper: set both cookies on a response
 export const setAuthCookies = (res, user) => {
@@ -45,7 +63,6 @@ export const registerUser = async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
-    // --- Input validation ---
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
@@ -56,13 +73,11 @@ export const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Password must be at least 8 characters' });
     }
 
-    // Check if user already exists
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
       return res.status(409).json({ message: 'User already exists' });
     }
 
-    // Hash & create
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await prisma.user.create({
       data: { username: username || null, email, password: hashedPassword },
@@ -72,7 +87,6 @@ export const registerUser = async (req, res) => {
     return res.status(201).json({ message: 'User registered successfully' });
   } catch (error) {
     console.error('Register error:', error);
-    // Handle Prisma unique‑constraint race condition
     if (error.code === 'P2002') {
       return res.status(409).json({ message: 'User already exists' });
     }
@@ -87,19 +101,16 @@ export const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // --- Input validation ---
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
 
-    // User not found OR is a Google-only account (no password)
     if (!user || !user.password) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    // Check account status
     if (user.status !== 'ACTIVE') {
       return res.status(403).json({ message: 'Account is suspended or deleted' });
     }
@@ -111,10 +122,8 @@ export const loginUser = async (req, res) => {
 
     setAuthCookies(res, user);
 
-    // Update lastLogin timestamp (fire‑and‑forget)
     prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => { });
 
-    // Never leak the password hash to the client
     const { password: _pw, ...safeUser } = user;
     return res.status(200).json({ message: 'User logged in successfully', user: safeUser });
   } catch (error) {
@@ -125,20 +134,48 @@ export const loginUser = async (req, res) => {
 
 // =====================================================================
 //  POST /auth/refresh-token
+//  Rotates BOTH tokens, re-verifies user status, and checks tokenVersion.
 // =====================================================================
-export const refreshAccessToken = (req, res) => {
-  const refreshToken = req.cookies.refreshToken;
+export const refreshAccessToken = async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
   if (!refreshToken) {
     return res.status(401).json({ message: 'No refresh token provided' });
   }
 
   try {
     const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_JWT_SECRET);
-    const newAccessToken = generateAccessToken(decoded);
-    res.cookie('accessToken', newAccessToken, accessCookieOpts);
-    return res.status(200).json({ message: 'Access token refreshed successfully' });
+
+    // Re-fetch user from DB — source of truth for status + tokenVersion
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      select: { id: true, role: true, status: true, tokenVersion: true },
+    });
+
+    if (!user) {
+      res.clearCookie('accessToken', clearCookieOpts);
+      res.clearCookie('refreshToken', clearCookieOpts);
+      return res.status(401).json({ message: 'User no longer exists' });
+    }
+
+    if (user.status !== 'ACTIVE') {
+      res.clearCookie('accessToken', clearCookieOpts);
+      res.clearCookie('refreshToken', clearCookieOpts);
+      return res.status(403).json({ message: 'Account is suspended or deleted' });
+    }
+
+    if (decoded.tokenVersion !== user.tokenVersion) {
+      // Token reuse / revoked — clear cookies and force re-login
+      res.clearCookie('accessToken', clearCookieOpts);
+      res.clearCookie('refreshToken', clearCookieOpts);
+      return res.status(401).json({ message: 'Refresh token has been revoked' });
+    }
+
+    // Rotate BOTH tokens
+    setAuthCookies(res, user);
+    return res.status(200).json({ message: 'Tokens refreshed successfully' });
   } catch (error) {
-    // Distinguish expired vs malformed tokens
+    res.clearCookie('accessToken', clearCookieOpts);
+    res.clearCookie('refreshToken', clearCookieOpts);
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ message: 'Refresh token expired, please log in again' });
     }
@@ -149,14 +186,20 @@ export const refreshAccessToken = (req, res) => {
 // =====================================================================
 //  Google OAuth callback
 // =====================================================================
-export const googleAuthCallback = (req, res) => {
+export const googleAuthCallback = async (req, res) => {
   try {
-    const user = req.user;
-    if (!user) {
+    const passportUser = req.user;
+    if (!passportUser) {
       return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/Login?error=auth_failed`);
     }
 
-    setAuthCookies(res, user);
+    // Ensure we have a current tokenVersion from DB
+    const user = await prisma.user.findUnique({
+      where: { id: passportUser.id },
+      select: { id: true, role: true, tokenVersion: true },
+    });
+
+    setAuthCookies(res, user || passportUser);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/success`);
   } catch (error) {
     console.error('Google callback error:', error);
@@ -204,7 +247,6 @@ export const verifyUser = async (req, res) => {
 // =====================================================================
 export const getUserProfile = async (req, res) => {
   try {
-    // req.user is already set by the verifyAccessToken middleware — no need to re‑decode
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { profilePic: true, username: true, role: true },
@@ -222,39 +264,44 @@ export const getUserProfile = async (req, res) => {
 };
 
 // =====================================================================
-//  POST /auth/logout
+//  POST /auth/logout (behind verifyAccessToken middleware)
+//  Server-side invalidation: bump tokenVersion so all outstanding
+//  refresh tokens for this user are immediately invalid.
 // =====================================================================
-export const logoutUser = (_req, res) => {
-  res.clearCookie('accessToken', { httpOnly: true, secure: isProduction, sameSite: isProduction ? 'strict' : 'lax' });
-  res.clearCookie('refreshToken', { httpOnly: true, secure: isProduction, sameSite: isProduction ? 'strict' : 'lax' });
-  return res.status(200).json({ message: 'User logged out successfully' });
+export const logoutUser = async (req, res) => {
+  try {
+    if (req.user?.id) {
+      await prisma.user.update({
+        where: { id: req.user.id },
+        data: { tokenVersion: { increment: 1 } },
+      }).catch((e) => console.error('Failed to bump tokenVersion on logout:', e));
+    }
+  } finally {
+    res.clearCookie('accessToken', clearCookieOpts);
+    res.clearCookie('refreshToken', clearCookieOpts);
+    return res.status(200).json({ message: 'User logged out successfully' });
+  }
 };
 
 // =====================================================================
-//  GET /auth/check-username/:username
+//  GET /auth/check-email/:email  (AUTHED — behind verifyAccessToken)
+//  Returns only { exists: boolean } to avoid user enumeration / PII leaks.
 // =====================================================================
 export const checkEmail = async (req, res) => {
   try {
     const { email } = req.params;
-    if (!email) return res.status(400).json({ valid: false, message: "Email required" });
+    if (!email || !EMAIL_RE.test(email)) {
+      return res.status(400).json({ message: 'Valid email required' });
+    }
 
     const user = await prisma.user.findFirst({
-      where: {
-        email: {
-          equals: email,
-          mode: 'insensitive',
-        },
-      },
-      select: { id: true, email: true, role: true, profilePic: true },
+      where: { email: { equals: email, mode: 'insensitive' } },
+      select: { id: true },
     });
 
-    if (user) {
-      return res.status(200).json({ exists: true, user: { id: user.id, email: user.email, role: user.role, profilePic: user.profilePic } });
-    } else {
-      return res.status(200).json({ exists: false, message: "Email not found" });
-    }
+    return res.status(200).json({ exists: Boolean(user) });
   } catch (error) {
-    console.error("Error checking email:", error);
-    return res.status(500).json({ valid: false, message: "Server error" });
+    console.error('Error checking email:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

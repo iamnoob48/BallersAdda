@@ -13,7 +13,6 @@ import ProfilePage from "./pages/ProfilePage";
 import AuthSuccess from "./LoggedInPages/AuthSuccess";
 import AcademyPage from "./pages/AcademyPage.jsx";
 import AcademyViewPage from "./pages/AcademyViewPage";
-import AcademyDetailsPageTest from "./AcademyDetailsPage/test-api";
 import PaymentPage from "./pages/PaymentPage";
 import PlayerAcademyDashboard from "./pages/PlayerAcademyDashboard";
 import AcademyRegistration from "./pages/AcademyRegistration";
@@ -100,14 +99,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/test"
-            element={
-              <ProtectedRoute>
-                <AppLayout><AcademyDetailsPageTest /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
+          
           <Route
             path="/academy/payment/:id"
             element={

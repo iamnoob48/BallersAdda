@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, ShieldAlert, Plus, ShieldCheck, Mail, CheckCircle2, Loader2, XCircle } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, ShieldAlert, Plus, ShieldCheck, Mail, CheckCircle2, Loader2, XCircle, Link2, Copy, Check } from 'lucide-react';
 import { useVerifyRosterEmailsMutation, useRegisterTeamForTournamentMutation } from '../../redux/slices/tournamentSlice.js';
 
 const RosterEmailInput = ({ email, onChange, placeholder, dm, verifyEmails }) => {
@@ -87,6 +87,9 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
 
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [rosterMode, setRosterMode] = useState('emails'); // 'emails' | 'link'
+  const [inviteLink, setInviteLink] = useState('');
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -121,8 +124,13 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
       }
     }
 
-    // Step 3 Validation (Emails)
+    // Step 3 Validation (Emails) — skip entirely when using invite link mode
     if (step === 3) {
+      if (rosterMode === 'link') {
+        setStep(s => s + 1);
+        return;
+      }
+
       const validEmails = formData.emails.filter(e => e.trim().length > 0);
       if (validEmails.length < 5) {
         setError(`You must provide at least 5 players (found ${validEmails.length}).`);
@@ -160,19 +168,29 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
     setError('');
     
     try {
-      await registerTeam({
+      const result = await registerTeam({
         tournamentId: tournament.id,
-        formData
+        formData,
+        rosterMode,
       }).unwrap();
-      
+
+      if (result?.linkToken) {
+        setInviteLink(`${window.location.origin}/join?linkToken=${result.linkToken}`);
+      }
+
       setIsSuccess(true);
-      setTimeout(() => {
-        setIsSuccess(false);
-        setStep(1);
-        onClose();
-      }, 4000);
     } catch (err) {
       setError(err.data?.message || 'Failed to register the team. Please try again.');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      // fallback: select the text
     }
   };
 
@@ -217,12 +235,44 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
             
             {/* SUCCESS STATE */}
             {isSuccess && (
-              <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center">
-                <CheckCircle2 className={`w-20 h-20 mb-4 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
-                <h3 className="text-2xl font-black mb-2">Squad Drafted!</h3>
-                <p className={`max-w-md ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-                  We've officially emailed invitations to the roster you provided. Please make your payment directly at the venue before kickoff. 
-                </p>
+              <motion.div key="success" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex-1 flex flex-col items-center justify-center text-center gap-4">
+                <CheckCircle2 className={`w-20 h-20 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
+                <h3 className="text-2xl font-black">Squad Drafted!</h3>
+                {inviteLink ? (
+                  <>
+                    <p className={`max-w-md text-sm ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                      Share the link below — anyone who opens it can join your squad directly.
+                    </p>
+                    <div className={`w-full rounded-xl border flex items-center gap-2 px-3 py-2 ${dm ? 'bg-[#121212] border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <Link2 className={`w-4 h-4 shrink-0 ${dm ? 'text-[#00FF88]' : 'text-emerald-600'}`} />
+                      <span className="text-xs font-mono truncate flex-1 text-left">{inviteLink}</span>
+                      <button
+                        onClick={handleCopyLink}
+                        className={`shrink-0 px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors ${
+                          copied
+                            ? dm ? 'bg-[#00FF88]/20 text-[#00FF88]' : 'bg-emerald-100 text-emerald-700'
+                            : dm ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                        }`}
+                      >
+                        {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        {copied ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className={`text-xs ${dm ? 'text-gray-500' : 'text-gray-400'}`}>
+                      Please make your payment directly at the venue before kickoff.
+                    </p>
+                  </>
+                ) : (
+                  <p className={`max-w-md text-sm ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                    We've sent invitations to the roster you provided. Please make your payment directly at the venue before kickoff.
+                  </p>
+                )}
+                <button
+                  onClick={() => { setIsSuccess(false); setStep(1); onClose(); }}
+                  className={`mt-2 px-6 py-2.5 rounded-xl font-bold text-sm transition ${dm ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-800'}`}
+                >
+                  Close
+                </button>
               </motion.div>
             )}
 
@@ -321,34 +371,75 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
             )}
 
             {!isSuccess && step === 3 && (
-              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 space-y-6">
+              <motion.div key="step3" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="flex-1 space-y-5">
                 <div>
                   <h3 className="text-2xl font-black mb-1">The Roster</h3>
                   <p className={`text-sm ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-                    A minimum squad size of <strong className={dm ? 'text-white' : 'text-black'}>5 Players</strong> is required to submit a draft.
+                    Invite your squad by email or share a link they can click to join instantly.
                   </p>
                 </div>
 
-                <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 pb-4">
-                  {formData.emails.map((email, idx) => (
-                    <RosterEmailInput 
-                      key={idx}
-                      email={email}
-                      onChange={(val) => handleEmailChange(idx, val)}
-                      placeholder={`[Player ${idx + 1} Email Address]`}
-                      dm={dm}
-                      verifyEmails={verifyEmails}
-                    />
-                  ))}
-                  
-                  <button onClick={addEmailField} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 text-sm transition-colors ${dm ? 'border-gray-700 text-[#00FF88] hover:bg-gray-800/50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
-                    <Plus className="w-4 h-4" /> Add Another Player
+                {/* Mode toggle */}
+                <div className={`flex rounded-xl p-1 gap-1 ${dm ? 'bg-[#121212]' : 'bg-gray-100'}`}>
+                  <button
+                    onClick={() => setRosterMode('emails')}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                      rosterMode === 'emails'
+                        ? dm ? 'bg-white text-[#121212] shadow' : 'bg-white text-gray-900 shadow'
+                        : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" /> Enter Emails
+                  </button>
+                  <button
+                    onClick={() => setRosterMode('link')}
+                    className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+                      rosterMode === 'link'
+                        ? dm ? 'bg-[#00FF88] text-[#121212] shadow' : 'bg-emerald-600 text-white shadow'
+                        : dm ? 'text-gray-500 hover:text-gray-300' : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Link2 className="w-4 h-4" /> Invite Link
                   </button>
                 </div>
 
-                <p className="text-xs text-center text-gray-500 font-bold opacity-80">
-                  If your teammates don't have an account, we will shoot them a magic link to join your squad natively!
-                </p>
+                {rosterMode === 'emails' ? (
+                  <>
+                    <div className="space-y-3 max-h-[260px] overflow-y-auto pr-2 pb-2">
+                      {formData.emails.map((email, idx) => (
+                        <RosterEmailInput
+                          key={idx}
+                          email={email}
+                          onChange={(val) => handleEmailChange(idx, val)}
+                          placeholder={`[Player ${idx + 1} Email Address]`}
+                          dm={dm}
+                          verifyEmails={verifyEmails}
+                        />
+                      ))}
+                      <button onClick={addEmailField} className={`w-full py-3 rounded-xl border border-dashed font-bold flex items-center justify-center gap-2 text-sm transition-colors ${dm ? 'border-gray-700 text-[#00FF88] hover:bg-gray-800/50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'}`}>
+                        <Plus className="w-4 h-4" /> Add Another Player
+                      </button>
+                    </div>
+                    <p className="text-xs text-center text-gray-500 font-bold opacity-80">
+                      If your teammates don't have an account, we will shoot them a magic link to join your squad natively!
+                    </p>
+                  </>
+                ) : (
+                  <div className={`flex-1 flex flex-col items-center justify-center gap-4 py-6 rounded-2xl border border-dashed text-center ${dm ? 'border-[#00FF88]/30 bg-[#00FF88]/5' : 'border-emerald-300 bg-emerald-50'}`}>
+                    <Link2 className={`w-10 h-10 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
+                    <div>
+                      <p className={`font-black text-base mb-1 ${dm ? 'text-white' : 'text-gray-900'}`}>
+                        Shareable Invite Link
+                      </p>
+                      <p className={`text-sm max-w-xs mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                        After you submit, you'll get a unique link. Anyone who opens it — whether they have an account or not — can join your squad directly.
+                      </p>
+                    </div>
+                    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold ${dm ? 'bg-[#121212] text-[#00FF88]' : 'bg-white text-emerald-700 border border-emerald-200'}`}>
+                      <Check className="w-3.5 h-3.5" /> No email addresses needed
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 

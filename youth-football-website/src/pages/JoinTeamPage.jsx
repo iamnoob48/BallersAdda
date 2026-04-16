@@ -3,9 +3,15 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { motion } from "framer-motion";
 import { CheckCircle2, Loader2, ShieldAlert, Users, Trophy, MapPin, Calendar } from "lucide-react";
-import { useValidateInviteTokenQuery, useRedeemInviteTokenMutation } from "../redux/slices/tournamentSlice.js";
+import {
+  useValidateInviteTokenQuery,
+  useRedeemInviteTokenMutation,
+  useValidateTeamLinkTokenQuery,
+  useRedeemTeamLinkTokenMutation,
+} from "../redux/slices/tournamentSlice.js";
 
 const STORAGE_KEY = "pendingInviteToken";
+const LINK_STORAGE_KEY = "pendingTeamLinkToken";
 
 export default function JoinTeamPage() {
   const [searchParams] = useSearchParams();
@@ -13,31 +19,64 @@ export default function JoinTeamPage() {
   const dm = useSelector((s) => s.theme.darkMode);
   const { isAuthenticated } = useSelector((s) => s.auth);
 
-  // Persist token from URL into sessionStorage so it survives the login redirect
+  // Detect which type of join flow we're in
   const urlToken = searchParams.get("token");
-  const token = urlToken || sessionStorage.getItem(STORAGE_KEY) || "";
+  const urlLinkToken = searchParams.get("linkToken");
+  const isLinkFlow = !!urlLinkToken || !!sessionStorage.getItem(LINK_STORAGE_KEY);
 
+  // Email-invite flow — persist token across login redirect
+  const token = urlToken || sessionStorage.getItem(STORAGE_KEY) || "";
   useEffect(() => {
     if (urlToken) sessionStorage.setItem(STORAGE_KEY, urlToken);
   }, [urlToken]);
 
+  // Link flow — persist linkToken across login redirect
+  const linkToken = urlLinkToken || sessionStorage.getItem(LINK_STORAGE_KEY) || "";
+  useEffect(() => {
+    if (urlLinkToken) sessionStorage.setItem(LINK_STORAGE_KEY, urlLinkToken);
+  }, [urlLinkToken]);
+
+  // ── Email-invite hooks ──
   const {
     data: invite,
-    isLoading,
-    isError,
-    error,
-  } = useValidateInviteTokenQuery(token, { skip: !token });
+    isLoading: isInviteLoading,
+    isError: isInviteError,
+    error: inviteError,
+  } = useValidateInviteTokenQuery(token, { skip: !token || isLinkFlow });
 
   const [redeemToken, { isLoading: isRedeeming }] = useRedeemInviteTokenMutation();
+
+  // ── Generic link hooks ──
+  const {
+    data: linkTeam,
+    isLoading: isLinkLoading,
+    isError: isLinkError,
+    error: linkError,
+  } = useValidateTeamLinkTokenQuery(linkToken, { skip: !linkToken || !isLinkFlow });
+
+  const [redeemLink, { isLoading: isLinkRedeeming }] = useRedeemTeamLinkTokenMutation();
+
   const [redeemError, setRedeemError] = useState("");
   const [success, setSuccess] = useState(false);
+
+  // Unify loading/error states for the render logic
+  const isLoading = isLinkFlow ? isLinkLoading : isInviteLoading;
+  const isError = isLinkFlow ? isLinkError : isInviteError;
+  const error = isLinkFlow ? linkError : inviteError;
+  const teamData = isLinkFlow ? linkTeam : invite?.team;
+  const isActuallyRedeeming = isLinkFlow ? isLinkRedeeming : isRedeeming;
 
   const handleJoin = async () => {
     setRedeemError("");
     try {
-      await redeemToken(token).unwrap();
+      if (isLinkFlow) {
+        await redeemLink(linkToken).unwrap();
+        sessionStorage.removeItem(LINK_STORAGE_KEY);
+      } else {
+        await redeemToken(token).unwrap();
+        sessionStorage.removeItem(STORAGE_KEY);
+      }
       setSuccess(true);
-      sessionStorage.removeItem(STORAGE_KEY);
       setTimeout(() => navigate("/home"), 3000);
     } catch (err) {
       setRedeemError(err?.data?.message || "Failed to join team. Please try again.");
@@ -45,7 +84,6 @@ export default function JoinTeamPage() {
   };
 
   const handleLoginRedirect = (path) => {
-    // Token is already in sessionStorage; the login page will send the user back here
     navigate(`${path}?next=/join`);
   };
 
@@ -62,7 +100,7 @@ export default function JoinTeamPage() {
       : "bg-gray-50 border-gray-200 text-gray-900"
   }`;
 
-  if (!token) {
+  if (!token && !linkToken) {
     return (
       <PageShell dm={dm}>
         <div className={card}>
@@ -137,7 +175,7 @@ export default function JoinTeamPage() {
             <CheckCircle2 className={`w-20 h-20 ${dm ? "text-[#00FF88]" : "text-emerald-500"}`} />
             <h2 className="text-2xl font-black">You're on the squad!</h2>
             <p className={`text-sm ${dm ? "text-gray-400" : "text-gray-500"}`}>
-              You've been added to <strong>{invite?.team?.name}</strong>. Redirecting you home…
+              You've been added to <strong>{teamData?.name}</strong>. Redirecting you home…
             </p>
           </div>
         </div>
@@ -145,7 +183,7 @@ export default function JoinTeamPage() {
     );
   }
 
-  const tournament = invite?.team?.tournament;
+  const tournament = teamData?.tournament;
   const startDate = tournament?.startDate
     ? new Date(tournament.startDate).toLocaleDateString("en-IN", {
         day: "numeric",
@@ -170,12 +208,14 @@ export default function JoinTeamPage() {
               dm ? "text-[#00FF88]" : "text-emerald-600"
             }`}
           >
-            Team Invite
+            {isLinkFlow ? "Open Invite" : "Team Invite"}
           </p>
-          <h1 className="text-2xl font-black">You've been drafted!</h1>
+          <h1 className="text-2xl font-black">
+            {isLinkFlow ? "Join the Squad!" : "You've been drafted!"}
+          </h1>
           <p className={`text-sm mt-1 ${dm ? "text-gray-400" : "text-gray-500"}`}>
-            {invite?.team?.captain?.username
-              ? `${invite.team.captain.username} wants you on their squad.`
+            {teamData?.captain?.username
+              ? `${teamData.captain.username} wants you on their squad.`
               : "A captain wants you on their squad."}
           </p>
         </div>
@@ -186,7 +226,7 @@ export default function JoinTeamPage() {
             dm={dm}
             icon={<Users className="w-4 h-4" />}
             label="Team"
-            value={invite?.team?.name}
+            value={teamData?.name}
           />
           {tournament?.name && (
             <DetailRow
@@ -212,9 +252,11 @@ export default function JoinTeamPage() {
               value={startDate}
             />
           )}
-          <div className={`pt-2 text-xs font-bold ${dm ? "text-gray-500" : "text-gray-400"}`}>
-            Invite sent to: {invite?.email}
-          </div>
+          {!isLinkFlow && invite?.email && (
+            <div className={`pt-2 text-xs font-bold ${dm ? "text-gray-500" : "text-gray-400"}`}>
+              Invite sent to: {invite.email}
+            </div>
+          )}
         </div>
 
         {/* Error */}
@@ -229,14 +271,14 @@ export default function JoinTeamPage() {
           {isAuthenticated ? (
             <button
               onClick={handleJoin}
-              disabled={isRedeeming}
+              disabled={isActuallyRedeeming}
               className={`w-full py-3 rounded-xl font-black text-sm flex items-center justify-center gap-2 transition hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 ${
                 dm
                   ? "bg-[#00FF88] text-[#121212] shadow-lg shadow-[#00FF88]/20"
                   : "bg-emerald-600 text-white shadow-lg shadow-emerald-500/30 hover:bg-emerald-700"
               }`}
             >
-              {isRedeeming ? (
+              {isActuallyRedeeming ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 "Accept & Join Team"
@@ -249,11 +291,14 @@ export default function JoinTeamPage() {
                   dm ? "text-gray-400" : "text-gray-500"
                 }`}
               >
-                Log in or create an account with{" "}
-                <span className={dm ? "text-[#00FF88]" : "text-emerald-600"}>
-                  {invite?.email}
-                </span>{" "}
-                to accept this invite.
+                {isLinkFlow
+                  ? "Log in or create an account to join this squad."
+                  : <>Log in or create an account with{" "}
+                      <span className={dm ? "text-[#00FF88]" : "text-emerald-600"}>
+                        {invite?.email}
+                      </span>{" "}
+                      to accept this invite.</>
+                }
               </p>
               <button
                 onClick={() => handleLoginRedirect("/Login")}

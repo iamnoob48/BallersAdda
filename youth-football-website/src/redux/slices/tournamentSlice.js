@@ -1,12 +1,10 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQueryWithReauth } from "../baseQueryWithReauth";
 
 export const tournamentApi = createApi({
   reducerPath: "tournamentApi",
 
-  baseQuery: fetchBaseQuery({
-    baseUrl: "/api/v1",
-    credentials: "include",
-  }),
+  baseQuery: createBaseQueryWithReauth("/api/v1"),
 
   tagTypes: ["Tournament", "TournamentList"],
 
@@ -70,32 +68,30 @@ export const tournamentApi = createApi({
       }),
     }),
 
-    registerTeamForTournament: builder.mutation({
-      query: ({ tournamentId, formData }) => {
-        const payload = new FormData();
-        payload.append("teamName", formData.teamName);
-        payload.append("kitColour", formData.kitColor);
-        if (formData.teamLogo) {
-          payload.append("teamLogo", formData.teamLogo);
-        }
-        formData.emails.filter(e => e.trim().length > 0).forEach(email => {
-          payload.append("emails[]", email); // array mapping for multer/express
-        });
+    // Generic shareable link — no email matching
+    validateTeamLinkToken: builder.query({
+      query: (token) => `/tournament/team-link/validate?token=${token}`,
+      transformResponse: (response) => response.team,
+    }),
 
-        // If your backend isn't mapped for multer yet on this route, let's just send JSON
-        // Based on the `tournamentsController.js` we expect JSON body, not FormData right now.
-        // Let's send a standard JSON POST instead of FormData.
-        return {
-          url: `/tournament/${tournamentId}/registerTeam`,
-          method: "POST",
-            body: {
-            teamName: formData.teamName,
-            kitColour: formData.kitColor,
-            teamLogo: formData.teamLogo, // Pass it over if it's base64 or a string, else skip
-            emails: formData.emails.filter(e => e.trim().length > 0)
-          },
-        };
-      },
+    redeemTeamLinkToken: builder.mutation({
+      query: (token) => ({
+        url: '/tournament/team-link/redeem',
+        method: 'POST',
+        body: { token },
+      }),
+    }),
+
+    registerTeamForTournament: builder.mutation({
+      query: ({ tournamentId, formData, rosterMode }) => ({
+        url: `/tournament/${tournamentId}/registerTeam`,
+        method: "POST",
+        body: {
+          teamName: formData.teamName,
+          kitColour: formData.kitColor,
+          emails: rosterMode === 'link' ? [] : formData.emails.filter(e => e.trim().length > 0),
+        },
+      }),
       invalidatesTags: (result, error, { tournamentId }) => [
         { type: "Tournament", id: tournamentId },
         { type: "TournamentList", id: "LIST" }
@@ -111,4 +107,6 @@ export const {
   useRegisterTeamForTournamentMutation,
   useValidateInviteTokenQuery,
   useRedeemInviteTokenMutation,
+  useValidateTeamLinkTokenQuery,
+  useRedeemTeamLinkTokenMutation,
 } = tournamentApi;

@@ -7,6 +7,8 @@ import {
   registerTeam,
   validateInviteToken,
   redeemInviteToken,
+  validateTeamLink,
+  redeemTeamLink,
 } from '../controllers/tournamentsController.js';
 
 const router = express.Router();
@@ -14,11 +16,13 @@ const router = express.Router();
 // GET /tournament/all — paginated list with optional filters
 router.get('/all', verifyAccessToken, getAllTournaments);
 
-// ── Invite routes (must be declared before /:id to avoid param collision) ──
-// Public: validates token, caches invite data in Redis, returns team info
+// ── Email invite routes ──
 router.get('/invite/validate', validateInviteToken);
-// Auth: verifies email match then connects player to team
 router.post('/invite/redeem', verifyAccessToken, redeemInviteToken);
+
+// ── Generic shareable link routes ──
+router.get('/team-link/validate', validateTeamLink);
+router.post('/team-link/redeem', verifyAccessToken, redeemTeamLink);
 
 // POST endpoints for independent team roster mapping and generation
 router.post('/verify-players', verifyAccessToken, verifyRosterPlayers);

@@ -115,11 +115,11 @@ export const enterPlayerProfile = async (req, res) => {
         bio: bio?.trim() || null,
         displayName: displayName?.trim() || null,
         age: parsedAge,
-        gender: gender || null,
-        position: position || null,
+        gender: gender.toUpperCase() || null,
+        position: position.toUpperCase() || null,
         height: parsedHeight,
         weight: parsedWeight,
-        dominantFoot: dominantFoot || null,
+        dominantFoot: dominantFoot.toUpperCase() || null,
       },
     });
 
@@ -331,3 +331,6 @@ export const joinAcademy = async (req, res) => {
   }
 
 }
+
+//Create team using tournament id
+

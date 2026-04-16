@@ -1,40 +1,61 @@
 import express from 'express';
-import { registerUser, loginUser, googleAuthCallback, verifyUser, getUserProfile, refreshAccessToken, logoutUser, checkEmail } from '../controllers/authControllers.js';
+import {
+    registerUser,
+    loginUser,
+    googleAuthCallback,
+    verifyUser,
+    getUserProfile,
+    refreshAccessToken,
+    logoutUser,
+    checkEmail,
+} from '../controllers/authControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
+import { requireCsrfHeader } from '../middleware/csrfMiddleware.js';
+import {
+    loginLimiter,
+    registerLimiter,
+    refreshLimiter,
+    checkEmailLimiter,
+} from '../middleware/rateLimiters.js';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
 
 const router = express.Router();
 router.use(cookieParser());
 
-//For registering the user
-router.post('/register', registerUser);
+// CSRF guard for all state-changing auth routes
+router.use(requireCsrfHeader);
 
-//For login route
-router.post('/login', loginUser)
+// Register
+router.post('/register', registerLimiter, registerUser);
 
-//For google route
+// Login
+router.post('/login', loginLimiter, loginUser);
+
+// Google OAuth
 router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+router.get(
+    '/google/callback',
+    passport.authenticate('google', {
+        failureRedirect: 'http://localhost:5173/Login',
+        session: false,
+    }),
+    googleAuthCallback
+);
 
-//For google callback route when authenticated
-router.get('/google/callback', passport.authenticate('google', {
-    failureRedirect: 'http://localhost:5173/Login',
-    session: false
-}), googleAuthCallback);
+// Verify token
+router.get('/verify-token', verifyAccessToken, verifyUser);
 
-//For verify token route
-router.get('/verify-token', verifyAccessToken, verifyUser)
+// Profile
+router.get('/profile', verifyAccessToken, getUserProfile);
 
-//For getting the profile picture
-router.get('/profile', verifyAccessToken, getUserProfile)
+// Refresh token (with rotation)
+router.post('/refresh-token', refreshLimiter, refreshAccessToken);
 
-//For refreshing the access token
-router.post('/refresh-token', refreshAccessToken)
+// Logout — must be authed so we can bump tokenVersion
+router.post('/logout', verifyAccessToken, logoutUser);
 
-//For logout route
-router.post('/logout', logoutUser)
-
-//For checking username existence
-router.get('/check-email/:email', checkEmail);
+// Check email — authed + rate-limited; returns only { exists }
+router.get('/check-email/:email', verifyAccessToken, checkEmailLimiter, checkEmail);
 
 export default router;

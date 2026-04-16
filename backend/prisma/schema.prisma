@@ -7,103 +7,118 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// =====================================================================
+// USER — single source of truth for human identity
+// =====================================================================
 model User {
-  id                   Int            @id @default(autoincrement())
-  email                String         @unique
-  username             String?
-  password             String?
-  phone                String?        @unique
-  profilePic           String?
-  role                 Role           @default(PLAYER)
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  googleId             String?        @unique
-  isVerified           Boolean        @default(false)
-  lastLogin            DateTime?
-  status               UserStatus     @default(ACTIVE)
+  id           Int        @id @default(autoincrement())
+  email        String     @unique
+  username     String?    @unique
+  password     String?
+  phone        String?    @unique
+  profilePic   String?
+  role         Role       @default(PLAYER)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  googleId     String?    @unique
+  isVerified   Boolean    @default(false)
+  lastLogin    DateTime?
+  status       UserStatus @default(ACTIVE)
+  tokenVersion Int        @default(0)
+
   academy              Academy?
   coach                Coach?
   playerProfile        PlayerProfile?
-  organizedTournaments Tournament[]   @relation("OrganizedTournaments")
-  captainedTeams       Team[]         @relation("TeamCaptain")
+  organizedTournaments Tournament[]    @relation("OrganizedTournaments")
+  captainedTeams       Team[]          @relation("TeamCaptain")
+  issuedShareLinks     TeamShareLink[] @relation("ShareLinkIssuer")
 
   @@index([email, role])
 }
 
+// =====================================================================
+// PLAYER — stats and sport-specific attributes only
+// =====================================================================
 model PlayerProfile {
-  id                Int                @id @default(autoincrement())
-  firstName         String
-  lastName          String
+  id                Int              @id @default(autoincrement())
+  firstName         String?
+  lastName          String?
+  displayName       String?
   age               Int?
-  gender            String?
+  gender            Gender?
   height            Float?
   weight            Float?
-  position          String?
-  tournamentsPlayed Int?               @default(0)
+  position          PlayerPosition?
   academyJoinDate   DateTime?
   academyId         Int?
-  badges            Int?               @default(0)
   bio               String?
-  createdAt         DateTime           @default(now())
-  displayName       String?
-  dominantFoot      String?
-  experienceLevel   ExperienceLevel?   @default(BEGINNER)
+  dominantFoot      DominantFoot?
+  experienceLevel   ExperienceLevel? @default(BEGINNER)
   nationalRank      Int?
   regionalRank      Int?
-  updatedAt         DateTime           @updatedAt
-  tournamentRatings Float?             @default(0.0)
-  trainingRatings   Float?             @default(0.0)
-  userId            Int                @unique
-  academy           Academy?           @relation(fields: [academyId], references: [id])
-  user              User               @relation(fields: [userId], references: [id])
-  tournaments       PlayerTournament[]
-  teams             Team[]             @relation("PlayerProfileToTeam")
-  attendances       SessionAttendance[]
-  academyStats      PlayerAcademyStats[]
+  tournamentRatings Float?           @default(0.0)
+  trainingRatings   Float?           @default(0.0)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  userId       Int                  @unique
+  user         User                 @relation(fields: [userId], references: [id])
+  academy      Academy?             @relation(fields: [academyId], references: [id])
+  tournaments  PlayerTournament[]
+  teams        Team[]               @relation("PlayerProfileToTeam")
+  attendances  SessionAttendance[]
+  academyStats PlayerAcademyStats[]
 
   @@index([academyId])
   @@index([tournamentRatings])
 }
 
+// =====================================================================
+// TOURNAMENT — money in cents (Int), category as enum
+// =====================================================================
 model Tournament {
-  id                   Int                @id @default(autoincrement())
-  tournamentUid        String             @unique @default(cuid())
+  id                   Int                 @id @default(autoincrement())
+  tournamentUid        String              @unique @default(cuid())
   name                 String
   description          String?
   location             String
   startDate            DateTime
   endDate              DateTime
-  price                Decimal
-  category             String
-  registrationFee      Decimal
+  priceCents           Int?
+  currency             String              @default("INR")
+  category             TournamentCategory?
+  tournamentStyle      TournamentStyle?
+  registrationFeeCents Int?
   registrationDeadline DateTime
   maxTeams             Int?
   maxPlayersPerTeam    Int?
-  status               Status             @default(UPCOMING)
+  status               Status              @default(UPCOMING)
   organizerId          Int?
-  isPublic             Boolean            @default(true)
+  isPublic             Boolean             @default(true)
   formatAndRules       String?
   venueImage           String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  players              PlayerTournament[]
-  teams                Team[]
-  matches              Match[]
-  organizer            User?              @relation("OrganizedTournaments", fields: [organizerId], references: [id])
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  players   PlayerTournament[]
+  teams     Team[]
+  matches   Match[]
+  organizer User?              @relation("OrganizedTournaments", fields: [organizerId], references: [id])
 
   @@index([status])
   @@index([location])
+  @@index([category])
 }
 
 model PlayerTournament {
   id           Int           @id @default(autoincrement())
   playerId     Int
   tournamentId Int
-  goals        Int?          @default(0)
-  assists      Int?          @default(0)
-  yellowCards  Int?          @default(0)
-  redCards     Int?          @default(0)
-  rating       Float?        @default(0.0)
+  goals        Int           @default(0)
+  assists      Int           @default(0)
+  yellowCards  Int           @default(0)
+  redCards     Int           @default(0)
+  rating       Float         @default(0.0)
   joinedAt     DateTime      @default(now())
   teamId       Int?
   player       PlayerProfile @relation(fields: [playerId], references: [id])
@@ -114,78 +129,105 @@ model PlayerTournament {
   @@index([tournamentId])
 }
 
+// =====================================================================
+// TEAM — status as enum, linkToken removed (see TeamShareLink)
+// =====================================================================
 model Team {
-  id                Int       @id @default(autoincrement())
-  name              String    // e.g., "Nandu's Ninjas" or "Elite FC U-15"
-  kitColour         String?   // Helps organizers avoid jersey color clashes
-  logoUrl           String?
-  
-  // State management for the Organizer's Dashboard
-  status            String    @default("PENDING") // PENDING, APPROVED, REJECTED
-  
-  // ------------------------------------------------------
-  // PATH A: THE ACADEMY SQUAD
-  // If registered by a Manager, link the business.
-  // ------------------------------------------------------
-  academyId         Int?
-  academy           Academy?  @relation(fields: [academyId], references: [id])
-  
-  // ------------------------------------------------------
-  // PATH B: THE INDEPENDENT TEAM
-  // If registered by a kid, link the Captain who made it.
-  // ------------------------------------------------------
-  captainId         Int?
-  captain           User?     @relation("TeamCaptain", fields: [captainId], references: [id])
+  id        Int                @id @default(autoincrement())
+  name      String
+  kitColour String?
+  logoUrl   String?
+  status    TeamApprovalStatus @default(PENDING)
 
-  // ------------------------------------------------------
-  // THE STAFF & DESTINATION
-  // ------------------------------------------------------
-  coachId           Int?
-  coach             Coach?    @relation(fields: [coachId], references: [id])
-  
-  tournamentId      Int
-  tournament        Tournament @relation(fields: [tournamentId], references: [id])
+  academyId Int?
+  academy   Academy? @relation(fields: [academyId], references: [id])
 
-  // ------------------------------------------------------
-  // THE PLAYERS & STATS
-  // ------------------------------------------------------
-  players           PlayerProfile[]    @relation("PlayerProfileToTeam")
-  tournamentStats   PlayerTournament[] // Your junction table for match data
-  teamInvites       TeamInvite[]
+  captainId Int?
+  captain   User? @relation("TeamCaptain", fields: [captainId], references: [id])
 
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  coachId Int?
+  coach   Coach? @relation(fields: [coachId], references: [id])
+
+  tournamentId Int
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+
+  players         PlayerProfile[]    @relation("PlayerProfileToTeam")
+  tournamentStats PlayerTournament[]
+  teamInvites     TeamInvite[]
+  shareLinks      TeamShareLink[]
+  homeMatches     Match[]            @relation("HomeTeam")
+  awayMatches     Match[]            @relation("AwayTeam")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tournamentId])
+  @@index([captainId])
+  @@index([academyId])
 }
-// This table is for the users who doesnt have any account
+
+// =====================================================================
+// TEAM SHARE LINK — revocable, hashed, captain-scoped
+// Enforce: teamId must belong to a captain-owned team (captainId NOT NULL,
+// academyId NULL). Check constraint added in migration SQL.
+// =====================================================================
+model TeamShareLink {
+  id     Int  @id @default(autoincrement())
+  teamId Int
+  team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  tokenHash   String @unique
+  createdById Int
+  createdBy   User   @relation("ShareLinkIssuer", fields: [createdById], references: [id])
+
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  lastUsedAt DateTime?
+  usedCount  Int       @default(0)
+  maxUses    Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teamId])
+  @@index([createdById])
+  @@index([expiresAt])
+}
+
+// =====================================================================
+// INVITES — status as enum
+// =====================================================================
 model TeamInvite {
-  id          Int       @id @default(autoincrement())
+  id        Int          @id @default(autoincrement())
+  email     String
+  teamId    Int
+  team      Team         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  token     String       @unique
+  expiresAt DateTime?
+  status    InviteStatus @default(PENDING)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
-  // The target: who is being invited?
-  email       String
-
-  // The destination: which team are they joining?
-  teamId      Int
-  team        Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
-
-  // Magic-link token (UUID v4) — stored and matched via Redis cache
-  token       String    @unique
-
-  // Optional expiry so old invites can be cleaned up
-  expiresAt   DateTime?
-
-  // State management
-  status      String    @default("PENDING") // PENDING, ACCEPTED, DECLINED, EXPIRED
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  // Safety net: A captain cannot spam the exact same email 5 times for the same team
   @@unique([email, teamId])
 }
+
+model AcademyInvite {
+  id        Int          @id @default(autoincrement())
+  email     String
+  role      Role         @default(COACH)
+  status    InviteStatus @default(PENDING)
+  academyId Int
+  academy   Academy      @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([email, academyId])
+}
+
+// =====================================================================
+// ACADEMY
+// =====================================================================
 model Academy {
-  id               Int               @id @default(autoincrement())
+  id               Int       @id @default(autoincrement())
   academyLogoURL   String?
   name             String
   description      String?
@@ -194,44 +236,46 @@ model Academy {
   address          String?
   state            String?
   pinCode          String?
-  licenseNo        String?           @unique
-  verified         Boolean           @default(false)
-  noOfStudents     Int?
-  contactEmail     String?           @unique
-  contactPhone     String?           @unique
+  licenseNo        String?   @unique
+  verified         Boolean   @default(false)
+  contactEmail     String?   @unique
+  contactPhone     String?   @unique
   establishedAt    DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  rating           Float?            @default(0.0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  rating           Float?    @default(0.0)
   detailedInfo     String?
-  primaryPictureId Int?              @unique
-  userId           Int?               @unique
-  primaryPicture   AcademyPicture?   @relation("PrimaryPicture", fields: [primaryPictureId], references: [id])
-  user             User?             @relation(fields: [userId], references: [id])
-  pictures         AcademyPicture[]
-  pricingPlans     AcademyPlan[]
-  schedules        AcademySchedule[]
-  coaches          Coach[]
-  players          PlayerProfile[]
-  sessions         AcademySession[]
-  matches          Match[]
-  playerStats      PlayerAcademyStats[]
-  invites          AcademyInvite[]
-  teams            Team[]
+  primaryPictureId Int?      @unique
+  userId           Int?      @unique
+
+  primaryPicture AcademyPicture?      @relation("PrimaryPicture", fields: [primaryPictureId], references: [id])
+  user           User?                @relation(fields: [userId], references: [id])
+  pictures       AcademyPicture[]
+  pricingPlans   AcademyPlan[]
+  schedules      AcademySchedule[]
+  coaches        Coach[]
+  players        PlayerProfile[]
+  sessions       AcademySession[]
+  matches        Match[]
+  playerStats    PlayerAcademyStats[]
+  invites        AcademyInvite[]
+  teams          Team[]
 
   @@index([name])
 }
 
 model AcademySchedule {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   academyId Int
-  dayOfWeek String
-  isActive  Boolean  @default(false)
+  dayOfWeek DayOfWeek
+  isActive  Boolean   @default(false)
   startTime String?
   endTime   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  academy   Academy  @relation(fields: [academyId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  academy   Academy   @relation(fields: [academyId], references: [id])
+
+  @@unique([academyId, dayOfWeek])
 }
 
 model AcademyPlan {
@@ -280,11 +324,12 @@ model AcademyPicture {
   @@index([academyId, isPrimary])
 }
 
+// =====================================================================
+// COACH — identity lives on User
+// =====================================================================
 model Coach {
   id              Int      @id @default(autoincrement())
   profilePicLogo  String?
-  firstName       String
-  lastName        String
   bio             String?
   coachEmail      String?  @unique
   experienceYears Int?
@@ -294,17 +339,21 @@ model Coach {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   userId          Int      @unique
-  academy         Academy? @relation(fields: [academyId], references: [id])
-  user            User     @relation(fields: [userId], references: [id])
-  teams           Team[]
+
+  academy Academy? @relation(fields: [academyId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  teams   Team[]
 
   @@index([academyId])
 }
 
+// =====================================================================
+// ACADEMY SESSIONS
+// =====================================================================
 model AcademySession {
   id         Int                 @id @default(autoincrement())
   date       DateTime            @default(now())
-  type       String              @default("TRAINING")
+  type       SessionType         @default(TRAINING)
   academyId  Int
   academy    Academy             @relation(fields: [academyId], references: [id])
   attendance SessionAttendance[]
@@ -325,49 +374,76 @@ model SessionAttendance {
   @@index([playerId])
 }
 
+// =====================================================================
+// MATCH — fleshed out: teams, scores, status, kickoff
+// =====================================================================
 model Match {
-  id           Int       @id @default(autoincrement())
-  date         DateTime  @default(now())
-  matchType    MatchType @default(OFFICIAL_TOURNAMENT)
-  
+  id        Int         @id @default(autoincrement())
+  matchType MatchType   @default(OFFICIAL_TOURNAMENT)
+  status    MatchStatus @default(SCHEDULED)
+
+  kickoffAt       DateTime
+  durationMinutes Int      @default(90)
+  venue           String?
+  notes           String?
+
+  homeTeamId Int?
+  homeTeam   Team? @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId Int?
+  awayTeam   Team? @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+  homeScore Int @default(0)
+  awayScore Int @default(0)
+
   tournamentId Int?
   tournament   Tournament? @relation(fields: [tournamentId], references: [id])
-  
-  academyId    Int?
-  academy      Academy?    @relation(fields: [academyId], references: [id])
+
+  academyId Int?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tournamentId])
+  @@index([academyId])
+  @@index([kickoffAt])
+  @@index([status])
+  @@index([homeTeamId])
+  @@index([awayTeamId])
 }
 
+// =====================================================================
+// PLAYER ACADEMY STATS (kept — per-academy career rollup, not derivable cheaply)
+// =====================================================================
 model PlayerAcademyStats {
-  id                Int           @id @default(autoincrement())
-  
-  officialCaps      Int           @default(0) 
-  officialGoals     Int           @default(0)
-  officialAssists   Int           @default(0)
-  officialMotm      Int           @default(0) 
-  officialAvgRating Float         @default(0.0)
+  id Int @id @default(autoincrement())
 
-  practiceMatches   Int           @default(0) 
-  practiceGoals     Int           @default(0)
-  practiceAssists   Int           @default(0)
-  practiceMotm      Int           @default(0) 
-  practiceAvgRating Float         @default(0.0)
-  
-  playerId          Int
-  player            PlayerProfile @relation(fields: [playerId], references: [id])
-  
-  academyId         Int
-  academy           Academy       @relation(fields: [academyId], references: [id])
+  officialCaps      Int   @default(0)
+  officialGoals     Int   @default(0)
+  officialAssists   Int   @default(0)
+  officialMotm      Int   @default(0)
+  officialAvgRating Float @default(0.0)
+
+  practiceMatches   Int   @default(0)
+  practiceGoals     Int   @default(0)
+  practiceAssists   Int   @default(0)
+  practiceMotm      Int   @default(0)
+  practiceAvgRating Float @default(0.0)
+
+  playerId Int
+  player   PlayerProfile @relation(fields: [playerId], references: [id])
+
+  academyId Int
+  academy   Academy @relation(fields: [academyId], references: [id])
 
   @@unique([playerId, academyId])
   @@index([playerId])
   @@index([academyId])
 }
 
-enum MatchType {
-  OFFICIAL_TOURNAMENT
-  INTERNAL_PRACTICE
-}
-
+// =====================================================================
+// ENUMS
+// =====================================================================
 enum Role {
   PLAYER
   ACADEMY
@@ -402,17 +478,95 @@ enum BillingCycle {
   SESSION
 }
 
-// THE HOLDING AREA
-model AcademyInvite {
-  id        Int      @id @default(autoincrement())
-  email     String   
-  role      Role     @default(COACH)
-  status    String   @default("PENDING") // PENDING, ACCEPTED
-  
-  academyId Int
-  academy   Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
-  
-  createdAt DateTime @default(now())
+enum MatchType {
+  OFFICIAL_TOURNAMENT
+  INTERNAL_PRACTICE
+  FRIENDLY
+}
 
-  @@unique([email, academyId]) 
+enum MatchStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  POSTPONED
+}
+
+enum TeamApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum InviteStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  REVOKED
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum SessionType {
+  TRAINING
+  MATCH
+  FITNESS
+  TACTICAL
+  RECOVERY
+  TRIAL
+}
+
+enum TournamentCategory {
+  U10
+  U12
+  U14
+  U16
+  U18
+  U21
+  OPEN
+  VETERANS
+  WOMENS
+  MIXED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum PlayerPosition {
+  GOALKEEPER
+  DEFENDER
+  MIDFIELDER
+  FORWARD
+  STRIKER
+  WINGER
+  FULLBACK
+  CENTREBACK
+  CENTRAL_MIDFIELDER
+  ATTACKING_MIDFIELDER
+  DEFENSIVE_MIDFIELDER
+}
+
+enum DominantFoot {
+  LEFT
+  RIGHT
+  BOTH
+}
+
+enum TournamentStyle {
+  KNOCKOUT
+  ROUND_ROBIN
+  HYBRID
 }

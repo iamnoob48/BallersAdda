@@ -1,12 +1,10 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { createApi } from "@reduxjs/toolkit/query/react";
+import { createBaseQueryWithReauth } from "../baseQueryWithReauth";
 
 export const academyApi = createApi({
   reducerPath: "academyApi",
 
-  baseQuery: fetchBaseQuery({
-    baseUrl: "/api/v1",
-    credentials: "include", // 🔥 ensures cookies are sent
-  }),
+  baseQuery: createBaseQueryWithReauth("/api/v1"),
 
   tagTypes: ["Academy", "AcademyList"],
 

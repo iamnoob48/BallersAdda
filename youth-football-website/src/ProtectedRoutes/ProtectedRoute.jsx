@@ -1,18 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Navigate } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { verifyUser } from "../redux/slices/authSlice";
+import { useSelector } from "react-redux";
 
 function ProtectedRoute({ children }) {
-  const dispatch = useDispatch();
   const { isAuthenticated, loading, isCoachProfileIncomplete } = useSelector((state) => state.auth);
-
-  useEffect(() => {
-    // Only verify if we don’t already know the auth state
-    if (isAuthenticated === null) {
-      dispatch(verifyUser());
-    }
-  }, [dispatch, isAuthenticated]);
 
   if (loading || isAuthenticated === null) {
     return (
@@ -23,7 +14,7 @@ function ProtectedRoute({ children }) {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/Login" replace />;
   }
 
   // Intercept Coaches who haven't completed their setup

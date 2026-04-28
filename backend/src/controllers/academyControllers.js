@@ -94,6 +94,7 @@ export const getAcademyDetailsById = async (req, res) => {
           academyLogoURL: true,
           rating: true,
           noOfStudents: true,
+          services: true,
 
           pricingPlans: {
             where: { active: true },
@@ -145,6 +146,40 @@ export const getAcademyDetailsById = async (req, res) => {
         },
       });
 
+      //Fetch Batches for AcademyBatch Table
+      const batches = await prisma.academyBatch.findMany({
+        where: {
+          academyId: parseInt(id), // Always ensure this is an integer!
+          isActive: true,
+        },
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          capacity: true,
+          ageGroup: true,
+          isActive: true,
+          createdAt: true,
+          updatedAt: true,
+          // academy: true, <-- REMOVED to prevent massive payload bloat
+          coach: {
+            select: {
+              id: true,
+              firstName: true, // Only grab what the UI needs to display the coach!
+              lastName: true,
+            }
+          },
+          // FIXED: The correct Prisma syntax for counting a relation
+          _count: {
+            select: {
+              players: true,
+            },
+          },
+        },
+        orderBy: {
+          ageGroup: 'asc', // Sorts them cleanly (e.g., U-10, U-12, U-14)
+        }
+      });
       if (!academy) return null;
 
       const DAY_MAP = {
@@ -182,10 +217,12 @@ export const getAcademyDetailsById = async (req, res) => {
         academyLogoURL: academy.academyLogoURL,
         rating: academy.rating,
         noOfStudents: academy.noOfStudents,
+        services: academy.services,
         pricing: academy.pricingPlans,
         coaches: academy.coaches,
         schedule: scheduleObj,
         pictures: academy.pictures,
+        batches: batches
       };
     });
 
@@ -275,7 +312,7 @@ export const registerAcademy = async (req, res) => {
     if (coachesEmails.length > 0) {
       for (const email of coachesEmails) {
         if (!email.trim()) continue;
-        
+
         // Basic regex check before hitting DB
         if (!/^\S+@\S+\.\S+$/.test(email)) {
           invalidEmails.push(email);

@@ -1,13 +1,15 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { Calendar, MapPin, Trophy } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Calendar, MapPin, Trophy, CheckCircle2, ExternalLink } from 'lucide-react';
 import {
   formatCurrency,
   formatTournamentDate,
   getTournamentPrimaryAction,
 } from '../../lib/tournamentUtils';
 
-export default function HeroBanner({ tournament, onPrimaryAction }) {
+export default function HeroBanner({ tournament, onPrimaryAction, isAlreadyRegistered, registeredTeamId }) {
+  const navigate = useNavigate();
   const dm = useSelector((s) => s.theme.darkMode);
   
   const isOngoing = tournament.status === 'ONGOING';
@@ -82,17 +84,34 @@ export default function HeroBanner({ tournament, onPrimaryAction }) {
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={onPrimaryAction}
-          className={`mt-6 rounded-md px-6 py-3 text-sm font-black transition-transform hover:scale-[1.02] ${
-            dm
-              ? "bg-[#00FF88] text-[#121212]"
-              : "bg-emerald-600 text-white shadow-lg shadow-emerald-400/20"
-          }`}
-        >
-          {getTournamentPrimaryAction(tournament.status)}
-        </button>
+        {isAlreadyRegistered ? (
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <div className={`inline-flex items-center gap-2 rounded-md px-4 py-3 text-sm font-black border ${dm ? 'border-[#00FF88]/30 bg-[#00FF88]/10 text-[#00FF88]' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              You are already registered for this tournament!
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/my-tournaments/${registeredTeamId}`)}
+              className={`inline-flex items-center gap-2 rounded-md px-6 py-3 text-sm font-black transition-transform hover:scale-[1.02] ${dm ? 'bg-[#00FF88] text-[#121212]' : 'bg-emerald-600 text-white shadow-lg shadow-emerald-400/20'}`}
+            >
+              <ExternalLink className="w-4 h-4" />
+              Go to Team Hub
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onPrimaryAction}
+            className={`mt-6 rounded-md px-6 py-3 text-sm font-black transition-transform hover:scale-[1.02] ${
+              dm
+                ? "bg-[#00FF88] text-[#121212]"
+                : "bg-emerald-600 text-white shadow-lg shadow-emerald-400/20"
+            }`}
+          >
+            {getTournamentPrimaryAction(tournament.status)}
+          </button>
+        )}
       </div>
     </div>
   );

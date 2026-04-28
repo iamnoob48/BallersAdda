@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
-import { Clock, ExternalLink, Share2, ClipboardList, Trophy, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, ExternalLink, Share2, ClipboardList, Trophy, MapPin, CheckCircle2 } from 'lucide-react';
 import {
   formatCurrency,
   formatTournamentDate,
@@ -12,8 +13,9 @@ const getDaysLeft = (date) => {
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 };
 
-export default function StickyActionPanel({ tournament, onPrimaryAction }) {
+export default function StickyActionPanel({ tournament, onPrimaryAction, isAlreadyRegistered, registeredTeamId }) {
   const dm = useSelector((s) => s.theme.darkMode);
+  const navigate = useNavigate();
 
   const isOngoing = tournament.status === 'ONGOING';
   const isCompleted = tournament.status === 'COMPLETED';
@@ -90,14 +92,35 @@ export default function StickyActionPanel({ tournament, onPrimaryAction }) {
       )}
 
       <div className="space-y-3">
-        <button
-          type="button"
-          onClick={onPrimaryAction}
-          className={`w-full py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 transition-all ${isOngoing || isCompleted ? (dm ? 'bg-white text-[#121212] hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-800') : (dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20 hover:shadow-[#00FF88]/40 hover:scale-[1.01]' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700 hover:shadow-emerald-500/50 hover:scale-[1.01]')} shadow-xl`}
-        >
-          {isOngoing || isCompleted ? <ExternalLink className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
-          {getTournamentPrimaryAction(tournament.status)}
-        </button>
+        {isAlreadyRegistered ? (
+          <>
+            <div className={`rounded-xl border p-4 ${dm ? 'border-[#00FF88]/30 bg-[#00FF88]/10' : 'border-emerald-200 bg-emerald-50'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className={`w-5 h-5 shrink-0 ${dm ? 'text-[#00FF88]' : 'text-emerald-600'}`} />
+                <p className={`text-sm font-black ${dm ? 'text-[#00FF88]' : 'text-emerald-700'}`}>
+                  You are already registered for this tournament!
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/my-tournaments/${registeredTeamId}`)}
+              className={`w-full py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 transition-all shadow-xl ${dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20 hover:shadow-[#00FF88]/40 hover:scale-[1.01]' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700 hover:shadow-emerald-500/50 hover:scale-[1.01]'}`}
+            >
+              <ExternalLink className="w-5 h-5" />
+              Go to Team Hub
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            onClick={onPrimaryAction}
+            className={`w-full py-4 rounded-xl font-black text-lg flex items-center justify-center gap-2 transition-all ${isOngoing || isCompleted ? (dm ? 'bg-white text-[#121212] hover:bg-gray-200' : 'bg-gray-900 text-white hover:bg-gray-800') : (dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20 hover:shadow-[#00FF88]/40 hover:scale-[1.01]' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700 hover:shadow-emerald-500/50 hover:scale-[1.01]')} shadow-xl`}
+          >
+            {isOngoing || isCompleted ? <ExternalLink className="w-5 h-5" /> : <ClipboardList className="w-5 h-5" />}
+            {getTournamentPrimaryAction(tournament.status)}
+          </button>
+        )}
 
         <button className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-colors border ${dm ? 'bg-transparent border-gray-700 hover:bg-gray-800' : 'bg-transparent border-gray-200 hover:bg-gray-50'}`}>
           <Share2 className="w-4 h-4" /> Share Event

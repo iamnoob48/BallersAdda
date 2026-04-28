@@ -21,6 +21,7 @@ export default function TournamentRegistrationPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const dm = useSelector((s) => s.theme.darkMode);
+  const { myTournaments } = useSelector((s) => s.player);
   const liveSectionRef = useRef(null);
   const registerSectionRef = useRef(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,6 +37,12 @@ export default function TournamentRegistrationPage() {
     if (tournamentResponse) return mapTournamentToCardModel(tournamentResponse);
     return routeTournament || null;
   }, [routeTournament, tournamentResponse]);
+
+  const { isAlreadyRegistered, registeredTeamId } = useMemo(() => {
+    if (!tournament || !myTournaments?.length) return { isAlreadyRegistered: false, registeredTeamId: null };
+    const entry = myTournaments.find((t) => t.tournament?.id === tournament.id);
+    return { isAlreadyRegistered: !!entry, registeredTeamId: entry?.team?.id ?? null };
+  }, [tournament, myTournaments]);
 
   const showLiveCenter = tournament?.status === 'ONGOING' || tournament?.status === 'COMPLETED';
 
@@ -103,7 +110,7 @@ export default function TournamentRegistrationPage() {
           Back to Tournaments
         </button>
 
-        <HeroBanner tournament={tournament} onPrimaryAction={handlePrimaryAction} />
+        <HeroBanner tournament={tournament} onPrimaryAction={handlePrimaryAction} isAlreadyRegistered={isAlreadyRegistered} registeredTeamId={registeredTeamId} />
         <QuickInfoStrip tournament={tournament} />
 
         <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,2fr)_360px]">
@@ -125,19 +132,31 @@ export default function TournamentRegistrationPage() {
             <StickyActionPanel
               tournament={tournament}
               onPrimaryAction={handlePrimaryAction}
+              isAlreadyRegistered={isAlreadyRegistered}
+              registeredTeamId={registeredTeamId}
             />
           </div>
         </div>
       </div>
 
       <div className={`fixed inset-x-0 bottom-0 z-40 border-t p-3 lg:hidden ${dm ? 'border-[#87A98D]/15 bg-[#121212]/95 backdrop-blur-xl' : 'border-gray-200 bg-white/95 backdrop-blur-xl'}`}>
-        <button
-          type="button"
-          onClick={handlePrimaryAction}
-          className={`w-full rounded-2xl py-3 text-sm font-black ${dm ? 'bg-[#00FF88] text-[#121212]' : 'bg-emerald-600 text-white'}`}
-        >
-          {getTournamentPrimaryAction(tournament.status)}
-        </button>
+        {isAlreadyRegistered ? (
+          <button
+            type="button"
+            onClick={() => navigate(`/my-tournaments/${registeredTeamId}`)}
+            className={`w-full rounded-2xl py-3 text-sm font-black ${dm ? 'bg-[#00FF88] text-[#121212]' : 'bg-emerald-600 text-white'}`}
+          >
+            Go to Team Hub
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={handlePrimaryAction}
+            className={`w-full rounded-2xl py-3 text-sm font-black ${dm ? 'bg-[#00FF88] text-[#121212]' : 'bg-emerald-600 text-white'}`}
+          >
+            {getTournamentPrimaryAction(tournament.status)}
+          </button>
+        )}
       </div>
 
       <RegistrationFormModal 

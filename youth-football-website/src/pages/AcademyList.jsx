@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/src/components/input";
+import { Card, CardContent, CardHeader, CardTitle } from "@/src/components/card";
 import { ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
@@ -13,7 +13,7 @@ export default function AcademyList() {
   const academies = [
     { id: 1, name: "Hyderabad Football Academy", location: "Hyderabad", description: "Elite training for youth players with professional coaches." },
     { id: 2, name: "Sky Sports Academy", location: "Hyderabad", description: "Developing young talent with world-class facilities.", },
-    { id: 3, name: "Sports Villa Academy", location: "Hyderabad", description: "Focus on grassroots football and community development."},
+    { id: 3, name: "Sports Villa Academy", location: "Hyderabad", description: "Focus on grassroots football and community development." },
   ];
 
   const filteredAcademies = academies.filter(a =>
@@ -23,7 +23,7 @@ export default function AcademyList() {
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
-        <button
+      <button
         onClick={() => navigate("/")}
         className="flex items-center gap-2 mb-4 text-green-600 hover:underline"
       >
@@ -57,7 +57,7 @@ export default function AcademyList() {
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
                     {a.name}
-                
+
                   </CardTitle>
                   <p className="text-sm">{a.location}</p>
                 </CardHeader>

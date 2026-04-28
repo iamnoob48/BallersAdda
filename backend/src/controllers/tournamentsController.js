@@ -1,6 +1,22 @@
 import prisma from "../prismaClient.js";
-import { cacheGet } from "../config/cacheUtils.js";
+import { cacheGet, cacheInvalidate, cacheDel } from "../config/cacheUtils.js";
 import redis from "../config/redisClient.js";
+import crypto from "node:crypto";
+import { v4 as uuidv4 } from "uuid";
+
+// =====================================================================
+// Constants & helpers
+// =====================================================================
+
+// Plaintext token for share link; only SHA-256 hash persisted.
+const generateShareLinkToken = () => {
+  const plain = crypto.randomBytes(24).toString("base64url");
+  const tokenHash = crypto.createHash("sha256").update(plain).digest("hex");
+  return { plain, tokenHash };
+};
+
+const hashToken = (plain) =>
+  crypto.createHash("sha256").update(plain).digest("hex");
 
 // ── Shared pagination helpers ───────────────────────────────────────────
 const parsePagination = (query) => {
@@ -9,30 +25,60 @@ const parsePagination = (query) => {
   return { page, limit, skip: (page - 1) * limit };
 };
 
+// Enum whitelists kept in sync with prisma/schema.prisma
 const VALID_STATUSES = ["UPCOMING", "ONGOING", "COMPLETED"];
 const VALID_SORTS = ["date-asc", "date-desc", "prize-desc"];
+const VALID_CATEGORIES = [
+  "U10",
+  "U12",
+  "U14",
+  "U16",
+  "U18",
+  "U21",
+  "OPEN",
+  "VETERANS",
+  "WOMENS",
+  "MIXED",
+];
 
-/**
- * GET /tournament/all
- * Fetch paginated tournaments with optional status/location/category filters.
- *
- * Query params:
- *   page     (int, default 1)
- *   limit    (int, default 10, max 50)
- *   status   (string) — UPCOMING | ONGOING | COMPLETED
- *   location (string) — partial match, case-insensitive
- *   category (string) — partial match, case-insensitive
- *   sort     (string) — date-asc | date-desc | prize-desc (default: date-asc)
- */
+// Input sanitation limits
+const TEAM_NAME_MAX = 60;
+const KIT_COLOUR_MAX = 32;
+const EMAIL_MAX = 254; // RFC 5321
+const HEX_COLOUR_RE = /^#?[0-9A-Fa-f]{3}([0-9A-Fa-f]{3})?$/;
+
+// Token namespaces kept consistent between validate/redeem + invalidation.
+const inviteKey = (tokenHash) => `tournament:invite:${tokenHash}`;
+const teamLinkKey = (tokenHash) => `tournament:team-link:${tokenHash}`;
+
+// Centralise list/detail cache invalidation so registration/join mutations
+// don't serve stale team counts.
+const invalidateTournamentCaches = async (tournamentId) => {
+  await Promise.all([
+    cacheInvalidate("tournament:list:*"),
+    tournamentId != null ? cacheDel(`tournament:detail:${tournamentId}`) : null,
+  ].filter(Boolean));
+};
+
+// Known Prisma error helper — avoids leaking stack traces while still
+// giving the client an actionable message.
+const isUniqueViolation = (e) => e && e.code === "P2002";
+const isRecordNotFound = (e) => e && e.code === "P2025";
+
+// =====================================================================
+//  GET /tournament/all
+//  Paginated tournaments with optional status/location/category filters.
+// =====================================================================
 export const getAllTournaments = async (req, res) => {
   try {
+    const userId = req.user?.id;
     const { page, limit, skip } = parsePagination(req.query);
 
     // --- Dynamic WHERE clause ---
     const where = {};
 
     if (req.query.status) {
-      const status = req.query.status.toUpperCase();
+      const status = String(req.query.status).toUpperCase();
       if (!VALID_STATUSES.includes(status)) {
         return res.status(400).json({
           message: `Invalid status. Must be one of: ${VALID_STATUSES.join(", ")}`,
@@ -43,16 +89,21 @@ export const getAllTournaments = async (req, res) => {
 
     if (req.query.location) {
       where.location = {
-        contains: req.query.location,
+        contains: String(req.query.location),
         mode: "insensitive",
       };
     }
 
+    // category is a Prisma enum — `contains` would throw at runtime.
+    // Validate against the whitelist and use exact equality.
     if (req.query.category) {
-      where.category = {
-        contains: req.query.category,
-        mode: "insensitive",
-      };
+      const category = String(req.query.category).toUpperCase();
+      if (!VALID_CATEGORIES.includes(category)) {
+        return res.status(400).json({
+          message: `Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}`,
+        });
+      }
+      where.category = category;
     }
 
     // --- Sorting ---
@@ -65,13 +116,13 @@ export const getAllTournaments = async (req, res) => {
 
     let orderBy = { startDate: "asc" };
     if (sort === "date-desc") orderBy = { startDate: "desc" };
-    if (sort === "prize-desc") orderBy = { price: "desc" };
+    if (sort === "prize-desc") orderBy = { priceCents: "desc" };
 
     // --- Cache key from query params ---
     const cacheKey = `tournament:list:${req.query.status || "all"}:${req.query.location || "all"}:${req.query.category || "all"}:${sort || "date-asc"}:p${page}:l${limit}`;
 
     const { data: result } = await cacheGet(cacheKey, 120, async () => {
-      const [totalItems, tournaments] = await Promise.all([
+      const [totalItems, tournaments, playerTournaments] = await Promise.all([
         prisma.tournament.count({ where }),
         prisma.tournament.findMany({
           where,
@@ -86,13 +137,16 @@ export const getAllTournaments = async (req, res) => {
             location: true,
             startDate: true,
             endDate: true,
-            price: true,
+            priceCents: true,
+            tournamentStyle: true,
             category: true,
-            registrationFee: true,
+            registrationFeeCents: true,
             registrationDeadline: true,
             maxTeams: true,
             maxPlayersPerTeam: true,
             venueImage: true,
+            currency: true,
+            formatAndRules: true,
             status: true,
             createdAt: true,
             _count: {
@@ -101,6 +155,14 @@ export const getAllTournaments = async (req, res) => {
                 teams: true,
               },
             },
+          },
+        }),
+        prisma.playerTournament.findMany({
+          where: {
+            playerId: userId,
+          },
+          select: {
+            tournamentId: true,
           },
         }),
       ]);
@@ -127,10 +189,10 @@ export const getAllTournaments = async (req, res) => {
   }
 };
 
-/**
- * GET /tournament/:id
- * Fetch one tournament for the detail / registration page.
- */
+// =====================================================================
+//  GET /tournament/:id
+//  Fetch one tournament for the detail / registration page.
+// =====================================================================
 export const getTournamentById = async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -152,13 +214,17 @@ export const getTournamentById = async (req, res) => {
           location: true,
           startDate: true,
           endDate: true,
-          price: true,
+          priceCents: true,
+          currency: true,
           category: true,
-          registrationFee: true,
+          tournamentStyle: true,
+          registrationFeeCents: true,
           registrationDeadline: true,
           maxTeams: true,
           maxPlayersPerTeam: true,
           status: true,
+          formatAndRules: true,
+          venueAddressLink: true,
           venueImage: true,
           createdAt: true,
           _count: {
@@ -183,34 +249,50 @@ export const getTournamentById = async (req, res) => {
 };
 
 // =====================================================================
-//  POST /tournaments/verify-players
+//  POST /tournament/verify-players
 // =====================================================================
 export const verifyRosterPlayers = async (req, res) => {
   try {
-    const { emails } = req.body;
-    if (!emails || !Array.isArray(emails)) {
+    const { emails } = req.body || {};
+    if (!Array.isArray(emails)) {
       return res.status(400).json({ message: "Emails array is required." });
     }
 
-    const uniqueEmails = [...new Set(emails.map(e => e.trim().toLowerCase()).filter(e => e.length > 0))];
+    const uniqueEmails = [
+      ...new Set(
+        emails
+          .map((e) => String(e || "").trim().toLowerCase())
+          .filter((e) => e.length > 0 && e.length <= EMAIL_MAX)
+      ),
+    ];
 
-    // Look up all users with these emails
+    if (uniqueEmails.length === 0) {
+      return res.status(200).json({ validPlayerProfiles: [] });
+    }
+
+    // Case-insensitive lookup — User.email is case-sensitive unique in Postgres
+    // but users may type with mixed case. Matches registerTeam behaviour.
     const users = await prisma.user.findMany({
-      where: { email: { in: uniqueEmails } },
-      include: { playerProfile: { select: { id: true } } }
+      where: {
+        OR: uniqueEmails.map((e) => ({
+          email: { equals: e, mode: "insensitive" },
+        })),
+      },
+      select: {
+        email: true,
+        role: true,
+        playerProfile: { select: { id: true } },
+      },
     });
 
-    const emailMap = {};
-    users.forEach(u => {
-      emailMap[u.email.toLowerCase()] = u;
-    });
+    const emailMap = new Map(users.map((u) => [u.email.toLowerCase(), u]));
 
     const failedEmails = [];
     const validPlayerProfiles = [];
 
     for (const email of uniqueEmails) {
-      const u = emailMap[email];
-      if (!u || u.role !== 'PLAYER' || !u.playerProfile) {
+      const u = emailMap.get(email);
+      if (!u || u.role !== "PLAYER" || !u.playerProfile) {
         failedEmails.push(email);
       } else {
         validPlayerProfiles.push(u.playerProfile.id);
@@ -220,7 +302,7 @@ export const verifyRosterPlayers = async (req, res) => {
     if (failedEmails.length > 0) {
       return res.status(400).json({
         message: "Some emails do not belong to active Player accounts.",
-        failedEmails
+        failedEmails,
       });
     }
 
@@ -232,142 +314,266 @@ export const verifyRosterPlayers = async (req, res) => {
 };
 
 // =====================================================================
-//  POST /tournaments/:id/registerTeam
+//  POST /tournament/:id/registerTeam
 // =====================================================================
-import { v4 as uuidv4 } from 'uuid'; // Standard library for generating tokens
-
 export const registerTeam = async (req, res) => {
   try {
     const tournamentId = parseInt(req.params.id, 10);
-    const captainId = req.user.id;
-    const { teamName, kitColour, emails } = req.body || {};
-
-
-    if (!teamName) {
-      return res.status(400).json({ message: "Team name is required." });
+    if (!Number.isInteger(tournamentId) || tournamentId <= 0) {
+      return res.status(400).json({ message: "Invalid tournament ID." });
     }
 
-    // ── Validation ──
+    const captainId = req.user.id;
+    const { teamName, kitColour, emails, rosterMode } = req.body || {};
+    const useShareLink = rosterMode === "link";
+
+    // --- Input sanitation ---
+    const trimmedName = typeof teamName === "string" ? teamName.trim() : "";
+    if (!trimmedName) {
+      return res.status(400).json({ message: "Team name is required." });
+    }
+    if (trimmedName.length > TEAM_NAME_MAX) {
+      return res.status(400).json({
+        message: `Team name must be ${TEAM_NAME_MAX} characters or fewer.`,
+      });
+    }
+
+    let kitColourValue = null;
+    if (kitColour != null && String(kitColour).trim() !== "") {
+      const kc = String(kitColour).trim();
+      if (kc.length > KIT_COLOUR_MAX) {
+        return res
+          .status(400)
+          .json({ message: "Kit colour value is too long." });
+      }
+      // Accept either a hex colour or a short free-form label (e.g. "Navy").
+      if (kc.startsWith("#") && !HEX_COLOUR_RE.test(kc)) {
+        return res
+          .status(400)
+          .json({ message: "Kit colour must be a valid hex code." });
+      }
+      kitColourValue = kc;
+    }
+
+    if (req.user.role !== "PLAYER") {
+      return res.status(403).json({
+        message: "Only players can register an independent street team.",
+      });
+    }
+
+    // Tournament validation (initial, optimistic check — the authoritative
+    // maxTeams guard runs *inside* the transaction below to avoid a race
+    // where two concurrent registrations both see teams < maxTeams).
     const tournament = await prisma.tournament.findUnique({
       where: { id: tournamentId },
-      select: { status: true, maxTeams: true, _count: { select: { teams: true } } },
+      select: {
+        status: true,
+        maxTeams: true,
+        registrationDeadline: true,
+        _count: { select: { teams: true } },
+      },
     });
 
     if (!tournament) {
       return res.status(404).json({ message: "Tournament not found." });
     }
-
-    if (tournament.status !== 'UPCOMING') {
-      return res.status(400).json({ message: "Registration is not open for this tournament." });
+    if (tournament.status !== "UPCOMING") {
+      return res
+        .status(400)
+        .json({ message: "Registration is not open for this tournament." });
+    }
+    if (
+      tournament.registrationDeadline &&
+      new Date() > tournament.registrationDeadline
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Registration deadline has passed." });
+    }
+    if (
+      tournament.maxTeams &&
+      tournament._count.teams >= tournament.maxTeams
+    ) {
+      return res
+        .status(400)
+        .json({ message: "This tournament is already full." });
     }
 
-    if (tournament._count.teams >= tournament.maxTeams) {
-      return res.status(400).json({ message: "This tournament is already full." });
-    }
-    //Check thier role when 
-
-
-    if (req.user.role !== 'PLAYER') {
-      return res.status(403).json({ message: "Only players can register an independent street team." });
-    }
-
-    // 1. Clean the emails and always include the Captain in the roster!
-    const rawEmails = emails
-      ? [...new Set(emails.map(e => e.trim().toLowerCase()).filter(e => e.length > 0))]
-      : [];
-    const uniqueEmails = [...new Set([...rawEmails, req.user.email])].filter(Boolean);
-
-    // 2. Find who actually exists in the database right now
-    const existingUsers = await prisma.user.findMany({
-      where: { email: { in: uniqueEmails } },
-      include: {
-        playerProfile: true
-
-      }
+    // Captain must have a completed PlayerProfile (Team.players is PlayerProfile[]).
+    const captain = await prisma.user.findUnique({
+      where: { id: captainId },
+      select: { email: true, playerProfile: { select: { id: true } } },
     });
+    if (!captain?.playerProfile) {
+      return res.status(400).json({
+        message: "Please complete your player profile before registering a team.",
+      });
+    }
 
-    // 3. Sort emails into two buckets: "Ready to Connect" and "Needs Invite"
-    const validPlayerIds = [];
-    const validProfileIds = []; // For the PlayerTournament stats table
+    // Guard: captain already registered for this tournament?
+    const existingEntry = await prisma.playerTournament.findUnique({
+      where: {
+        playerId_tournamentId: {
+          playerId: captain.playerProfile.id,
+          tournamentId,
+        },
+      },
+      select: { id: true },
+    });
+    if (existingEntry) {
+      return res.status(400).json({ message: "You are already registered for this tournament." });
+    }
+
+    // Normalize invited emails (captain auto-included via playerProfile connect below)
+    const invitedEmails = Array.isArray(emails)
+      ? [
+        ...new Set(
+          emails
+            .map((e) => String(e || "").trim().toLowerCase())
+            .filter((e) => e.length > 0 && e.length <= EMAIL_MAX)
+        ),
+      ]
+      : [];
+    const captainEmailLower = captain.email.toLowerCase();
+    const rosterEmails = invitedEmails.filter((e) => e !== captainEmailLower);
+
+    // Case-insensitive user lookup
+    const existingUsers = rosterEmails.length
+      ? await prisma.user.findMany({
+        where: {
+          OR: rosterEmails.map((e) => ({
+            email: { equals: e, mode: "insensitive" },
+          })),
+        },
+        select: {
+          email: true,
+          role: true,
+          playerProfile: { select: { id: true } },
+        },
+      })
+      : [];
+
+    const existingByEmail = new Map(
+      existingUsers.map((u) => [u.email.toLowerCase(), u])
+    );
+
+    // Captain profile always connected; then friends with completed profiles
+    const connectProfiles = [{ id: captain.playerProfile.id }];
+    const statRowProfileIds = [captain.playerProfile.id];
     const emailsToInvite = [];
 
-    for (const email of uniqueEmails) {
-      const u = existingUsers.find(user => user.email === email);
-
-      // A player can only be directly connected if they have a completed PlayerProfile.
-      // Team.players is a PlayerProfile[] relation — connecting by User.id would cause P2025.
-      if (u && u.role === 'PLAYER' && u.playerProfile) {
-        validPlayerIds.push({ id: u.playerProfile.id }); // PlayerProfile.id, not User.id
-        validProfileIds.push(u.playerProfile.id);
+    for (const email of rosterEmails) {
+      const u = existingByEmail.get(email);
+      if (u && u.role === "PLAYER" && u.playerProfile) {
+        connectProfiles.push({ id: u.playerProfile.id });
+        statRowProfileIds.push(u.playerProfile.id);
       } else {
-        // No account, wrong role, or profile not yet completed → send an invite instead.
         emailsToInvite.push(email);
       }
     }
 
-    // Determine initial status based on whether we are waiting for friends
-    const initialStatus = emailsToInvite.length > 0 ? "WAITING_FOR_PLAYERS" : "PENDING_APPROVAL";
+    // Share link only generated in link mode; plaintext returned once, only hash stored.
+    const shareLink = useShareLink ? generateShareLinkToken() : null;
 
-    // Generate a generic shareable invite link token for this team
-    const linkToken = uuidv4();
-
-    // 4. Execute the Transaction
     const newTeam = await prisma.$transaction(async (tx) => {
+      // Authoritative capacity check inside the tx closes the TOCTOU window
+      // between the optimistic check and the insert.
+      if (tournament.maxTeams) {
+        const currentCount = await tx.team.count({ where: { tournamentId } });
+        if (currentCount >= tournament.maxTeams) {
+          const err = new Error("TOURNAMENT_FULL");
+          err.code = "TOURNAMENT_FULL";
+          throw err;
+        }
+      }
 
-      // A. Create the Team and connect the existing users
       const team = await tx.team.create({
         data: {
-          name: teamName,
-          kitColour: kitColour || null,
+          name: trimmedName,
+          kitColour: kitColourValue,
           tournamentId,
           captainId,
-          status: initialStatus,
-          linkToken,
-          players: {
-            connect: validPlayerIds // Connects captain and any friends who already have accounts
-          }
+          status: "PENDING",
+          players: { connect: connectProfiles },
         },
       });
 
-      // B. Create the TeamInvites for the friends who don't have accounts yet
-      if (emailsToInvite.length > 0) {
-        const invitePayload = emailsToInvite.map(email => ({
-          email,
-          teamId: team.id,
-          token: uuidv4(), // Generate secure token
-          status: "PENDING"
-        }));
-        await tx.teamInvite.createMany({ data: invitePayload });
+      if (shareLink) {
+        await tx.teamShareLink.create({
+          data: {
+            teamId: team.id,
+            tokenHash: shareLink.tokenHash,
+            createdById: captainId,
+          },
+        });
       }
 
-      // C. Generate PlayerTournament junction rows for stats (only for existing profiles)
-      if (validProfileIds.length > 0) {
-        const playerTournamentPayload = validProfileIds.map(profileId => ({
-          playerId: profileId,
-          tournamentId,
-          teamId: team.id
+      if (!useShareLink && emailsToInvite.length > 0) {
+        const invitePayload = emailsToInvite.map((email) => ({
+          email,
+          teamId: team.id,
+          token: uuidv4(),
+          status: "PENDING",
         }));
+        await tx.teamInvite.createMany({
+          data: invitePayload,
+          skipDuplicates: true,
+        });
+      }
 
+      if (statRowProfileIds.length > 0) {
         await tx.playerTournament.createMany({
-          data: playerTournamentPayload,
-          skipDuplicates: true
+          data: statRowProfileIds.map((profileId) => ({
+            playerId: profileId,
+            tournamentId,
+            teamId: team.id,
+          })),
+          skipDuplicates: true,
         });
       }
 
       return team;
     });
 
-    // TODO: Trigger your background job here to actually send the emails using SendGrid/Resend
+    // Invalidate cached list/detail so the new _count.teams is visible immediately.
+    // Fire-and-forget: Redis errors must not break a successful registration.
+    invalidateTournamentCaches(tournamentId).catch((err) =>
+      console.error("Cache invalidation after registerTeam failed:", err.message)
+    );
+
+    // TODO: background job — send invite emails via SendGrid/Resend
+
+    const message = useShareLink
+      ? "Team created! Share the invite link with your squad."
+      : emailsToInvite.length > 0
+        ? `Team created! Sent invites to ${emailsToInvite.length} missing players.`
+        : "Team successfully registered and pending approval.";
 
     return res.status(201).json({
-      message: emailsToInvite.length > 0
-        ? `Team created! Sent invites to ${emailsToInvite.length} missing players.`
-        : "Team successfully registered and ready for approval.",
+      message,
       team: newTeam,
-      linkToken,
+      ...(shareLink && { linkToken: shareLink.plain }),
     });
-
   } catch (error) {
+    if (error && error.code === "TOURNAMENT_FULL") {
+      return res
+        .status(409)
+        .json({ message: "This tournament filled up before we could register your team." });
+    }
+    if (isUniqueViolation(error)) {
+      // P2002 on PlayerTournament unique index means double-registration
+      const target = error.meta?.target;
+      const isPlayerTournamentViolation =
+        Array.isArray(target)
+          ? target.includes("playerId") && target.includes("tournamentId")
+          : typeof target === "string" && target.includes("PlayerTournament");
+      if (isPlayerTournamentViolation) {
+        return res.status(400).json({ message: "You are already registered for this tournament." });
+      }
+      return res
+        .status(409)
+        .json({ message: "A duplicate team or invite already exists." });
+    }
     console.error("Error in registerTeam:", error);
     return res.status(500).json({ message: "Server error" });
   }
@@ -381,12 +587,17 @@ export const registerTeam = async (req, res) => {
 export const validateInviteToken = async (req, res) => {
   try {
     const { token } = req.query;
-    if (!token) return res.status(400).json({ message: "Token is required." });
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Token is required." });
+    }
 
-    const cacheKey = `invite:token:${token}`;
+    // Cache by hash (not plaintext) to keep key shape consistent with
+    // team-link and avoid raw tokens appearing in Redis key dumps.
+    const tokenHash = hashToken(token);
+    const cacheKey = inviteKey(tokenHash);
 
     // Serve from Redis if already cached
-    const cached = await redis.get(cacheKey);
+    const cached = await redis.get(cacheKey).catch(() => null);
     if (cached) {
       return res.status(200).json({ invite: JSON.parse(cached) });
     }
@@ -416,7 +627,9 @@ export const validateInviteToken = async (req, res) => {
     });
 
     if (!invite) {
-      return res.status(404).json({ message: "Invite link not found or has expired." });
+      return res
+        .status(404)
+        .json({ message: "Invite link not found or has expired." });
     }
     if (invite.status !== "PENDING") {
       return res.status(410).json({
@@ -432,7 +645,9 @@ export const validateInviteToken = async (req, res) => {
     };
 
     // Cache for 30 minutes so the redeem step can skip a DB lookup
-    await redis.setex(cacheKey, 30 * 60, JSON.stringify(inviteData));
+    await redis
+      .setex(cacheKey, 30 * 60, JSON.stringify(inviteData))
+      .catch((err) => console.error("Redis SETEX error:", err.message));
 
     return res.status(200).json({ invite: inviteData });
   } catch (error) {
@@ -446,40 +661,75 @@ export const validateInviteToken = async (req, res) => {
 //  1. Reads invite data from Redis (or falls back to DB)
 //  2. Verifies the logged-in user's email matches the invite email
 //  3. Connects player profile → team, upserts PlayerTournament stats row
-//  4. Marks invite ACCEPTED; upgrades team status if no invites remain
+//  4. Marks invite ACCEPTED
 // =====================================================================
 export const redeemInviteToken = async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ message: "Token is required." });
+    const { token } = req.body || {};
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Token is required." });
+    }
 
-    const cacheKey = `invite:token:${token}`;
+    const tokenHash = hashToken(token);
+    const cacheKey = inviteKey(tokenHash);
 
-    // 1. Resolve invite data — Redis first, then DB fallback
+    // 1. Resolve invite data — Redis first, then DB fallback.
+    // We need teamId + tournamentId in one shot to avoid a second tx query.
     let inviteData = null;
-    const cached = await redis.get(cacheKey);
+    const cached = await redis.get(cacheKey).catch(() => null);
     if (cached) {
       inviteData = JSON.parse(cached);
-    } else {
-      const invite = await prisma.teamInvite.findUnique({ where: { token } });
+    }
+
+    // Even on cache hit, the cached payload may lack tournamentId (older
+    // cache shape). Fall through to DB if tournamentId is missing.
+    if (!inviteData || inviteData.tournamentId == null) {
+      const invite = await prisma.teamInvite.findUnique({
+        where: { token },
+        select: {
+          id: true,
+          email: true,
+          teamId: true,
+          status: true,
+          team: { select: { tournamentId: true } },
+        },
+      });
       if (invite && invite.status === "PENDING") {
-        inviteData = { inviteId: invite.id, email: invite.email, teamId: invite.teamId };
+        inviteData = {
+          inviteId: invite.id,
+          email: invite.email,
+          teamId: invite.teamId,
+          tournamentId: invite.team.tournamentId,
+        };
+      } else {
+        inviteData = null;
       }
     }
 
     if (!inviteData) {
-      return res.status(404).json({ message: "Invite not found or has already been used." });
+      return res
+        .status(404)
+        .json({ message: "Invite not found or has already been used." });
     }
 
-    // 2. Fetch the logged-in user (email is not in the JWT payload, so we hit DB once)
+    // 2. Fetch current user + player profile in a single query.
     const currentUser = await prisma.user.findUnique({
       where: { id: req.user.id },
-      select: { id: true, email: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        playerProfile: { select: { id: true } },
+      },
     });
-    if (!currentUser) return res.status(404).json({ message: "User not found." });
+    if (!currentUser) {
+      return res.status(404).json({ message: "User not found." });
+    }
 
     // 3. Email must match what the captain originally entered
-    if (currentUser.email.toLowerCase() !== inviteData.email.toLowerCase()) {
+    if (
+      currentUser.email.toLowerCase() !== inviteData.email.toLowerCase()
+    ) {
       return res.status(403).json({
         message: `This invite was sent to ${inviteData.email}. Please log in with that account.`,
       });
@@ -487,72 +737,60 @@ export const redeemInviteToken = async (req, res) => {
 
     // 4. Only players can join a team
     if (currentUser.role !== "PLAYER") {
-      return res.status(403).json({ message: "Only players can accept team invites." });
+      return res
+        .status(403)
+        .json({ message: "Only players can accept team invites." });
     }
 
     // 5. Player profile must exist before they can be rostered
-    const playerProfile = await prisma.playerProfile.findUnique({
-      where: { userId: currentUser.id },
-    });
-    if (!playerProfile) {
+    if (!currentUser.playerProfile) {
       return res.status(400).json({
         message: "Please complete your player profile before joining a team.",
       });
     }
+    const playerProfileId = currentUser.playerProfile.id;
 
-    // 6. Transactional join
+    // 6. Transactional join — no redundant team.findUnique; teamId +
+    //    tournamentId already resolved above.
     await prisma.$transaction(async (tx) => {
-      // Connect player profile to the team
       await tx.team.update({
         where: { id: inviteData.teamId },
-        data: { players: { connect: { id: playerProfile.id } } },
+        data: { players: { connect: { id: playerProfileId } } },
       });
 
-      // Grab the tournament ID from the team
-      const team = await tx.team.findUnique({
-        where: { id: inviteData.teamId },
-        select: { tournamentId: true },
-      });
-
-      // Upsert tournament stats row
       await tx.playerTournament.upsert({
         where: {
           playerId_tournamentId: {
-            playerId: playerProfile.id,
-            tournamentId: team.tournamentId,
+            playerId: playerProfileId,
+            tournamentId: inviteData.tournamentId,
           },
         },
         create: {
-          playerId: playerProfile.id,
-          tournamentId: team.tournamentId,
+          playerId: playerProfileId,
+          tournamentId: inviteData.tournamentId,
           teamId: inviteData.teamId,
         },
         update: { teamId: inviteData.teamId },
       });
 
-      // Mark invite as accepted
       await tx.teamInvite.update({
         where: { token },
         data: { status: "ACCEPTED" },
       });
-
-      // If no pending invites remain, promote team to PENDING_APPROVAL
-      const pendingCount = await tx.teamInvite.count({
-        where: { teamId: inviteData.teamId, status: "PENDING" },
-      });
-      if (pendingCount === 0) {
-        await tx.team.update({
-          where: { id: inviteData.teamId },
-          data: { status: "PENDING_APPROVAL" },
-        });
-      }
     });
 
     // 7. Evict the Redis key so the token cannot be reused
-    await redis.del(cacheKey);
+    await cacheDel(cacheKey);
 
-    return res.status(200).json({ message: "You've successfully joined the team!" });
+    return res
+      .status(200)
+      .json({ message: "You've successfully joined the team!" });
   } catch (error) {
+    if (isRecordNotFound(error)) {
+      return res
+        .status(404)
+        .json({ message: "Invite or team no longer exists." });
+    }
     console.error("Error redeeming invite token:", error);
     return res.status(500).json({ message: "Server error" });
   }
@@ -566,48 +804,82 @@ export const redeemInviteToken = async (req, res) => {
 export const validateTeamLink = async (req, res) => {
   try {
     const { token } = req.query;
-    if (!token) return res.status(400).json({ message: "Token is required." });
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Token is required." });
+    }
 
-    const cacheKey = `team:link:${token}`;
+    const tokenHash = hashToken(token);
+    const cacheKey = teamLinkKey(tokenHash);
 
-    const cached = await redis.get(cacheKey);
+    const cached = await redis.get(cacheKey).catch(() => null);
     if (cached) {
       return res.status(200).json({ team: JSON.parse(cached) });
     }
 
-    const team = await prisma.team.findUnique({
-      where: { linkToken: token },
+    const shareLink = await prisma.teamShareLink.findUnique({
+      where: { tokenHash },
       select: {
-        id: true,
-        name: true,
-        kitColour: true,
-        status: true,
-        captain: { select: { username: true } },
-        tournament: {
+        revokedAt: true,
+        expiresAt: true,
+        maxUses: true,
+        usedCount: true,
+        team: {
           select: {
             id: true,
             name: true,
-            category: true,
-            startDate: true,
-            location: true,
+            kitColour: true,
+            status: true,
+            captain: { select: { username: true } },
+            tournament: {
+              select: {
+                id: true,
+                name: true,
+                category: true,
+                startDate: true,
+                location: true,
+              },
+            },
           },
         },
       },
     });
 
-    if (!team) {
-      return res.status(404).json({ message: "Invite link not found or is invalid." });
+    if (!shareLink) {
+      return res
+        .status(404)
+        .json({ message: "Invite link not found or is invalid." });
+    }
+    if (shareLink.revokedAt) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has been revoked." });
+    }
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has expired." });
+    }
+    if (
+      shareLink.maxUses !== null &&
+      shareLink.usedCount >= shareLink.maxUses
+    ) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has reached its usage limit." });
+    }
+    if (shareLink.team.status === "REJECTED") {
+      return res
+        .status(410)
+        .json({ message: "This team's registration was rejected." });
     }
 
-    // Don't allow joining teams that are already approved/rejected
-    if (team.status === "REJECTED") {
-      return res.status(410).json({ message: "This team's registration was rejected." });
-    }
+    // Cache only 60s: team.status may change (APPROVED/REJECTED) and stale
+    // reads could surface a rejected team. Redeem path re-checks anyway.
+    await redis
+      .setex(cacheKey, 60, JSON.stringify(shareLink.team))
+      .catch((err) => console.error("Redis SETEX error:", err.message));
 
-    // Cache for 10 minutes
-    await redis.setex(cacheKey, 10 * 60, JSON.stringify(team));
-
-    return res.status(200).json({ team });
+    return res.status(200).json({ team: shareLink.team });
   } catch (error) {
     console.error("Error validating team link:", error);
     return res.status(500).json({ message: "Server error" });
@@ -621,35 +893,78 @@ export const validateTeamLink = async (req, res) => {
 // =====================================================================
 export const redeemTeamLink = async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token) return res.status(400).json({ message: "Token is required." });
+    const { token } = req.body || {};
+    if (!token || typeof token !== "string") {
+      return res.status(400).json({ message: "Token is required." });
+    }
 
-    // 1. Look up the team by its linkToken
-    const team = await prisma.team.findUnique({
-      where: { linkToken: token },
+    const tokenHash = hashToken(token);
+
+    const shareLink = await prisma.teamShareLink.findUnique({
+      where: { tokenHash },
       select: {
         id: true,
-        status: true,
-        tournamentId: true,
-        players: { select: { userId: true } },
+        revokedAt: true,
+        expiresAt: true,
+        maxUses: true,
+        usedCount: true,
+        team: {
+          select: {
+            id: true,
+            status: true,
+            tournamentId: true,
+            players: { select: { userId: true } },
+          },
+        },
       },
     });
 
-    if (!team) {
-      return res.status(404).json({ message: "Invite link not found or is invalid." });
+    if (!shareLink) {
+      return res
+        .status(404)
+        .json({ message: "Invite link not found or is invalid." });
     }
+    if (shareLink.revokedAt) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has been revoked." });
+    }
+    if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has expired." });
+    }
+    if (
+      shareLink.maxUses !== null &&
+      shareLink.usedCount >= shareLink.maxUses
+    ) {
+      return res
+        .status(410)
+        .json({ message: "This invite link has reached its usage limit." });
+    }
+
+    const team = shareLink.team;
     if (team.status === "REJECTED") {
-      return res.status(410).json({ message: "This team's registration was rejected." });
+      return res
+        .status(410)
+        .json({ message: "This team's registration was rejected." });
     }
 
-    // 2. Only players can join
     if (req.user.role !== "PLAYER") {
-      return res.status(403).json({ message: "Only players can join a team." });
+      return res
+        .status(403)
+        .json({ message: "Only players can join a team." });
     }
 
-    // 3. Must have a completed player profile
+    if (team.players.some((p) => p.userId === req.user.id)) {
+      return res
+        .status(409)
+        .json({ message: "You are already on this team." });
+    }
+
     const playerProfile = await prisma.playerProfile.findUnique({
       where: { userId: req.user.id },
+      select: { id: true },
     });
     if (!playerProfile) {
       return res.status(400).json({
@@ -657,14 +972,30 @@ export const redeemTeamLink = async (req, res) => {
       });
     }
 
-    // 4. Prevent duplicate membership
-    const alreadyOnTeam = team.players.some((p) => p.userId === req.user.id);
-    if (alreadyOnTeam) {
-      return res.status(409).json({ message: "You are already on this team." });
-    }
-
-    // 5. Transactional join
     await prisma.$transaction(async (tx) => {
+      // Atomic maxUses guard: only bump if still under the limit. Prevents a
+      // race where two redeems both pass the pre-check and exceed maxUses.
+      const bump = await tx.teamShareLink.updateMany({
+        where: {
+          id: shareLink.id,
+          revokedAt: null,
+          OR: [
+            { maxUses: null },
+            ...(shareLink.maxUses != null ? [{ usedCount: { lt: shareLink.maxUses } }] : []),
+          ],
+        },
+        data: {
+          usedCount: { increment: 1 },
+          lastUsedAt: new Date(),
+        },
+      });
+
+      if (bump.count === 0) {
+        const err = new Error("LINK_EXHAUSTED");
+        err.code = "LINK_EXHAUSTED";
+        throw err;
+      }
+
       await tx.team.update({
         where: { id: team.id },
         data: { players: { connect: { id: playerProfile.id } } },
@@ -684,26 +1015,22 @@ export const redeemTeamLink = async (req, res) => {
         },
         update: { teamId: team.id },
       });
-
-      // If team was waiting for players, promote to PENDING_APPROVAL
-      if (team.status === "WAITING_FOR_PLAYERS") {
-        const pendingInvites = await tx.teamInvite.count({
-          where: { teamId: team.id, status: "PENDING" },
-        });
-        if (pendingInvites === 0) {
-          await tx.team.update({
-            where: { id: team.id },
-            data: { status: "PENDING_APPROVAL" },
-          });
-        }
-      }
     });
 
-    // Invalidate the team cache so the next validate call reflects the new member count
-    await redis.del(`team:link:${token}`);
+    await cacheDel(teamLinkKey(tokenHash));
 
-    return res.status(200).json({ message: "You've successfully joined the team!" });
+    return res
+      .status(200)
+      .json({ message: "You've successfully joined the team!" });
   } catch (error) {
+    if (error && error.code === "LINK_EXHAUSTED") {
+      return res
+        .status(410)
+        .json({ message: "This invite link has reached its usage limit." });
+    }
+    if (isRecordNotFound(error)) {
+      return res.status(404).json({ message: "Team no longer exists." });
+    }
     console.error("Error redeeming team link:", error);
     return res.status(500).json({ message: "Server error" });
   }

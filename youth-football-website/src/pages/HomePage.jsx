@@ -1,8 +1,8 @@
 import React from "react";
-import HeroHome from "../HomeComponents/HeroHome";
+import HomePageMain from "../HomeComponents/HomePageMain";
 
 function HomePage() {
-  return <HeroHome />;
+  return <HomePageMain />;
 }
 
 export default HomePage;

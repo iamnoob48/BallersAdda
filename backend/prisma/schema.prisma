@@ -60,14 +60,17 @@ model PlayerProfile {
   trainingRatings   Float?           @default(0.0)
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
-
+  batchId           Int?
+  
   userId       Int                  @unique
   user         User                 @relation(fields: [userId], references: [id])
   academy      Academy?             @relation(fields: [academyId], references: [id])
+  academyBatch AcademyBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
   tournaments  PlayerTournament[]
   teams        Team[]               @relation("PlayerProfileToTeam")
   attendances  SessionAttendance[]
   academyStats PlayerAcademyStats[]
+  enrollments  AcademyEnrollment[]
 
   @@index([academyId])
   @@index([tournamentRatings])
@@ -96,6 +99,7 @@ model Tournament {
   organizerId          Int?
   isPublic             Boolean             @default(true)
   formatAndRules       String?
+  venueAddressLink     String?
   venueImage           String?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
@@ -223,9 +227,8 @@ model AcademyInvite {
   @@unique([email, academyId])
 }
 
-// =====================================================================
+
 // ACADEMY
-// =====================================================================
 model Academy {
   id               Int       @id @default(autoincrement())
   academyLogoURL   String?
@@ -244,7 +247,10 @@ model Academy {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
   rating           Float?    @default(0.0)
+  noOfReviews      Int?      @default(0)
   detailedInfo     String?
+  services         String[]  @default(["Football"])
+  noOfStudents     Int?      @default(0)
   primaryPictureId Int?      @unique
   userId           Int?      @unique
 
@@ -255,11 +261,13 @@ model Academy {
   schedules      AcademySchedule[]
   coaches        Coach[]
   players        PlayerProfile[]
+  batches        AcademyBatch[]
   sessions       AcademySession[]
   matches        Match[]
   playerStats    PlayerAcademyStats[]
   invites        AcademyInvite[]
   teams          Team[]
+  enrollments    AcademyEnrollment[]
 
   @@index([name])
 }
@@ -290,10 +298,12 @@ model AcademyPlan {
   features     Json?
   isDefault    Boolean      @default(false)
   recommended  Boolean      @default(false)
+  haveFreeTrial Boolean     @default(false)
   active       Boolean      @default(true)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
   academy      Academy      @relation(fields: [academyId], references: [id])
+  enrollments  AcademyEnrollment[]
 
   @@index([academyId])
 }
@@ -324,11 +334,69 @@ model AcademyPicture {
   @@index([academyId, isPrimary])
 }
 
+//Batches
+
+model AcademyBatch {
+  id          Int      @id @default(autoincrement())
+  academyId   Int
+  name        String   // e.g., "U-14 Elite Squad"
+  description String?
+  capacity    Int      @default(20) // Pro-tip: Make this required with a default so your UI can always calculate "Spots Left: X"
+  ageGroup    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 1. The Academy Relation (Cascade is good here. If the academy closes, the batch dies)
+  academy     Academy  @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  // 2. The Coach Relation (FIXED: SetNull prevents deleting the batch if coach leaves)
+  coachId     Int?
+  coach       Coach?   @relation(fields: [coachId], references: [id], onDelete: SetNull)
+
+  // 3. The Players Relation (The missing link!)
+  // This creates a 1-to-Many relationship (One batch has many players)
+  players     PlayerProfile[] 
+  enrollments AcademyEnrollment[]
+
+  @@index([academyId])
+  @@index([coachId])
+}
+
+//To keep the data of the previous academy
+
+model AcademyEnrollment {
+  id        Int      @id @default(autoincrement())
+  playerId  Int      //can be null if player is deleted
+  academyId Int      //can be null if academy is deleted
+  batchId   Int?     //can be null if batch is deleted
+  planId    Int?     //can be null if plan is deleted
+  status    EnrollmentStatus @default(ACTIVE)
+  joinedAt  DateTime @default(now())
+  leftAt    DateTime?
+
+  player    PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  batch     AcademyBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  plan      AcademyPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@index([playerId])
+  @@index([academyId])
+  @@index([batchId])
+  @@index([planId])
+
+  
+  
+}
+
+
 // =====================================================================
 // COACH — identity lives on User
 // =====================================================================
 model Coach {
   id              Int      @id @default(autoincrement())
+  firstName       String?
+  lastName        String?
   profilePicLogo  String?
   bio             String?
   coachEmail      String?  @unique
@@ -342,6 +410,7 @@ model Coach {
 
   academy Academy? @relation(fields: [academyId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
+  batches AcademyBatch[]
   teams   Team[]
 
   @@index([academyId])
@@ -504,6 +573,13 @@ enum InviteStatus {
   DECLINED
   EXPIRED
   REVOKED
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  FORMER
+  CANCELLED
+  FREE_TRIAL
 }
 
 enum DayOfWeek {

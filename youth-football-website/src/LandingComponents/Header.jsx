@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/src/components/button";
 import { Menu, X } from "lucide-react"; // icons
 
 function Header() {
@@ -23,11 +23,10 @@ function Header() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b bg-white mb-111 ${
-        scrolled
+      className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b bg-white mb-111 ${scrolled
           ? "bg-white/80 shadow-md backdrop-blur-md border-green-200 py-2"
           : "bg-transparent border-green-400 py-4"
-      }`}
+        }`}
     >
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-green-600 flex items-center gap-1 hover:scale-105 transition-transform duration-300">
@@ -78,9 +77,8 @@ function Header() {
 
       {/* Mobile Drawer */}
       <div
-        className={`fixed top-0 right-0 h-full w-3/4 sm:w-1/2 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${
-          menuOpen ? "translate-x-0" : "translate-x-full"
-        }`}
+        className={`fixed top-0 right-0 h-full w-3/4 sm:w-1/2 bg-white shadow-lg transform transition-transform duration-300 ease-in-out z-40 ${menuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
       >
         <div className="flex flex-col items-start p-6 gap-6 mt-16">
           {navLinks.map((item) => (

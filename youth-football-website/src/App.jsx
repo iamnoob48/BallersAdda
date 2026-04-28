@@ -1,4 +1,7 @@
 import "./App.css";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { verifyUser } from "./redux/slices/authSlice.js";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import LandingPage from "./pages/LandingPage.jsx";
@@ -14,16 +17,31 @@ import AuthSuccess from "./LoggedInPages/AuthSuccess";
 import AcademyPage from "./pages/AcademyPage.jsx";
 import AcademyViewPage from "./pages/AcademyViewPage";
 import PaymentPage from "./pages/PaymentPage";
-import PlayerAcademyDashboard from "./pages/PlayerAcademyDashboard";
-import AcademyRegistration from "./pages/AcademyRegistration";
+import PlayerAcademyDashboard from "./PlayerAcademyDashboard/PlayerAcademyDashboard";
 import CoachSetupPage from "./pages/CoachSetupPage";
 import CoachDashboard from "./pages/CoachDashboard";
 import TournamentRegistrationPage from "./TournamentRegistrationPage";
 import AppLayout from "./components/AppLayout";
 import JoinTeamPage from "./pages/JoinTeamPage";
+import TeamHubPage from "./TeamHubComponents/TeamHubPage";
 
 function App() {
-  const { isAuthenticated } = useSelector((state) => state.auth);
+  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  useEffect(() => {
+    // Only verify if we don’t already know the auth state
+    if (isAuthenticated === null) {
+      dispatch(verifyUser());
+    }
+  }, [dispatch, isAuthenticated]);
+
+  if (loading || isAuthenticated === null) {
+    return (
+      <div className="flex justify-center items-center h-screen text-lg font-medium">
+        Verifying session...
+      </div>
+    );
+  }
 
   return (
     <>
@@ -99,7 +117,7 @@ function App() {
               </ProtectedRoute>
             }
           />
-          
+
           <Route
             path="/academy/payment/:id"
             element={
@@ -117,14 +135,6 @@ function App() {
             }
           />
           <Route
-            path="/register-academy"
-            element={
-              <ProtectedRoute>
-                <AppLayout><AcademyRegistration /></AppLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/coach-setup"
             element={
               <ProtectedRoute>
@@ -137,6 +147,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><CoachDashboard /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-tournaments/:teamId"
+            element={
+              <ProtectedRoute>
+                <AppLayout><TeamHubPage /></AppLayout>
               </ProtectedRoute>
             }
           />

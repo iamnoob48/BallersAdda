@@ -78,7 +78,7 @@ export const updateCoachProfile = async (req, res) => {
 export const getAcademyRoster = async (req, res) => {
   try {
     const userId = req.user.id;
-    
+
     // Validate coach
     const coach = await prisma.coach.findUnique({ where: { userId } });
     if (!coach || !coach.academyId) {

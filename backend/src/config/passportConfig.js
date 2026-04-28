@@ -13,13 +13,18 @@ passport.use(new GoogleStrategy({
             let user = await prisma.user.findUnique({
                 where: { googleId: profile.id }
             });
+            //check if username already exists
+            let username = profile.displayName;
+            if (await prisma.user.findUnique({ where: { username } })) {
+                username = username + Math.floor(Math.random() * 1000);
+            }
 
             if (!user) {
                 // If not, create a new user
                 user = await prisma.user.create({
                     data: {
                         googleId: profile.id,
-                        username: profile.displayName,
+                        username: username,
                         email: profile.emails[0].value,
                         profilePic: profile.photos[0].value,
                         status: 'ACTIVE'

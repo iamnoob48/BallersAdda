@@ -28,6 +28,10 @@ export const mapTournamentToCardModel = (tournament) => {
   const registeredTeams = tournament._count?.teams ?? 0;
   const seatsLeft = Math.max(maxTeams - registeredTeams, 0);
 
+  // Convert cents to rupees for display
+  const prizeAmount = (Number(tournament.priceCents) || 0) / 100;
+  const regFee = (Number(tournament.registrationFeeCents) || 0) / 100;
+
   return {
     ...tournament,
     id: tournament.id,
@@ -36,12 +40,15 @@ export const mapTournamentToCardModel = (tournament) => {
     description: tournament.description,
     location: tournament.location,
     category: tournament.category || "Open",
+    tournamentStyle: tournament.tournamentStyle || null,
     dateLabel: formatTournamentDate(tournament.startDate),
     dateISO: tournament.startDate,
-    price: Number(tournament.price) || 0,
-    prizeLabel: formatCurrency(tournament.price),
-    registrationFee: Number(tournament.registrationFee) || 0,
+    price: prizeAmount,
+    prizeLabel: formatCurrency(prizeAmount, tournament.currency),
+    registrationFee: regFee,
     registrationDeadline: tournament.registrationDeadline,
+    currency: tournament.currency || "INR",
+    formatAndRules: tournament.formatAndRules || null,
     status: tournament.status,
     maxTeams,
     maxPlayersPerTeam: tournament.maxPlayersPerTeam ?? 11,

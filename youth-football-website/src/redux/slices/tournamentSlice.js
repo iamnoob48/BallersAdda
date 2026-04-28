@@ -89,6 +89,7 @@ export const tournamentApi = createApi({
         body: {
           teamName: formData.teamName,
           kitColour: formData.kitColor,
+          rosterMode,
           emails: rosterMode === 'link' ? [] : formData.emails.filter(e => e.trim().length > 0),
         },
       }),

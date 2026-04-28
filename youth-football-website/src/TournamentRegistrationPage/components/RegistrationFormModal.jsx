@@ -5,8 +5,8 @@ import { X, ChevronRight, ChevronLeft, ShieldAlert, Plus, ShieldCheck, Mail, Che
 import { useVerifyRosterEmailsMutation, useRegisterTeamForTournamentMutation } from '../../redux/slices/tournamentSlice.js';
 
 const RosterEmailInput = ({ email, onChange, placeholder, dm, verifyEmails }) => {
-  const [status, setStatus] = React.useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid'
-  const [msg, setMsg] = React.useState('');
+  const [status, setStatus] = useState('idle'); // 'idle' | 'checking' | 'valid' | 'invalid'
+  const [msg, setMsg] = useState('');
 
   React.useEffect(() => {
     if (!email || email.trim().length < 5 || !email.includes('@')) {
@@ -191,6 +191,7 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
       setTimeout(() => setCopied(false), 2500);
     } catch {
       // fallback: select the text
+
     }
   };
 
@@ -452,7 +453,7 @@ export default function RegistrationFormModal({ isOpen, onClose, tournament }) {
 
                 <div className={`p-6 rounded-2xl border text-center ${dm ? 'bg-[#121212] border-[#87A98D]/20' : 'bg-emerald-50 border-emerald-200 mt-6'}`}>
                    <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">Total Entry Fee</p>
-                   <p className="text-4xl font-black mb-2">₹{(tournament.registrationFee * Math.max(5, formData.emails.filter(e=>e.length>0).length)).toLocaleString()}</p>
+                   <p className="text-4xl font-black mb-2">₹{tournament.registrationFee}</p>
                    <p className={`text-sm font-medium ${dm ? 'text-[#00FF88]' : 'text-emerald-700'}`}>
                      (₹{tournament.registrationFee || 500} per drafted player)
                    </p>

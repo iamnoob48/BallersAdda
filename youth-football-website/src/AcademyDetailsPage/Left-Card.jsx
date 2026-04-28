@@ -100,15 +100,15 @@ const LeftCard = ({ ACADEMY_DATA }) => {
         {/* Sports Available */}
         <div className={`w-full border-t pt-6 ${dm ? "border-[#87A98D]/10" : "border-gray-100"}`}>
           <h4 className={`text-[10px] font-bold uppercase tracking-widest mb-3 flex items-center justify-center gap-2 ${dm ? "text-gray-500" : "text-gray-400"}`}>
-            <span>Sports Available</span>
+            <span>Services Available</span>
           </h4>
           <div className="flex flex-wrap justify-center gap-2">
-            {["Football", "Fitness", "Athletics"].map((sport) => (
+            {ACADEMY_DATA.academy.services.map((service) => (
               <span
-                key={sport}
+                key={service}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors cursor-default ${dm ? "bg-[#00FF88]/10 text-[#00FF88] border-[#00FF88]/20 hover:bg-[#00FF88]/20" : "bg-emerald-50/50 text-emerald-800 border-emerald-100 hover:bg-emerald-100"}`}
               >
-                {sport}
+                {service}
               </span>
             ))}
           </div>

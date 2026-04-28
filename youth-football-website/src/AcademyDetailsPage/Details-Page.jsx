@@ -17,9 +17,9 @@ import {
   Share2,
   Heart,
 } from "lucide-react";
-import NavBar from "../HomeComponents/Navbar";
-import TopNav from "../HomeComponents/TopNav.jsx";
-import BottomNav from "../HomeComponents/BottomNav";
+import NavBar from "../components/Navbar.jsx";
+import TopNav from "../components/TopNav.jsx";
+import BottomNav from "../components/BottomNav.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useSelector } from "react-redux";
 import LeftCard from "./Left-Card.jsx";

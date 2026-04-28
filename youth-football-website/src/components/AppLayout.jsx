@@ -1,7 +1,7 @@
 import Sidebar from "./Sidebar";
-import NavBar from "../HomeComponents/Navbar";
-import TopNav from "../HomeComponents/TopNav";
-import BottomNav from "../HomeComponents/BottomNav";
+import NavBar from "./Navbar";
+import TopNav from "./TopNav";
+import BottomNav from "./BottomNav";
 import { useSelector } from "react-redux";
 
 /**

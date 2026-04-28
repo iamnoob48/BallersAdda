@@ -1,4 +1,4 @@
-import { Button } from "@/components/ui/button";
+import { Button } from "@/src/components/button";
 import { motion } from "framer-motion";
 
 function CTA() {

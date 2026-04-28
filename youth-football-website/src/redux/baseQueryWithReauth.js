@@ -1,5 +1,6 @@
 import { fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { Mutex } from "async-mutex";
+import { logout } from './slices/authSlice.js'
 
 // ──────────────────────────────────────────────────────────────────────
 //  Shared base query with silent 401 → refresh → retry logic.
@@ -31,6 +32,10 @@ export const createBaseQueryWithReauth = (baseUrl) => {
   const rawBaseQuery = fetchBaseQuery({
     baseUrl,
     credentials: "include", // 🔥 cookies are always sent
+    prepareHeaders: (headers) => {
+      headers.set('X-Requested-With', 'XMLHttpRequest');
+      return headers;
+    },
   });
 
   return async (args, api, extraOptions) => {
@@ -51,6 +56,10 @@ export const createBaseQueryWithReauth = (baseUrl) => {
           const refreshBaseQuery = fetchBaseQuery({
             baseUrl: "/api/v1",
             credentials: "include",
+            prepareHeaders: (headers) => {
+              headers.set('X-Requested-With', 'XMLHttpRequest');
+              return headers;
+            },
           });
 
           const refreshResult = await refreshBaseQuery(
@@ -69,9 +78,7 @@ export const createBaseQueryWithReauth = (baseUrl) => {
             // Refresh token is also dead — force re-login
             // Don't dispatch logout action here; just redirect.
             // The ProtectedRoute will handle the rest.
-            if (typeof window !== "undefined") {
-              window.location.href = "/Login";
-            }
+            api.dispatch(logout());
           }
         } finally {
           release();

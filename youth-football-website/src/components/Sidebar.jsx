@@ -56,7 +56,6 @@ export default function Sidebar() {
     <SidebarContext.Provider value={{ open }}>
       <motion.aside
         onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(true)}
         animate={{ width: open ? 260 : 68 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={`hidden md:flex flex-col h-screen sticky top-0 z-40 shrink-0 select-none border-r ${
@@ -95,26 +94,6 @@ export default function Sidebar() {
 
         {/* Bottom section — theme toggle + user + logout */}
         <div className={`px-3 py-4 border-t space-y-1 ${dm ? "border-[#87A98D]/10" : "border-gray-100"}`}>
-          {/* subtle link for Register Your Club */}
-          {user?.role !== "ACADEMY" && (
-            <button
-              onClick={() => navigate("/register-academy")}
-              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                dm
-                  ? "text-[#00FF88]/70 hover:text-[#00FF88] hover:bg-[#00FF88]/10"
-                  : "text-emerald-600/80 hover:text-emerald-700 hover:bg-emerald-50"
-              }`}
-            >
-              <span className="text-lg shrink-0"><FiShield /></span>
-              <motion.span
-                animate={{ opacity: open ? 1 : 0, display: open ? "inline-block" : "none" }}
-                className="whitespace-nowrap"
-              >
-                For Academies
-              </motion.span>
-            </button>
-          )}
-
           {/* Dark mode toggle */}
           <button
             onClick={() => dispatch(toggleDarkMode())}

@@ -7,6 +7,7 @@ import tournamentRoutes from './routes/tournamentRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
+import { urlencoded } from 'express';
 
 
 const app = express();
@@ -19,9 +20,11 @@ app.use(cors({
 }));
 
 //For parsing application/json
-app.use(express.json());
+app.use(express.json({limit: '50mb'}));
 //For parsing cookies
 app.use(cookieParser());
+//For URL limit for url encoder
+app.use(urlencoded({limit: '50mb', extended: true }));
 
 //For auth endpoints
 app.use('/api/v1/auth', authRoutes);

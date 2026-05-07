@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/src/components/button";
+import { Button } from "@/src/components/ui/button";
 import {
   Select,
   SelectContent,

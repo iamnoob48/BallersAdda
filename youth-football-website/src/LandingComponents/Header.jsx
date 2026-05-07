@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/src/components/button";
+import { Button } from "@/src/components/ui/button";
 import { Menu, X } from "lucide-react"; // icons
 
 function Header() {
@@ -24,8 +24,8 @@ function Header() {
   return (
     <nav
       className={`fixed top-0 left-0 w-full z-50 transition-all duration-300 border-b bg-white mb-111 ${scrolled
-          ? "bg-white/80 shadow-md backdrop-blur-md border-green-200 py-2"
-          : "bg-transparent border-green-400 py-4"
+        ? "bg-white/80 shadow-md backdrop-blur-md border-green-200 py-2"
+        : "bg-transparent border-green-400 py-4"
         }`}
     >
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">

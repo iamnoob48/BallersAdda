@@ -21,6 +21,7 @@ const authSlice = createSlice({
     loading: false,
     error: null,
     isCoachProfileIncomplete: false,
+    hasPlayerProfile: false,
   },
   reducers: {
     loginSuccess: (state, action) => {
@@ -34,12 +35,16 @@ const authSlice = createSlice({
       state.isAuthenticated = false;
       state.loading = false;
       state.error = null;
+      state.hasPlayerProfile = false;
     },
     updateCredentials: (state, action) => {
       state.user = { ...state.user, ...action.payload };
     },
     clearAuthError: (state) => {
       state.error = null;
+    },
+    setPlayerProfileComplete: (state) => {
+      state.hasPlayerProfile = true;
     },
   },
   extraReducers: (builder) => {
@@ -51,6 +56,7 @@ const authSlice = createSlice({
       .addCase(verifyUser.fulfilled, (state, action) => {
         state.user = action.payload.user;
         state.isCoachProfileIncomplete = action.payload.isCoachProfileIncomplete || false;
+        state.hasPlayerProfile = action.payload.hasPlayerProfile ?? false;
         state.isAuthenticated = true;
         state.loading = false;
         state.error = null;
@@ -64,5 +70,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { loginSuccess, logout, clearAuthError, updateCredentials } = authSlice.actions;
+export const { loginSuccess, logout, clearAuthError, updateCredentials, setPlayerProfileComplete } = authSlice.actions;
 export default authSlice.reducer;

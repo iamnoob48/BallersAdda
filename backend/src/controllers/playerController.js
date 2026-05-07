@@ -3,14 +3,14 @@ import { cacheGet, cacheDel } from '../config/cacheUtils.js';
 import cloudinary from '../config/cloudinaryConfig.js';
 // ── Validation helpers ──────────────────────────────────────────────────
 const VALID_POSITIONS = [
-  'Goalkeeper', 'Defender', 'Midfielder', 'Forward',
-  'Center Back', 'Full Back', 'Wing Back',
-  'Central Midfielder', 'Attacking Midfielder', 'Defensive Midfielder',
-  'Winger', 'Striker',
+  'GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD',
+  'CENTREBACK', 'FULLBACK',
+  'CENTRAL_MIDFIELDER', 'ATTACKING_MIDFIELDER', 'DEFENSIVE_MIDFIELDER',
+  'WINGER', 'STRIKER',
 ];
 
-const VALID_GENDERS = ['Male', 'Female', 'Other'];
-const VALID_FEET = ['Left', 'Right', 'Both'];
+const VALID_GENDERS = ['MALE', 'FEMALE', 'OTHER'];
+const VALID_FEET = ['LEFT', 'RIGHT', 'BOTH'];
 
 // =====================================================================
 //  GET /player/playerProfile
@@ -68,7 +68,7 @@ export const getPlayerProfile = async (req, res) => {
 export const enterPlayerProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, bio, displayName, age, gender, position, height, weight, dominantFoot } = req.body;
+    const { firstName, lastName, bio, displayName, dateOfBirth, gender, position, height, weight, dominantFoot } = req.body;
 
     // --- Required field validation ---
     if (!firstName?.trim() || !lastName?.trim()) {
@@ -76,12 +76,18 @@ export const enterPlayerProfile = async (req, res) => {
     }
 
     // --- Numeric field validation ---
-    const parsedAge = age != null ? parseInt(age, 10) : null;
     const parsedHeight = height != null ? parseFloat(height) : null;
     const parsedWeight = weight != null ? parseFloat(weight) : null;
 
-    if (parsedAge != null && (isNaN(parsedAge) || parsedAge < 3 || parsedAge > 100)) {
-      return res.status(400).json({ message: 'Age must be between 3 and 100' });
+    const parsedDOB = dateOfBirth ? new Date(dateOfBirth) : null;
+    if (parsedDOB && isNaN(parsedDOB.getTime())) {
+      return res.status(400).json({ message: 'Invalid date of birth' });
+    }
+    if (parsedDOB) {
+      const ageYears = (Date.now() - parsedDOB.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+      if (ageYears < 3 || ageYears > 100) {
+        return res.status(400).json({ message: 'Date of birth must result in age between 3 and 100' });
+      }
     }
     if (parsedHeight != null && (isNaN(parsedHeight) || parsedHeight <= 0 || parsedHeight > 300)) {
       return res.status(400).json({ message: 'Height must be a positive number (cm)' });
@@ -114,12 +120,12 @@ export const enterPlayerProfile = async (req, res) => {
         lastName: lastName.trim(),
         bio: bio?.trim() || null,
         displayName: displayName?.trim() || null,
-        age: parsedAge,
-        gender: gender.toUpperCase() || null,
-        position: position.toUpperCase() || null,
+        dateOfBirth: parsedDOB,
+        gender: gender || null,
+        position: position || null,
         height: parsedHeight,
         weight: parsedWeight,
-        dominantFoot: dominantFoot.toUpperCase() || null,
+        dominantFoot: dominantFoot || null,
       },
     });
 
@@ -142,7 +148,7 @@ export const enterPlayerProfile = async (req, res) => {
 export const updatePlayerProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, bio, age, gender, height, weight, position, dominantFoot } = req.body;
+    const { firstName, lastName, bio, dateOfBirth, gender, height, weight, position, dominantFoot } = req.body;
 
     // --- Check profile exists ---
     const existing = await prisma.playerProfile.findUnique({ where: { userId } });
@@ -163,12 +169,16 @@ export const updatePlayerProfile = async (req, res) => {
     }
     if (bio !== undefined) data.bio = bio?.trim() || null;
 
-    if (age !== undefined) {
-      const parsed = parseInt(age, 10);
-      if (isNaN(parsed) || parsed < 3 || parsed > 100) {
-        return res.status(400).json({ message: 'Age must be between 3 and 100' });
+    if (dateOfBirth !== undefined) {
+      if (dateOfBirth === null || dateOfBirth === '') {
+        data.dateOfBirth = null;
+      } else {
+        const parsed = new Date(dateOfBirth);
+        if (isNaN(parsed.getTime())) return res.status(400).json({ message: 'Invalid date of birth' });
+        const ageYears = (Date.now() - parsed.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+        if (ageYears < 3 || ageYears > 100) return res.status(400).json({ message: 'Date of birth must result in age between 3 and 100' });
+        data.dateOfBirth = parsed;
       }
-      data.age = parsed;
     }
     if (height !== undefined) {
       const parsed = parseFloat(height);

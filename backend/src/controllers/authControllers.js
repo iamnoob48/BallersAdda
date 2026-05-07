@@ -118,7 +118,13 @@ export const registerUser = async (req, res) => {
       .then(() => sendVerificationEmail(email, rawToken))
       .catch((e) => console.error('Failed to send verification email:', e));
 
-    return res.status(201).json({ message: 'User registered successfully. Check your email to verify your account.', rawToken });
+    const { password: _pw, ...safeUser } = newUser;
+    return res.status(201).json({
+      message: 'User registered successfully. Check your email to verify your account.',
+      user: safeUser,
+      hasPlayerProfile: false,
+      rawToken,
+    });
   } catch (error) {
     console.error('Register error:', error);
     if (error.code === 'P2002') {
@@ -162,8 +168,15 @@ export const loginUser = async (req, res) => {
 
     prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => { });
 
+    // Check if player profile exists for redirect logic
+    let hasPlayerProfile = false;
+    if (user.role === 'PLAYER') {
+      const profile = await prisma.playerProfile.findUnique({ where: { userId: user.id }, select: { id: true } });
+      hasPlayerProfile = !!profile;
+    }
+
     const { password: _pw, ...safeUser } = user;
-    return res.status(200).json({ message: 'User logged in successfully', user: safeUser });
+    return res.status(200).json({ message: 'User logged in successfully', user: safeUser, hasPlayerProfile });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -296,7 +309,16 @@ export const verifyUser = async (req, res) => {
       }
     }
 
-    return res.status(200).json({ success: true, user, isCoachProfileIncomplete });
+    let hasPlayerProfile = false;
+    if (user.role === 'PLAYER') {
+      const profile = await prisma.playerProfile.findUnique({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+      hasPlayerProfile = !!profile;
+    }
+
+    return res.status(200).json({ success: true, user, isCoachProfileIncomplete, hasPlayerProfile });
   } catch (error) {
     console.error('Verify user error:', error);
     return res.status(500).json({ message: 'Server error' });

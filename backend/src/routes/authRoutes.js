@@ -8,6 +8,8 @@ import {
     refreshAccessToken,
     logoutUser,
     checkEmail,
+    verifyEmail,
+    resendVerification,
 } from '../controllers/authControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
 import { requireCsrfHeader } from '../middleware/csrfMiddleware.js';
@@ -16,6 +18,8 @@ import {
     registerLimiter,
     refreshLimiter,
     checkEmailLimiter,
+    verifyEmailLimiter,
+    resendVerificationLimiter,
 } from '../middleware/rateLimiters.js';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
@@ -27,7 +31,7 @@ router.use(cookieParser());
 router.use(requireCsrfHeader);
 
 // Register
-router.post('/register', registerLimiter, registerUser);
+router.post('/register', registerUser);
 
 // Login
 router.post('/login', loginLimiter, loginUser);
@@ -57,5 +61,9 @@ router.post('/logout', verifyAccessToken, logoutUser);
 
 // Check email — authed + rate-limited; returns only { exists }
 router.get('/check-email/:email', verifyAccessToken, checkEmailLimiter, checkEmail);
+
+// Email verification
+router.get('/verify-email', verifyEmailLimiter, verifyEmail);
+router.post('/resend-verification', verifyAccessToken, resendVerificationLimiter, resendVerification);
 
 export default router;

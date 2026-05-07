@@ -34,7 +34,6 @@ import {
   fetchPlayerAttendance,
   fetchAcademyHistory,
 } from "../redux/slices/playerSlice";
-import { MOCK } from "./mockData";
 import AcademyBanner from "./AcademyBanner";
 import AcademyHero from "./AcademyHero";
 import AcademyOverview from "./Academy-Overview";

@@ -1,11 +1,8 @@
 import jwt from 'jsonwebtoken';
-
 import prisma from '../prismaClient.js';
 
-/**
- * Middleware: verifies the JWT access token from cookies.
- * Sets req.user = { id } on success.
- */
+const VALID_ROLES = new Set(['PLAYER', 'ACADEMY', 'COACH', 'SCOUT', 'ADMIN', 'ORGANIZER']);
+
 export const verifyAccessToken = (req, res, next) => {
   const token = req.cookies?.accessToken;
 
@@ -15,7 +12,12 @@ export const verifyAccessToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_JWT_SECRET);
-    req.user = decoded; // { id, iat, exp }
+
+    if (!decoded.id || !VALID_ROLES.has(decoded.role)) {
+      return res.status(401).json({ message: 'Invalid access token' });
+    }
+
+    req.user = decoded;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -25,26 +27,47 @@ export const verifyAccessToken = (req, res, next) => {
   }
 };
 
+// For sensitive routes — DB-checks tokenVersion so revocation is instant,
+// not delayed by the 15min access token window.
+export const verifyAccessTokenStrict = async (req, res, next) => {
+  const token = req.cookies?.accessToken;
 
-/**
- * Middleware: restrict route to COACH or ACADEMY role
- */
-export const isCoach = async (req, res, next) => {
+  if (!token) {
+    return res.status(401).json({ message: 'No access token provided' });
+  }
+
   try {
-    if (!req.user || !req.user.id) {
-      return res.status(401).json({ message: 'Unauthorized' });
+    const decoded = jwt.verify(token, process.env.ACCESS_TOKEN_JWT_SECRET);
+
+    if (!decoded.id || !VALID_ROLES.has(decoded.role)) {
+      return res.status(401).json({ message: 'Invalid access token' });
     }
+
     const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { role: true }
+      where: { id: decoded.id },
+      select: { tokenVersion: true, status: true },
     });
 
-    if (!user || (user.role !== 'COACH' && user.role !== 'ACADEMY')) {
-      return res.status(403).json({ message: 'Forbidden: Requires Coach access' });
+    if (!user || user.status !== 'ACTIVE') {
+      return res.status(403).json({ message: 'Account is suspended or deleted' });
     }
+
+    if (decoded.tokenVersion !== user.tokenVersion) {
+      return res.status(401).json({ message: 'Session revoked, please log in again' });
+    }
+
+    req.user = decoded;
     next();
   } catch (error) {
-    console.error("Error in isCoach middleware:", error);
-    res.status(500).json({ message: 'Server error' });
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Access token expired' });
+    }
+    return res.status(403).json({ message: 'Invalid access token' });
   }
+};
+
+export const isCoach = (req, res, next) => {
+  if (!req.user?.id) return res.status(401).json({ message: 'Unauthorized' });
+  if (req.user.role !== 'COACH') return res.status(403).json({ message: 'Forbidden: Requires Coach access' });
+  next();
 };

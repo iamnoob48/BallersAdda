@@ -62,3 +62,17 @@ export const resendVerificationLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 3,
 });
+
+export const forgotPasswordLimiter = rateLimit({
+  ...baseOpts,
+  store: makeStore('forgotPassword'),
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+});
+
+export const resetPasswordLimiter = rateLimit({
+  ...baseOpts,
+  store: makeStore('resetPassword'),
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+});

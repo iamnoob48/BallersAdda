@@ -103,7 +103,7 @@ function App() {
             path="/profile-complete"
             element={
               <ProtectedRoute>
-                <AppLayout><CompleteProfilePage /></AppLayout>
+                <CompleteProfilePage />
               </ProtectedRoute>
             }
           />

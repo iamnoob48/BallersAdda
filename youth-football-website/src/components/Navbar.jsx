@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "@/src/components/button";
+import { Button } from "@/src/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { FiMessageCircle } from "react-icons/fi";
 import { IoMdNotifications } from "react-icons/io";
@@ -34,22 +34,20 @@ function NavBar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 max-w-full w-screen w-full z-50 transition-all duration-300 border-b ${
-        scrolled
+      className={`fixed top-0 left-0 max-w-full w-screen w-full z-50 transition-all duration-300 border-b ${scrolled
           ? dm
             ? "bg-[#121212]/90 backdrop-blur-md shadow-md border-[#87A98D]/20 py-2"
             : "md:bg-white/80 md:backdrop-blur-md md:shadow-md border-green-200 py-2 bg-white shadow-sm"
           : dm
-          ? "bg-[#121212] border-[#87A98D]/10 py-4"
-          : "bg-white border-green-400 py-4"
-      }`}
+            ? "bg-[#121212] border-[#87A98D]/10 py-4"
+            : "bg-white border-green-400 py-4"
+        }`}
     >
       <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         {/* Logo */}
         <h1
-          className={`text-2xl font-extrabold flex items-center gap-1 hover:scale-105 transition-transform duration-300 ${
-            dm ? "text-[#00FF88]" : "text-green-600"
-          }`}
+          className={`text-2xl font-extrabold flex items-center gap-1 hover:scale-105 transition-transform duration-300 ${dm ? "text-[#00FF88]" : "text-green-600"
+            }`}
         >
           <Link to="/">
             Ballers

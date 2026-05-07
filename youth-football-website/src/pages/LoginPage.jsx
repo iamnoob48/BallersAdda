@@ -8,7 +8,7 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios";
 import { useDispatch } from "react-redux";
-import { loginSuccess } from "../redux/slices/authSlice.js";
+import { loginSuccess, setPlayerProfileComplete } from "../redux/slices/authSlice.js";
 
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({
@@ -53,6 +53,9 @@ export default function LoginPage() {
 
       // Dispatch with the safe user object returned by the backend
       dispatch(loginSuccess(res.data.user));
+      if (res.data.hasPlayerProfile) {
+        dispatch(setPlayerProfileComplete());
+      }
       navigate(nextPath);
     } catch (error) {
       const message =

@@ -44,7 +44,7 @@ model PlayerProfile {
   firstName         String?
   lastName          String?
   displayName       String?
-  age               Int?
+  dateOfBirth       DateTime?
   gender            Gender?
   height            Float?
   weight            Float?
@@ -618,7 +618,6 @@ enum Gender {
   MALE
   FEMALE
   OTHER
-  PREFER_NOT_TO_SAY
 }
 
 enum PlayerPosition {

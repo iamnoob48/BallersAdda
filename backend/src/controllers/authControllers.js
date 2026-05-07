@@ -4,7 +4,8 @@ import { randomUUID } from 'crypto';
 import prisma from '../prismaClient.js';
 import { storeRefreshToken, consumeRefreshToken, deleteRefreshToken } from '../lib/refreshTokenStore.js';
 import { generateVerificationToken, storeVerificationToken, consumeVerificationToken } from '../lib/emailVerificationStore.js';
-import { sendVerificationEmail } from '../lib/mailer.js';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mailer.js';
+import { generateResetToken, storeResetToken, consumeResetToken } from '../lib/passwordResetStore.js';
 
 // ── Cookie options ──────────────────────────────────────────────────────
 const isProduction = process.env.NODE_ENV === 'production';
@@ -430,5 +431,75 @@ export const resendVerification = async (req, res) => {
   } catch (error) {
     console.error('Resend verification error:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =====================================================================
+//  POST /auth/forgot-password  (public)
+//  Always 200 — no enumeration. Only sends if account exists + has password.
+// =====================================================================
+export const forgotPassword = async (req, res) => {
+  const email = req.body.email?.toLowerCase().trim();
+
+  // Always respond the same way
+  const ok = () => res.status(200).json({ message: 'If that email exists, a reset link has been sent.' });
+
+  if (!email) return ok();
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, password: true },
+    });
+
+    // No user, or Google-only account (no password) — still return ok
+    if (user?.password) {
+      const rawToken = generateResetToken();
+      await storeResetToken(rawToken, user.id);
+      await sendPasswordResetEmail(email, rawToken);
+    }
+
+    return ok();
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    return ok(); // don't leak server errors
+  }
+};
+
+// =====================================================================
+//  POST /auth/reset-password  (public)
+//  Consumes Redis token, updates password, bumps tokenVersion.
+// =====================================================================
+export const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ message: 'Reset token is required.' });
+  }
+  if (!password || password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+  }
+
+  try {
+    const userId = await consumeResetToken(token);
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid or expired reset link.' });
+    }
+
+    const hashed = await bcrypt.hash(password, 12);
+
+    await prisma.user.update({
+      where: { id: Number(userId) },
+      data: {
+        password: hashed,
+        tokenVersion: { increment: 1 }, // invalidate all existing sessions
+      },
+    });
+
+    return res.status(200).json({ message: 'Password reset successfully. Please log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    return res.status(500).json({ message: 'Server error.' });
   }
 };

@@ -25,6 +25,8 @@ import AppLayout from "./components/AppLayout";
 import JoinTeamPage from "./pages/JoinTeamPage";
 import TeamHubPage from "./TeamHubComponents/TeamHubPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
 
 function App() {
   const { isAuthenticated, loading } = useSelector((state) => state.auth);
@@ -61,6 +63,8 @@ function App() {
           {/* Public invite-acceptance page — no auth wrapper so guests can see team info */}
           <Route path="/join" element={<JoinTeamPage />} />
           <Route path="/verify-email" element={<VerifyEmailPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Protected routes — wrapped in AppLayout (sidebar + nav) */}
           <Route

@@ -10,6 +10,8 @@ import {
     checkEmail,
     verifyEmail,
     resendVerification,
+    forgotPassword,
+    resetPassword,
 } from '../controllers/authControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
 import { requireCsrfHeader } from '../middleware/csrfMiddleware.js';
@@ -20,6 +22,8 @@ import {
     checkEmailLimiter,
     verifyEmailLimiter,
     resendVerificationLimiter,
+    forgotPasswordLimiter,
+    resetPasswordLimiter,
 } from '../middleware/rateLimiters.js';
 import cookieParser from 'cookie-parser';
 import passport from 'passport';
@@ -65,5 +69,9 @@ router.get('/check-email/:email', verifyAccessToken, checkEmailLimiter, checkEma
 // Email verification
 router.get('/verify-email', verifyEmailLimiter, verifyEmail);
 router.post('/resend-verification', verifyAccessToken, resendVerificationLimiter, resendVerification);
+
+// Password reset
+router.post('/forgot-password', forgotPasswordLimiter, forgotPassword);
+router.post('/reset-password', resetPasswordLimiter, resetPassword);
 
 export default router;

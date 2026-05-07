@@ -1,34 +1,36 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+import { randomBytes } from 'crypto';
 import prisma from '../prismaClient.js';
+
+const generateUniqueUsername = async (base) => {
+    for (let i = 0; i < 5; i++) {
+        const candidate = i === 0 ? base : `${base}-${randomBytes(3).toString('hex')}`;
+        const exists = await prisma.user.findUnique({ where: { username: candidate }, select: { id: true } });
+        if (!exists) return candidate;
+    }
+    return `${base}-${Date.now()}`;
+};
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:4000/api/v1/auth/google/callback"
+    callbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4001/api/v1/auth/google/callback',
 },
     async (accessToken, refreshToken, profile, done) => {
         try {
-            // Check if user already exists in the database
-            let user = await prisma.user.findUnique({
-                where: { googleId: profile.id }
-            });
-            //check if username already exists
-            let username = profile.displayName;
-            if (await prisma.user.findUnique({ where: { username } })) {
-                username = username + Math.floor(Math.random() * 1000);
-            }
+            let user = await prisma.user.findUnique({ where: { googleId: profile.id } });
 
             if (!user) {
-                // If not, create a new user
+                const username = await generateUniqueUsername(profile.displayName);
                 user = await prisma.user.create({
                     data: {
                         googleId: profile.id,
-                        username: username,
-                        email: profile.emails[0].value,
+                        username,
+                        email: profile.emails[0].value.toLowerCase(),
                         profilePic: profile.photos[0].value,
-                        status: 'ACTIVE'
-                    }
+                        status: 'ACTIVE',
+                    },
                 });
             }
 
@@ -36,22 +38,5 @@ passport.use(new GoogleStrategy({
         } catch (error) {
             return done(error, null);
         }
-
-    }))
-
-//For serializing the user
-passport.serializeUser((user, done) => {
-    done(null, user.id);
-});
-
-//For deserializing the user
-passport.deserializeUser(async (id, done) => {
-    try {
-        const user = await prisma.user.findUnique({
-            where: { id: id }
-        });
-        done(null, user);
-    } catch (error) {
-        done(error, null);
     }
-});
+));

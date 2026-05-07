@@ -33,7 +33,7 @@ model User {
   captainedTeams       Team[]          @relation("TeamCaptain")
   issuedShareLinks     TeamShareLink[] @relation("ShareLinkIssuer")
 
-  @@index([email, role])
+  @@index([role])
 }
 
 // =====================================================================

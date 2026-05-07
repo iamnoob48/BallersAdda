@@ -59,9 +59,7 @@ export default function Sidebar() {
         animate={{ width: open ? 260 : 68 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
         className={`hidden md:flex flex-col h-screen sticky top-0 z-40 shrink-0 select-none border-r ${
-          dm
-            ? "bg-[#121212] border-[#87A98D]/15"
-            : "bg-white border-gray-200"
+          dm ? "bg-[#121212] border-[#87A98D]/15" : "bg-white border-gray-200"
         }`}
       >
         {/* Logo */}
@@ -69,7 +67,9 @@ export default function Sidebar() {
           <div className="flex items-center gap-2">
             <div
               className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0 ${
-                dm ? "bg-[#00FF88]/15 text-[#00FF88]" : "bg-green-100 text-green-600"
+                dm
+                  ? "bg-[#00FF88]/15 text-[#00FF88]"
+                  : "bg-green-100 text-green-600"
               }`}
             >
               B
@@ -80,7 +80,14 @@ export default function Sidebar() {
                 dm ? "text-[#00FF88]" : "text-green-600"
               }`}
             >
-              Ballers<span className={dm ? "text-gray-300 font-normal" : "text-gray-800 font-normal"}>Adda</span>
+              Ballers
+              <span
+                className={
+                  dm ? "text-gray-300 font-normal" : "text-gray-800 font-normal"
+                }
+              >
+                Adda
+              </span>
             </motion.span>
           </div>
         </div>
@@ -93,7 +100,11 @@ export default function Sidebar() {
         </nav>
 
         {/* Bottom section — theme toggle + user + logout */}
-        <div className={`px-3 py-4 border-t space-y-1 ${dm ? "border-[#87A98D]/10" : "border-gray-100"}`}>
+        <div
+          className={`px-3 py-4 border-t space-y-1 ${
+            dm ? "border-[#87A98D]/10" : "border-gray-100"
+          }`}
+        >
           {/* Dark mode toggle */}
           <button
             onClick={() => dispatch(toggleDarkMode())}
@@ -103,9 +114,14 @@ export default function Sidebar() {
                 : "text-gray-600 hover:text-green-600 hover:bg-green-50"
             }`}
           >
-            <span className="text-lg shrink-0">{dm ? <FiSun /> : <FiMoon />}</span>
+            <span className="text-lg shrink-0">
+              {dm ? <FiSun /> : <FiMoon />}
+            </span>
             <motion.span
-              animate={{ opacity: open ? 1 : 0, display: open ? "inline-block" : "none" }}
+              animate={{
+                opacity: open ? 1 : 0,
+                display: open ? "inline-block" : "none",
+              }}
               className="whitespace-nowrap"
             >
               {dm ? "Light Mode" : "Dark Mode"}
@@ -128,8 +144,13 @@ export default function Sidebar() {
               referrerPolicy="no-referrer"
             />
             <motion.span
-              animate={{ opacity: open ? 1 : 0, display: open ? "inline-block" : "none" }}
-              className={`text-sm font-medium truncate whitespace-nowrap ${dm ? "text-gray-300" : "text-gray-700"}`}
+              animate={{
+                opacity: open ? 1 : 0,
+                display: open ? "inline-block" : "none",
+              }}
+              className={`text-sm font-medium truncate whitespace-nowrap ${
+                dm ? "text-gray-300" : "text-gray-700"
+              }`}
             >
               {user?.username || "Player"}
             </motion.span>
@@ -144,9 +165,14 @@ export default function Sidebar() {
                 : "text-gray-500 hover:text-red-600 hover:bg-red-50"
             }`}
           >
-            <span className="text-lg shrink-0"><FiLogOut /></span>
+            <span className="text-lg shrink-0">
+              <FiLogOut />
+            </span>
             <motion.span
-              animate={{ opacity: open ? 1 : 0, display: open ? "inline-block" : "none" }}
+              animate={{
+                opacity: open ? 1 : 0,
+                display: open ? "inline-block" : "none",
+              }}
               className="whitespace-nowrap"
             >
               Logout
@@ -173,8 +199,8 @@ function SidebarLink({ link }) {
               ? "bg-[#00FF88]/10 text-[#00FF88]"
               : "bg-green-50 text-green-700"
             : dm
-              ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
-              : "text-gray-600 hover:text-green-600 hover:bg-green-50"
+            ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
+            : "text-gray-600 hover:text-green-600 hover:bg-green-50"
         }`
       }
     >

@@ -8,8 +8,6 @@ import coachRoutes from './routes/coachRoutes.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 import { urlencoded } from 'express';
-
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 

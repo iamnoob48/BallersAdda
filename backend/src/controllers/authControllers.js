@@ -1,8 +1,12 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import prisma from '../prismaClient.js';
+import { storeRefreshToken, consumeRefreshToken, deleteRefreshToken } from '../lib/refreshTokenStore.js';
+import { generateVerificationToken, storeVerificationToken, consumeVerificationToken } from '../lib/emailVerificationStore.js';
+import { sendVerificationEmail } from '../lib/mailer.js';
 
-// ── Cookie options (DRY helper) ─────────────────────────────────────────
+// ── Cookie options ──────────────────────────────────────────────────────
 const isProduction = process.env.NODE_ENV === 'production';
 
 const accessCookieOpts = {
@@ -10,7 +14,7 @@ const accessCookieOpts = {
   secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
   path: '/',
-  maxAge: 15 * 60 * 1000,        // 15 minutes
+  maxAge: 15 * 60 * 1000,
 };
 
 const refreshCookieOpts = {
@@ -18,15 +22,15 @@ const refreshCookieOpts = {
   secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
   path: '/',
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
-// Same options used for clearing — must match for the browser to drop the cookie
 const clearCookieOpts = {
   httpOnly: true,
   secure: isProduction,
   sameSite: isProduction ? 'strict' : 'lax',
   path: '/',
+  maxAge: 0,
 };
 
 // ── Token generators ────────────────────────────────────────────────────
@@ -37,37 +41,59 @@ const generateAccessToken = (user) =>
     { expiresIn: '15m' }
   );
 
-const generateRefreshToken = (user) =>
+const generateRefreshToken = (user, jti) =>
   jwt.sign(
-    { id: user.id, role: user.role, tokenVersion: user.tokenVersion ?? 0 },
+    { id: user.id, role: user.role, tokenVersion: user.tokenVersion ?? 0, jti },
     process.env.REFRESH_TOKEN_JWT_SECRET,
     { expiresIn: '7d' }
   );
 
-// Helper: set both cookies on a response
-export const setAuthCookies = (res, user) => {
+// Issues both tokens and stores the refresh jti in Redis.
+export const setAuthCookies = async (res, user) => {
+  const jti = randomUUID();
   const accessToken = generateAccessToken(user);
-  const refreshToken = generateRefreshToken(user);
+  const refreshToken = generateRefreshToken(user, jti);
   res.cookie('accessToken', accessToken, accessCookieOpts);
   res.cookie('refreshToken', refreshToken, refreshCookieOpts);
+  await storeRefreshToken(jti, user.id);
   return { accessToken, refreshToken };
 };
 
-// ── Email validation helper ─────────────────────────────────────────────
+// ── Email validation ────────────────────────────────────────────────────
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const ALLOWED_DOMAINS = new Set([
+  'gmail.com', 'googlemail.com',
+  'outlook.com', 'hotmail.com', 'hotmail.in', 'live.com', 'msn.com',
+  'yahoo.com', 'yahoo.in', 'yahoo.co.in', 'yahoo.co.uk',
+  'icloud.com', 'me.com', 'mac.com',
+  'proton.me', 'protonmail.com',
+  'rediffmail.com',
+  'aol.com',
+  'zoho.com',
+]);
+
+const isAllowedEmailDomain = (email) => {
+  const domain = email.split('@')[1]?.toLowerCase();
+  return domain && ALLOWED_DOMAINS.has(domain);
+};
 
 // =====================================================================
 //  POST /auth/register
 // =====================================================================
 export const registerUser = async (req, res) => {
   try {
-    const { username, email, password } = req.body;
+    const { username, password } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     if (!EMAIL_RE.test(email)) {
       return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (!isAllowedEmailDomain(email)) {
+      return res.status(400).json({ message: 'Please use a valid email provider (Gmail, Outlook, Yahoo, etc.)' });
     }
     if (password.length < 8) {
       return res.status(400).json({ message: 'Password must be at least 8 characters' });
@@ -83,8 +109,15 @@ export const registerUser = async (req, res) => {
       data: { username: username || null, email, password: hashedPassword },
     });
 
-    setAuthCookies(res, newUser);
-    return res.status(201).json({ message: 'User registered successfully' });
+    await setAuthCookies(res, newUser);
+
+    // Send verification email — fire and forget, don't block registration response
+    const rawToken = generateVerificationToken();
+    storeVerificationToken(rawToken, newUser.id)
+      .then(() => sendVerificationEmail(email, rawToken))
+      .catch((e) => console.error('Failed to send verification email:', e));
+
+    return res.status(201).json({ message: 'User registered successfully. Check your email to verify your account.', rawToken });
   } catch (error) {
     console.error('Register error:', error);
     if (error.code === 'P2002') {
@@ -99,10 +132,14 @@ export const registerUser = async (req, res) => {
 // =====================================================================
 export const loginUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { password } = req.body;
+    const email = req.body.email?.toLowerCase().trim();
 
     if (!email || !password) {
       return res.status(400).json({ message: 'Email and password are required' });
+    }
+    if (!isAllowedEmailDomain(email)) {
+      return res.status(400).json({ message: 'Please use a valid email provider (Gmail, Outlook, Yahoo, etc.)' });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
@@ -120,7 +157,7 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    setAuthCookies(res, user);
+    await setAuthCookies(res, user);
 
     prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => { });
 
@@ -134,20 +171,45 @@ export const loginUser = async (req, res) => {
 
 // =====================================================================
 //  POST /auth/refresh-token
-//  Rotates BOTH tokens, re-verifies user status, and checks tokenVersion.
+//  JTI-based atomic rotation with reuse detection.
+//  GETDEL ensures only one concurrent request can consume a given jti.
+//  If jti is missing from Redis → already consumed → potential theft →
+//  bump tokenVersion to invalidate all sessions.
 // =====================================================================
 export const refreshAccessToken = async (req, res) => {
-  const refreshToken = req.cookies?.refreshToken;
-  if (!refreshToken) {
+  const token = req.cookies?.refreshToken;
+  if (!token) {
     return res.status(401).json({ message: 'No refresh token provided' });
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_JWT_SECRET);
+    const { id, jti } = decoded;
 
-    // Re-fetch user from DB — source of truth for status + tokenVersion
+    if (!jti) {
+      res.clearCookie('accessToken', clearCookieOpts);
+      res.clearCookie('refreshToken', clearCookieOpts);
+      return res.status(401).json({ message: 'Invalid refresh token, please log in again' });
+    }
+
+    // Atomically consume — only one concurrent request wins
+    const storedUserId = await consumeRefreshToken(jti);
+
+    if (!storedUserId) {
+      // jti missing from Redis: either already rotated or stolen token reused
+      // Nuclear response: revoke ALL sessions for this user
+      await prisma.user.update({
+        where: { id },
+        data: { tokenVersion: { increment: 1 } },
+      }).catch(() => { });
+      res.clearCookie('accessToken', clearCookieOpts);
+      res.clearCookie('refreshToken', clearCookieOpts);
+      console.error(`[SECURITY] Refresh token reuse detected — userId: ${id}`);
+      return res.status(401).json({ message: 'Session expired, please log in again' });
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
+      where: { id },
       select: { id: true, role: true, status: true, tokenVersion: true },
     });
 
@@ -163,15 +225,14 @@ export const refreshAccessToken = async (req, res) => {
       return res.status(403).json({ message: 'Account is suspended or deleted' });
     }
 
+    // tokenVersion as nuclear kill-switch (password change, admin revoke)
     if (decoded.tokenVersion !== user.tokenVersion) {
-      // Token reuse / revoked — clear cookies and force re-login
       res.clearCookie('accessToken', clearCookieOpts);
       res.clearCookie('refreshToken', clearCookieOpts);
-      return res.status(401).json({ message: 'Refresh token has been revoked' });
+      return res.status(401).json({ message: 'Session revoked, please log in again' });
     }
 
-    // Rotate BOTH tokens
-    setAuthCookies(res, user);
+    await setAuthCookies(res, user);
     return res.status(200).json({ message: 'Tokens refreshed successfully' });
   } catch (error) {
     res.clearCookie('accessToken', clearCookieOpts);
@@ -193,13 +254,12 @@ export const googleAuthCallback = async (req, res) => {
       return res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/Login?error=auth_failed`);
     }
 
-    // Ensure we have a current tokenVersion from DB
     const user = await prisma.user.findUnique({
       where: { id: passportUser.id },
       select: { id: true, role: true, tokenVersion: true },
     });
 
-    setAuthCookies(res, user || passportUser);
+    await setAuthCookies(res, user || passportUser);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/success`);
   } catch (error) {
     console.error('Google callback error:', error);
@@ -265,11 +325,18 @@ export const getUserProfile = async (req, res) => {
 
 // =====================================================================
 //  POST /auth/logout (behind verifyAccessToken middleware)
-//  Server-side invalidation: bump tokenVersion so all outstanding
-//  refresh tokens for this user are immediately invalid.
+//  Deletes the specific jti from Redis + bumps tokenVersion as kill-switch.
 // =====================================================================
 export const logoutUser = async (req, res) => {
   try {
+    const token = req.cookies?.refreshToken;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_JWT_SECRET);
+        if (decoded.jti) await deleteRefreshToken(decoded.jti);
+      } catch (_) { }
+    }
+
     if (req.user?.id) {
       await prisma.user.update({
         where: { id: req.user.id },
@@ -302,6 +369,66 @@ export const checkEmail = async (req, res) => {
     return res.status(200).json({ exists: Boolean(user) });
   } catch (error) {
     console.error('Error checking email:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =====================================================================
+//  GET /auth/verify-email?token=...  (public)
+//  Hashes incoming token, looks up Redis, marks user verified.
+// =====================================================================
+export const verifyEmail = async (req, res) => {
+  const { token } = req.query;
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ message: 'Verification token is required' });
+  }
+
+  try {
+    const userId = await consumeVerificationToken(token);
+
+    if (!userId) {
+      return res.status(400).json({ message: 'Invalid or expired verification link' });
+    }
+
+    await prisma.user.update({
+      where: { id: Number(userId) },
+      data: { isVerified: true },
+    });
+
+    return res.status(200).json({ message: 'Email verified successfully' });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =====================================================================
+//  POST /auth/resend-verification  (behind verifyAccessToken)
+//  Always returns 200 — no enumeration possible.
+// =====================================================================
+export const resendVerification = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { email: true, isVerified: true },
+    });
+
+    if (!user) {
+      return res.status(200).json({ message: 'If your account exists, a verification email has been sent' });
+    }
+
+    if (user.isVerified) {
+      return res.status(200).json({ message: 'Email is already verified' });
+    }
+
+    const rawToken = generateVerificationToken();
+    await storeVerificationToken(rawToken, req.user.id);
+    await sendVerificationEmail(user.email, rawToken);
+
+    return res.status(200).json({ message: 'Verification email sent' });
+  } catch (error) {
+    console.error('Resend verification error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
 };

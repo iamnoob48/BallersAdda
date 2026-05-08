@@ -5,6 +5,8 @@ import playerRoutes from './routes/playerRoutes.js';
 import academyRoutes from './routes/academyRoutes.js';
 import tournamentRoutes from './routes/tournamentRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
+import leaderboardRoutes from './routes/leaderboardRoutes.js';
+import { startRankingJob } from './lib/rankingJob.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 import { urlencoded } from 'express';
@@ -34,6 +36,8 @@ app.use('/api/v1/academy', academyRoutes);
 app.use('/api/v1/tournament', tournamentRoutes);
 //For coach routes
 app.use('/api/v1/coach', coachRoutes);
+//For leaderboard routes
+app.use('/api/v1/leaderboard', leaderboardRoutes);
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Youth Football Website Backend!');
@@ -41,4 +45,6 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
+    // Start the hourly player ranking recomputation job
+    startRankingJob();
 })

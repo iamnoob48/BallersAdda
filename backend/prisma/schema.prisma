@@ -61,7 +61,13 @@ model PlayerProfile {
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   batchId           Int?
-  
+
+  // Geo fields — used for regional/state/national leaderboard scoping.
+  // Populated during profile creation; not derived from academy.
+  city    String?
+  state   String?
+  country String? @default("India")
+
   userId       Int                  @unique
   user         User                 @relation(fields: [userId], references: [id])
   academy      Academy?             @relation(fields: [academyId], references: [id])
@@ -71,6 +77,7 @@ model PlayerProfile {
   attendances  SessionAttendance[]
   academyStats PlayerAcademyStats[]
   enrollments  AcademyEnrollment[]
+  rankings     PlayerRanking[]
 
   @@index([academyId])
   @@index([tournamentRatings])
@@ -470,6 +477,18 @@ model Match {
   academyId Int?
   academy   Academy? @relation(fields: [academyId], references: [id])
 
+  // ── Bracket & round structure (leaderboard feature) ──────────────
+  // round: forward-numbered (1 = first round, 2 = next, etc.)
+  // groupName: "Group A", "Group B" etc. — null for pure knockout
+  // bracketPosition: visual slot in the bracket tree
+  // nextMatchId: self-relation for winner advancement / bracket traversal
+  round           Int?
+  groupName       String?
+  bracketPosition Int?
+  nextMatchId     Int?
+  nextMatch       Match?  @relation("MatchProgression", fields: [nextMatchId], references: [id])
+  previousMatches Match[] @relation("MatchProgression")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -479,6 +498,7 @@ model Match {
   @@index([status])
   @@index([homeTeamId])
   @@index([awayTeamId])
+  @@index([nextMatchId])
 }
 
 // =====================================================================
@@ -644,4 +664,55 @@ enum TournamentStyle {
   KNOCKOUT
   ROUND_ROBIN
   HYBRID
+}
+
+// =====================================================================
+// PLAYER RANKING — materialized leaderboard snapshot
+// One row = one rank. Overall and position-specific rankings are
+// separate rows (positionGroup = OVERALL vs ATTACKER etc.).
+// Recomputed hourly by a cron job.
+// =====================================================================
+model PlayerRanking {
+  id              Int           @id @default(autoincrement())
+  playerId        Int
+  player          PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  // Geographic scope
+  scope           RankingScope   // REGIONAL, STATE, NATIONAL
+  scopeValue      String?        // "Mumbai", "Maharashtra", "India"
+
+  // OVERALL for all-position rankings; specific group for position-scoped
+  positionGroup   PositionGroup
+
+  // Single, unambiguous rank for this exact (scope × scopeValue × positionGroup)
+  rank            Int
+  compositeScore  Float          @default(0.0)
+
+  // Source stats snapshot — avoids joins on read
+  totalGoals        Int   @default(0)
+  totalAssists      Int   @default(0)
+  totalMotm         Int   @default(0)
+  avgRating         Float @default(0.0)
+  matchesPlayed     Int   @default(0)
+  tournamentsPlayed Int   @default(0)
+
+  computedAt      DateTime @default(now())
+
+  @@unique([playerId, scope, scopeValue, positionGroup])
+  @@index([scope, scopeValue, positionGroup, rank])
+  @@index([playerId])
+}
+
+enum RankingScope {
+  REGIONAL
+  STATE
+  NATIONAL
+}
+
+enum PositionGroup {
+  OVERALL
+  GOALKEEPER
+  DEFENDER
+  MIDFIELDER
+  ATTACKER
 }

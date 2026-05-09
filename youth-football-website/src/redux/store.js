@@ -5,6 +5,7 @@ import playerReducer from "./slices/playerSlice.js";
 import { academyApi } from "./slices/academySlice.js";
 import { tournamentApi } from "./slices/tournamentSlice.js";
 import { coachApi } from "./slices/coachSlice.js";
+import { leaderboardApi } from "./slices/leaderboardApi.js";
 
 export const store = configureStore({
     reducer: {
@@ -14,10 +15,12 @@ export const store = configureStore({
         [academyApi.reducerPath]: academyApi.reducer,
         [tournamentApi.reducerPath]: tournamentApi.reducer,
         [coachApi.reducerPath]: coachApi.reducer,
+        [leaderboardApi.reducerPath]: leaderboardApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware()
             .concat(academyApi.middleware)
             .concat(tournamentApi.middleware)
-            .concat(coachApi.middleware),
+            .concat(coachApi.middleware)
+            .concat(leaderboardApi.middleware),
 });

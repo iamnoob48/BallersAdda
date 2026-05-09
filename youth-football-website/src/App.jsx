@@ -27,6 +27,7 @@ import TeamHubPage from "./TeamHubComponents/TeamHubPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
+import LeaderboardPage from "./LeaderboardPage/LeaderboardPage";
 
 function App() {
   const { isAuthenticated, loading } = useSelector((state) => state.auth);
@@ -161,6 +162,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><TeamHubPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <AppLayout><LeaderboardPage /></AppLayout>
               </ProtectedRoute>
             }
           />

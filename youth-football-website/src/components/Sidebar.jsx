@@ -13,7 +13,7 @@ import {
   FiMoon,
   FiShield,
 } from "react-icons/fi";
-import { FaTrophy } from "react-icons/fa";
+import { FaTrophy, FaMedal } from "react-icons/fa";
 import { logout } from "../redux/slices/authSlice";
 import { toggleDarkMode } from "../redux/slices/themeSlice";
 import api from "../api/axios";
@@ -31,6 +31,7 @@ const NAV_LINKS = [
   { label: "Home", href: "/home", icon: <FiHome /> },
   { label: "Tournaments", href: "/tournaments", icon: <FaTrophy /> },
   { label: "Academies", href: "/academies", icon: <FiMapPin /> },
+  { label: "Leaderboard", href: "/leaderboard", icon: <FaMedal /> },
   { label: "Profile", href: "/profile", icon: <FiUser /> },
 ];
 

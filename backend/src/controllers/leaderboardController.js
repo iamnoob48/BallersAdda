@@ -692,7 +692,68 @@ export const getPlayerLeaderboard = async (req, res) => {
       }
     );
 
-    return res.status(200).json(result);
+    // Fetch the requesting user's own rank (not cached — user-specific)
+    let myEntry = null;
+    if (req.user?.id) {
+      try {
+        const me = await prisma.playerProfile.findUnique({
+          where: { userId: req.user.id },
+          select: {
+            id: true,
+            displayName: true,
+            firstName: true,
+            lastName: true,
+            position: true,
+            city: true,
+            state: true,
+            user: { select: { profilePic: true } },
+            academy: { select: { id: true, name: true } },
+          },
+        });
+        if (me) {
+          const myRanking = await prisma.playerRanking.findUnique({
+            where: {
+              playerId_scope_scopeValue_positionGroup: {
+                playerId: me.id,
+                scope,
+                scopeValue,
+                positionGroup,
+              },
+            },
+          });
+          if (myRanking) {
+            myEntry = {
+              rank: myRanking.rank,
+              player: {
+                id: me.id,
+                displayName:
+                  me.displayName ||
+                  `${me.firstName || ""} ${me.lastName || ""}`.trim() ||
+                  "Unknown",
+                position: me.position,
+                city: me.city,
+                state: me.state,
+                profilePic: me.user?.profilePic || null,
+                academy: me.academy ? { id: me.academy.id, name: me.academy.name } : null,
+              },
+              stats: {
+                compositeScore: myRanking.compositeScore,
+                totalGoals: myRanking.totalGoals,
+                totalAssists: myRanking.totalAssists,
+                totalMotm: myRanking.totalMotm,
+                avgRating: myRanking.avgRating,
+                matchesPlayed: myRanking.matchesPlayed,
+                tournamentsPlayed: myRanking.tournamentsPlayed,
+              },
+            };
+          }
+        }
+      } catch (_) {
+        // non-critical — don't fail the whole request if myEntry lookup fails
+      }
+    }
+
+    return res.status(200).json({ ...result, myEntry });
   } catch (error) {
     logger.error("Failed to fetch player leaderboard", { err: error });
     return res.status(500).json({ message: "Server error" });

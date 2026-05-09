@@ -30,7 +30,7 @@ export default function HomePageMain() {
       <HomeTournaments dm={dm} tournaments={myTournaments} loading={myTournamentsLoading} />
 
       {/* ── Leaderboard ── */}
-      <HomeLeaderboard firstName={firstName} dm={dm} />
+      <HomeLeaderboard firstName={firstName} dm={dm} profile={profile} />
     </div>
   );
 }

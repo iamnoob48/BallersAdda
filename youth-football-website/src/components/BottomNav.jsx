@@ -1,6 +1,6 @@
 // src/components/BottomNav.jsx
 import { Link, useLocation } from "react-router-dom";
-import { FaHome, FaTrophy, FaUser, FaSchool, FaUsers } from "react-icons/fa";
+import { FaHome, FaTrophy, FaUser, FaSchool, FaMedal } from "react-icons/fa";
 import { useSelector } from "react-redux";
 
 export default function BottomNav() {
@@ -11,8 +11,8 @@ export default function BottomNav() {
   const navItems = [
     { name: "Home", path: "/home", icon: <FaHome /> },
     { name: "Tournaments", path: "/tournaments", icon: <FaTrophy /> },
+    { name: "Ranks", path: "/leaderboard", icon: <FaMedal /> },
     { name: "Academies", path: "/academies", icon: <FaSchool /> },
-    { name: "Community", path: "/community", icon: <FaUsers /> },
     { name: "Profile", path: "/profile", icon: <FaUser /> },
   ];
 

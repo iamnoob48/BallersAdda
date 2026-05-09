@@ -186,17 +186,6 @@ export default function PlayerAcademyDashboard() {
         avgRating: EMPTY_STATS.officialAvgRating,
       };
 
-  // Leaderboard still uses MOCK — replace when backend endpoint exists
-  const leaderboard = MOCK.leaderboard.map((p) =>
-    p.isUser
-      ? {
-          ...p,
-          name: profile?.firstName || "You",
-          rating: resolvedStats.avgRating || MOCK.stats.avgRating,
-        }
-      : p
-  );
-
   // Shared attendance props (avoids repeating inline)
   const attendanceProps = {
     attendance: resolvedAttendance,
@@ -294,10 +283,9 @@ export default function PlayerAcademyDashboard() {
         {/* ── Tab: Leaderboard ── */}
         {activeTab === "leaderboard" && (
           <LeaderboardTab
-            leaderboard={leaderboard}
-            profilePic={profilePic}
+            academy={academy}
             user={user}
-            squad={MOCK.squad}
+            profilePic={profilePic}
             dm={dm}
           />
         )}

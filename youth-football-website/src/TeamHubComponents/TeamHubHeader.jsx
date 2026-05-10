@@ -4,6 +4,7 @@ import {
   FaUsers,
   FaInfoCircle,
   FaChartBar,
+  FaShieldAlt,
 } from "react-icons/fa";
 import { FiArrowLeft, FiExternalLink } from "react-icons/fi";
 
@@ -178,6 +179,52 @@ export function OverviewTab({ dm, tournament, rulesArr, fmtDate }) {
           <FaMapMarkerAlt /> Open Venue in Maps <FiExternalLink />
         </a>
       )}
+
+      {/* Participating Teams */}
+      {(() => {
+        const visibleTeams = (tournament.teams || []).filter((t) => t.status !== "REJECTED");
+        return (
+          <div className={card}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className={`text-sm font-bold uppercase tracking-wider flex items-center gap-2 ${dm ? "text-[#00FF88]" : "text-green-700"}`}>
+                <FaShieldAlt className="text-xs" /> Participating Teams
+              </h3>
+              {visibleTeams.length > 0 && (
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${dm ? "bg-[#00FF88]/10 text-[#00FF88]" : "bg-green-100 text-green-700"}`}>
+                  {visibleTeams.length} {visibleTeams.length === 1 ? "Team" : "Teams"}
+                </span>
+              )}
+            </div>
+            {visibleTeams.length === 0 ? (
+              <p className={`text-sm ${dm ? "text-gray-500" : "text-gray-400"}`}>No teams registered yet.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {visibleTeams.map((t, i) => (
+                  <span
+                    key={i}
+                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                      t.status === "APPROVED"
+                        ? dm
+                          ? "bg-[#00FF88]/15 text-[#00FF88]"
+                          : "bg-green-100 text-green-700"
+                        : dm
+                        ? "border border-dashed border-[#87A98D]/30 text-gray-500"
+                        : "border border-dashed border-gray-300 text-gray-400"
+                    }`}
+                  >
+                    {t.name}
+                    {t.status === "PENDING" && (
+                      <span className={`text-[9px] uppercase ${dm ? "text-gray-600" : "text-gray-300"}`}>
+                        · pending
+                      </span>
+                    )}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

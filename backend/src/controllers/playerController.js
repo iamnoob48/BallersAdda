@@ -629,6 +629,9 @@ export const getTeamHubData = async (req, res) => {
             formatAndRules: true,
             maxPlayersPerTeam: true,
             registrationDeadline: true,
+            teams: {
+              select: { name: true, status: true },
+            },
           },
         },
         captain: {

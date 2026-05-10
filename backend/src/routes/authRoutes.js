@@ -31,8 +31,6 @@ import passport from 'passport';
 const router = express.Router();
 router.use(cookieParser());
 
-// CSRF guard for all state-changing auth routes
-router.use(requireCsrfHeader);
 
 // Register
 router.post('/register', registerUser);

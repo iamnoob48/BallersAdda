@@ -3,6 +3,7 @@ import { cacheGet, cacheInvalidate, cacheDel } from "../config/cacheUtils.js";
 import redis from "../config/redisClient.js";
 import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
+import { enqueueBracketGeneration } from "../lib/bracketQueue.js";
 
 // =====================================================================
 // Constants & helpers
@@ -540,6 +541,21 @@ export const registerTeam = async (req, res) => {
     invalidateTournamentCaches(tournamentId).catch((err) =>
       console.error("Cache invalidation after registerTeam failed:", err.message)
     );
+
+    // Tournament Queue / Matchmaking Trigger — enqueue bracket generation via BullMQ
+    if (tournament.maxTeams) {
+      prisma.team.count({ where: { tournamentId, status: { not: "REJECTED" } } })
+        .then(async (count) => {
+          if (count < tournament.maxTeams) return;
+          const t = await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            select: { bracketStatus: true },
+          });
+          if (t?.bracketStatus === "GENERATING" || t?.bracketStatus === "COMPLETED") return;
+          await enqueueBracketGeneration(tournamentId);
+        })
+        .catch(err => console.error("Error checking threshold for bracket generation:", err));
+    }
 
     // TODO: background job — send invite emails via SendGrid/Resend
 

@@ -108,6 +108,8 @@ model Tournament {
   formatAndRules       String?
   venueAddressLink     String?
   venueImage           String?
+  bracketStatus        BracketStatus?
+  bracketError         String?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
@@ -458,7 +460,7 @@ model Match {
   matchType MatchType   @default(OFFICIAL_TOURNAMENT)
   status    MatchStatus @default(SCHEDULED)
 
-  kickoffAt       DateTime
+  kickoffAt       DateTime?
   durationMinutes Int      @default(90)
   venue           String?
   notes           String?
@@ -546,6 +548,13 @@ enum Status {
   UPCOMING
   ONGOING
   COMPLETED
+}
+
+enum BracketStatus {
+  PENDING
+  GENERATING
+  COMPLETED
+  FAILED
 }
 
 enum UserStatus {

@@ -7,6 +7,7 @@ import tournamentRoutes from './routes/tournamentRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import { startRankingJob } from './lib/rankingJob.js';
+import { startBracketWorker } from './lib/bracketQueue.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 import { urlencoded } from 'express';
@@ -45,6 +46,6 @@ app.get('/', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
-    // Start the hourly player ranking recomputation job
     startRankingJob();
+    startBracketWorker();
 })

@@ -10,6 +10,8 @@ import api from "../api/axios";
 import { useDispatch } from "react-redux";
 import { loginSuccess, setPlayerProfileComplete } from "../redux/slices/authSlice.js";
 
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({
     email: "",
@@ -68,7 +70,7 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    window.location.href = "http://localhost:4001/api/v1/auth/google";
+    window.location.href = `${backendUrl}/api/v1/auth/google`;
   };
 
   const handleChange = (e) => {

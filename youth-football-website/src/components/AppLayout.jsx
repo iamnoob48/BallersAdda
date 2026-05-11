@@ -2,7 +2,9 @@ import Sidebar from "./Sidebar";
 import NavBar from "./Navbar";
 import TopNav from "./TopNav";
 import BottomNav from "./BottomNav";
+import AchievementOverlay from "./AchievementOverlay";
 import { useSelector } from "react-redux";
+import { usePushSubscription } from "../hooks/usePushSubscription.js";
 
 /**
  * AppLayout wraps all authenticated pages.
@@ -11,6 +13,7 @@ import { useSelector } from "react-redux";
  */
 export default function AppLayout({ children }) {
   const dm = useSelector((state) => state.theme.darkMode);
+  usePushSubscription();
 
   return (
     <div className={`flex flex-col h-screen ${dm ? "bg-[#121212]" : "bg-white"}`}>
@@ -39,6 +42,8 @@ export default function AppLayout({ children }) {
       <div className="md:hidden">
         <BottomNav />
       </div>
+
+      <AchievementOverlay />
     </div>
   );
 }

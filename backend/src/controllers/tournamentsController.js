@@ -3,6 +3,7 @@ import { cacheGet, cacheInvalidate, cacheDel } from "../config/cacheUtils.js";
 import redis from "../config/redisClient.js";
 import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
+import { processEvent } from "../lib/gamificationService.js";
 import { enqueueBracketGeneration } from "../lib/bracketQueue.js";
 
 // =====================================================================
@@ -535,6 +536,13 @@ export const registerTeam = async (req, res) => {
 
       return team;
     });
+
+    // Gamification: award XP to all registered players
+    for (const profileId of statRowProfileIds) {
+      processEvent('TOURNAMENT_JOIN', profileId, {
+        isCaptain: profileId === captain.playerProfile.id,
+      }).catch(err => console.error(`gamification error (TOURNAMENT_JOIN, player ${profileId}):`, err.message));
+    }
 
     // Invalidate cached list/detail so the new _count.teams is visible immediately.
     // Fire-and-forget: Redis errors must not break a successful registration.

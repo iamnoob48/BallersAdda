@@ -68,6 +68,14 @@ model PlayerProfile {
   state   String?
   country String? @default("India")
 
+  // Gamification
+  xp                Int       @default(0)
+  level             Int       @default(1)
+  lastNotifiedLevel Int       @default(1)
+  currentStreak     Int       @default(0)
+  longestStreak     Int       @default(0)
+  lastStreakEvent   DateTime?
+
   userId       Int                  @unique
   user         User                 @relation(fields: [userId], references: [id])
   academy      Academy?             @relation(fields: [academyId], references: [id])
@@ -78,6 +86,7 @@ model PlayerProfile {
   academyStats PlayerAcademyStats[]
   enrollments  AcademyEnrollment[]
   rankings     PlayerRanking[]
+  playerBadges PlayerBadge[]
 
   @@index([academyId])
   @@index([tournamentRatings])
@@ -724,4 +733,55 @@ enum PositionGroup {
   DEFENDER
   MIDFIELDER
   ATTACKER
+}
+
+// =====================================================================
+// GAMIFICATION — Badges, XP, Achievements
+// =====================================================================
+model Badge {
+  id          Int           @id @default(autoincrement())
+  slug        String        @unique
+  name        String
+  description String?
+  icon        String?
+  category    BadgeCategory @default(MILESTONE)
+  xpReward    Int           @default(0)
+  createdAt   DateTime      @default(now())
+
+  playerBadges PlayerBadge[]
+}
+
+model PlayerBadge {
+  id       Int      @id @default(autoincrement())
+  playerId Int
+  badgeId  Int
+  earnedAt DateTime @default(now())
+  notified Boolean  @default(false)
+
+  player PlayerProfile @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  badge  Badge         @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([playerId, badgeId])
+  @@index([playerId])
+  @@index([playerId, notified])
+}
+
+model PushSubscription {
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  endpoint String @unique
+  p256dh   String
+  auth     String
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum BadgeCategory {
+  MILESTONE
+  STREAK
+  TOURNAMENT
+  ACADEMY
+  SOCIAL
 }

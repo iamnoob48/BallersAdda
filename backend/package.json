@@ -13,6 +13,9 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^6.18.0",
@@ -39,7 +42,8 @@
     "pg": "^8.16.3",
     "prisma": "^6.18.0",
     "rate-limit-redis": "^4.3.1",
-    "uuid": "^13.0.0"
+    "uuid": "^13.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "supertest": "^7.2.2",

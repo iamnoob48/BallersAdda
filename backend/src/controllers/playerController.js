@@ -1,6 +1,7 @@
 import prisma from '../prismaClient.js';
 import { cacheGet, cacheDel } from '../config/cacheUtils.js';
 import cloudinary from '../config/cloudinaryConfig.js';
+import { processEvent } from '../lib/gamificationService.js';
 // ── Validation helpers ──────────────────────────────────────────────────
 const VALID_POSITIONS = [
   'GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD',
@@ -131,6 +132,11 @@ export const enterPlayerProfile = async (req, res) => {
 
     // Invalidate player cache on creation
     await cacheDel(`player:profile:${userId}`);
+
+    // Gamification: check if profile is complete enough for badge
+    if (newProfile.firstName && newProfile.lastName && newProfile.position && newProfile.dateOfBirth) {
+      processEvent('PROFILE_COMPLETE', newProfile.id).catch(err => console.error(`gamification error (PROFILE_COMPLETE, player ${newProfile.id}):`, err.message));
+    }
 
     return res.status(201).json({ message: 'Player profile created successfully', playerProfile: newProfile });
   } catch (error) {
@@ -341,6 +347,9 @@ export const joinAcademy = async (req, res) => {
         data: { noOfStudents: { increment: 1 } },
       })
     ]);
+
+    // Gamification: academy join event
+    processEvent('ACADEMY_JOIN', playerProfile.id).catch(err => console.error(`gamification error (ACADEMY_JOIN, player ${playerProfile.id}):`, err.message));
 
     return res.status(200).json({
       message: 'Player joined academy successfully',

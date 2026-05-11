@@ -1,0 +1,16 @@
+export const BADGE_CATALOG = [
+  { slug: "profile_complete", name: "Profile Complete", description: "Complete your profile", icon: "user-check", category: "MILESTONE" },
+  { slug: "first_tournament", name: "First Tournament", description: "Join a tournament", icon: "trophy", category: "TOURNAMENT" },
+  { slug: "tournament_veteran", name: "Tournament Veteran", description: "Join 5 tournaments", icon: "award", category: "TOURNAMENT" },
+  { slug: "academy_member", name: "Academy Member", description: "Join an academy", icon: "school", category: "ACADEMY" },
+  { slug: "team_captain", name: "Team Captain", description: "Captain a team", icon: "shield", category: "SOCIAL" },
+  { slug: "first_goal", name: "First Goal", description: "Score your first goal", icon: "target", category: "MILESTONE" },
+  { slug: "goal_machine", name: "Goal Machine", description: "Score 10 goals", icon: "flame", category: "MILESTONE" },
+  { slug: "streak_7", name: "7-Day Streak", description: "7 consecutive events", icon: "zap", category: "STREAK" },
+  { slug: "streak_30", name: "30-Day Streak", description: "30 consecutive events", icon: "fire", category: "STREAK" },
+  { slug: "streak_90", name: "Iron Will", description: "90 consecutive events", icon: "diamond", category: "STREAK" },
+  { slug: "session_regular", name: "Regular Trainee", description: "Attend 10 sessions", icon: "dumbbell", category: "ACADEMY" },
+  { slug: "session_devoted", name: "Devoted Player", description: "Attend 50 sessions", icon: "heart", category: "ACADEMY" },
+  { slug: "level_5", name: "Rising Star", description: "Reach Level 5", icon: "star", category: "MILESTONE" },
+  { slug: "level_10", name: "All-Star", description: "Reach Level 10", icon: "crown", category: "MILESTONE" },
+];

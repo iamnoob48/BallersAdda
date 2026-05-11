@@ -12,9 +12,6 @@ function AcademyResults({ academies, viewMode }) {
   );
   return (
     <div className="flex-1">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className={`text-2xl font-bold ${dm ? "text-gray-100" : "text-gray-800"}`}>Explore Academies</h2>
-      </div>
 
       <AnimatePresence mode="wait">
         {viewMode === "list" ? (

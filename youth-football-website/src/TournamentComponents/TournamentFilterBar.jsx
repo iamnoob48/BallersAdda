@@ -32,7 +32,7 @@ export default function TournamentFilterBar({
   return (
     <>
       {/* ================= FILTER SECTION (Sticky) ================= */}
-      <div className="sticky top-0 z-40 px-4 md:px-8 -mt-8">
+      <div className="sticky top-0 z-40 px-4 md:px-8 mt-0">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

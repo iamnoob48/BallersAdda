@@ -9,6 +9,7 @@ import {
   redeemInviteToken,
   validateTeamLink,
   redeemTeamLink,
+  sendSignupInvite,
 } from '../controllers/tournamentsController.js';
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.post('/team-link/redeem', verifyAccessToken, redeemTeamLink);
 
 // POST endpoints for independent team roster mapping and generation
 router.post('/verify-players', verifyAccessToken, verifyRosterPlayers);
+router.post('/send-signup-invite', verifyAccessToken, sendSignupInvite);
 router.post('/:id/registerTeam', verifyAccessToken, registerTeam);
 
 // Single tournament detail — keep last so /invite/... is never swallowed by /:id

@@ -83,7 +83,7 @@ export const tournamentApi = createApi({
     }),
 
     registerTeamForTournament: builder.mutation({
-      query: ({ tournamentId, formData, rosterMode }) => ({
+      query: ({ tournamentId, formData, rosterMode, latitude, longitude }) => ({
         url: `/tournament/${tournamentId}/registerTeam`,
         method: "POST",
         body: {
@@ -91,12 +91,27 @@ export const tournamentApi = createApi({
           kitColour: formData.kitColor,
           rosterMode,
           emails: rosterMode === 'link' ? [] : formData.emails.filter(e => e.trim().length > 0),
+          latitude,
+          longitude,
         },
       }),
       invalidatesTags: (result, error, { tournamentId }) => [
         { type: "Tournament", id: tournamentId },
         { type: "TournamentList", id: "LIST" }
       ],
+    }),
+
+    sendSignupInvite: builder.mutation({
+      query: ({ email, teamId }) => ({
+        url: '/tournament/send-signup-invite',
+        method: 'POST',
+        body: { email, teamId },
+      }),
+    }),
+
+    getPreviousTeammates: builder.query({
+      query: () => `/player/previousTeammates`,
+      transformResponse: (response) => response.teammates,
     }),
   }),
 });
@@ -110,4 +125,6 @@ export const {
   useRedeemInviteTokenMutation,
   useValidateTeamLinkTokenQuery,
   useRedeemTeamLinkTokenMutation,
+  useGetPreviousTeammatesQuery,
+  useSendSignupInviteMutation,
 } = tournamentApi;

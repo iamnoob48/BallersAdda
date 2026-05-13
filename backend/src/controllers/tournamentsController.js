@@ -67,6 +67,27 @@ const invalidateTournamentCaches = async (tournamentId) => {
 const isUniqueViolation = (e) => e && e.code === "P2002";
 const isRecordNotFound = (e) => e && e.code === "P2025";
 
+// Reverse geocode lat/lng → { city, state, country } via OpenStreetMap Nominatim (free, no key)
+const reverseGeocode = async (lat, lng) => {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=en`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'BallersAdda/1.0' },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const addr = data.address || {};
+    return {
+      city: addr.city || addr.town || addr.village || addr.county || null,
+      state: addr.state || null,
+      country: addr.country || null,
+    };
+  } catch {
+    return null;
+  }
+};
+
 // =====================================================================
 //  GET /tournament/all
 //  Paginated tournaments with optional status/location/category filters.
@@ -326,7 +347,7 @@ export const registerTeam = async (req, res) => {
     }
 
     const captainId = req.user.id;
-    const { teamName, kitColour, emails, rosterMode } = req.body || {};
+    const { teamName, kitColour, emails, rosterMode, latitude, longitude } = req.body || {};
     const useShareLink = rosterMode === "link";
 
     // --- Input sanitation ---
@@ -474,6 +495,13 @@ export const registerTeam = async (req, res) => {
       }
     }
 
+    // Resolve team location from captain's browser coordinates (best-effort)
+    let teamLocation = { city: null, state: null, country: null };
+    if (typeof latitude === 'number' && typeof longitude === 'number' && isFinite(latitude) && isFinite(longitude)) {
+      const geo = await reverseGeocode(latitude, longitude);
+      if (geo) teamLocation = geo;
+    }
+
     // Share link only generated in link mode; plaintext returned once, only hash stored.
     const shareLink = useShareLink ? generateShareLinkToken() : null;
 
@@ -496,6 +524,9 @@ export const registerTeam = async (req, res) => {
           tournamentId,
           captainId,
           status: "PENDING",
+          city: teamLocation.city,
+          state: teamLocation.state,
+          country: teamLocation.country,
           players: { connect: connectProfiles },
         },
       });
@@ -510,6 +541,7 @@ export const registerTeam = async (req, res) => {
         });
       }
 
+      let signupInvites = [];
       if (!useShareLink && emailsToInvite.length > 0) {
         const invitePayload = emailsToInvite.map((email) => ({
           email,
@@ -521,6 +553,11 @@ export const registerTeam = async (req, res) => {
           data: invitePayload,
           skipDuplicates: true,
         });
+        const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+        signupInvites = invitePayload.map((inv) => ({
+          email: inv.email,
+          signupUrl: `${clientUrl}/Register?invite=${inv.token}`,
+        }));
       }
 
       if (statRowProfileIds.length > 0) {
@@ -534,7 +571,7 @@ export const registerTeam = async (req, res) => {
         });
       }
 
-      return team;
+      return { team, signupInvites };
     });
 
     // Gamification: award XP to all registered players
@@ -575,8 +612,9 @@ export const registerTeam = async (req, res) => {
 
     return res.status(201).json({
       message,
-      team: newTeam,
+      team: newTeam.team,
       ...(shareLink && { linkToken: shareLink.plain }),
+      ...(newTeam.signupInvites?.length > 0 && { signupInvites: newTeam.signupInvites }),
     });
   } catch (error) {
     if (error && error.code === "TOURNAMENT_FULL") {
@@ -1057,5 +1095,79 @@ export const redeemTeamLink = async (req, res) => {
     }
     console.error("Error redeeming team link:", error);
     return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
+//  POST /tournament/send-signup-invite
+//  Captain sends invite to an email not yet on the platform.
+//  Creates a TeamInvite row and returns a signup URL with the token.
+// =====================================================================
+export const sendSignupInvite = async (req, res) => {
+  try {
+    const { email, teamId } = req.body;
+    const captainId = req.user.id;
+
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail.length > EMAIL_MAX) {
+      return res.status(400).json({ message: 'Email too long.' });
+    }
+
+    if (!teamId || !Number.isInteger(teamId)) {
+      return res.status(400).json({ message: 'Valid team ID is required.' });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { id: true, captainId: true, tournamentId: true },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: 'Team not found.' });
+    }
+    if (team.captainId !== captainId) {
+      return res.status(403).json({ message: 'Only the team captain can send invites.' });
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: { email: { equals: normalizedEmail, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existingUser) {
+      return res.status(400).json({ message: 'This email is already registered. Use the email roster instead.' });
+    }
+
+    const existingInvite = await prisma.teamInvite.findUnique({
+      where: { email_teamId: { email: normalizedEmail, teamId } },
+      select: { id: true, status: true },
+    });
+    if (existingInvite && existingInvite.status === 'PENDING') {
+      return res.status(409).json({ message: 'Invite already sent to this email.' });
+    }
+
+    const token = uuidv4();
+    await prisma.teamInvite.upsert({
+      where: { email_teamId: { email: normalizedEmail, teamId } },
+      update: { token, status: 'PENDING' },
+      create: { email: normalizedEmail, teamId, token, status: 'PENDING' },
+    });
+
+    const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+    const signupUrl = `${clientUrl}/Register?invite=${token}`;
+
+    return res.status(201).json({
+      message: 'Signup invite created.',
+      signupUrl,
+      token,
+    });
+  } catch (error) {
+    if (isUniqueViolation(error)) {
+      return res.status(409).json({ message: 'Invite already exists for this email.' });
+    }
+    console.error('Error in sendSignupInvite:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

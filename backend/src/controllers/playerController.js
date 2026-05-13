@@ -138,6 +138,35 @@ export const enterPlayerProfile = async (req, res) => {
       processEvent('PROFILE_COMPLETE', newProfile.id).catch(err => console.error(`gamification error (PROFILE_COMPLETE, player ${newProfile.id}):`, err.message));
     }
 
+    // Auto-redeem pending team invites for this email
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (user?.email) {
+      const pendingInvites = await prisma.teamInvite.findMany({
+        where: { email: { equals: user.email, mode: 'insensitive' }, status: 'PENDING' },
+        select: { id: true, teamId: true, team: { select: { tournamentId: true } } },
+      });
+
+      for (const invite of pendingInvites) {
+        try {
+          await prisma.$transaction([
+            prisma.team.update({
+              where: { id: invite.teamId },
+              data: { players: { connect: { id: newProfile.id } } },
+            }),
+            prisma.playerTournament.create({
+              data: { playerId: newProfile.id, tournamentId: invite.team.tournamentId, teamId: invite.teamId },
+            }),
+            prisma.teamInvite.update({
+              where: { id: invite.id },
+              data: { status: 'ACCEPTED' },
+            }),
+          ]);
+        } catch (err) {
+          console.error(`Auto-redeem invite ${invite.id} failed:`, err.message);
+        }
+      }
+    }
+
     return res.status(201).json({ message: 'Player profile created successfully', playerProfile: newProfile });
   } catch (error) {
     console.error('Create player profile error:', error);
@@ -777,3 +806,80 @@ export const uploadProfilePic = async (req, res) => {
     return res.status(500).json({ message: 'Server error' });
   }
 }
+
+// =====================================================================
+//  GET /player/previousTeammates
+//  Returns players the current user has been on teams with, sorted by
+//  frequency (most co-teams first), then recency.
+// =====================================================================
+export const getPreviousTeammates = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const playerProfile = await prisma.playerProfile.findUnique({
+      where: { userId },
+      select: { id: true },
+    });
+
+    if (!playerProfile) {
+      return res.status(200).json({ teammates: [] });
+    }
+
+    const myTeams = await prisma.team.findMany({
+      where: { players: { some: { id: playerProfile.id } } },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        tournament: { select: { id: true, name: true } },
+        players: {
+          where: { id: { not: playerProfile.id } },
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            position: true,
+            user: { select: { id: true, email: true, profilePic: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const teammateMap = new Map();
+
+    for (const team of myTeams) {
+      for (const player of team.players) {
+        const existing = teammateMap.get(player.user.id);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          teammateMap.set(player.user.id, {
+            userId: player.user.id,
+            playerProfileId: player.id,
+            email: player.user.email,
+            profilePic: player.user.profilePic,
+            firstName: player.firstName,
+            lastName: player.lastName,
+            displayName: player.displayName,
+            position: player.position,
+            count: 1,
+            lastPlayedWith: team.createdAt,
+            lastTeamName: team.name,
+            lastTournamentName: team.tournament?.name || null,
+          });
+        }
+      }
+    }
+
+    const teammates = [...teammateMap.values()].sort(
+      (a, b) => b.count - a.count || new Date(b.lastPlayedWith) - new Date(a.lastPlayedWith)
+    );
+
+    return res.status(200).json({ teammates });
+  } catch (error) {
+    console.error('Error fetching previous teammates:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};

@@ -1,6 +1,6 @@
 import express from 'express';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
-import { getPlayerProfile, enterPlayerProfile, updatePlayerProfile, getAcademyDetailsOfPlayer, joinAcademy, getMyTournaments, getTeamHubData, getPlayerAcademyStats, getPlayerAttendance, leaveAcademy, getAcademyHistory, uploadProfilePic } from '../controllers/playerController.js';
+import { getPlayerProfile, enterPlayerProfile, updatePlayerProfile, getAcademyDetailsOfPlayer, joinAcademy, getMyTournaments, getTeamHubData, getPlayerAcademyStats, getPlayerAttendance, leaveAcademy, getAcademyHistory, uploadProfilePic, getPreviousTeammates } from '../controllers/playerController.js';
 
 
 
@@ -42,5 +42,8 @@ router.get('/academyHistory', verifyAccessToken, getAcademyHistory);
 
 // Upload / replace profile picture (base64 → Cloudinary)
 router.post('/uploadProfilePic', verifyAccessToken, uploadProfilePic);
+
+// Previous teammates — players this user has been on teams with
+router.get('/previousTeammates', verifyAccessToken, getPreviousTeammates);
 
 export default router;

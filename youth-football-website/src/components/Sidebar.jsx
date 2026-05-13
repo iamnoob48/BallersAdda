@@ -12,6 +12,7 @@ import {
   FiSun,
   FiMoon,
   FiShield,
+  FiChevronLeft,
 } from "react-icons/fi";
 import { FaTrophy, FaMedal } from "react-icons/fa";
 import { logout } from "../redux/slices/authSlice";
@@ -59,27 +60,24 @@ export default function Sidebar() {
         onMouseEnter={() => setOpen(true)}
         animate={{ width: open ? 260 : 68 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={`hidden md:flex flex-col h-screen sticky top-0 z-40 shrink-0 select-none border-r ${
-          dm ? "bg-[#121212] border-[#87A98D]/15" : "bg-white border-gray-200"
-        }`}
+        className={`hidden md:flex flex-col h-screen sticky top-0 z-40 shrink-0 select-none border-r ${dm ? "bg-[#121212] border-[#87A98D]/15" : "bg-white border-gray-200"
+          }`}
       >
         {/* Logo */}
-        <div className="px-4 pt-6 pb-4 overflow-hidden">
+        <div className="px-4 pt-6 pb-4 overflow-hidden flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div
-              className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0 ${
-                dm
-                  ? "bg-[#00FF88]/15 text-[#00FF88]"
-                  : "bg-green-100 text-green-600"
-              }`}
+              className={`w-9 h-9 rounded-xl flex items-center justify-center text-lg font-extrabold shrink-0 ${dm
+                ? "bg-[#00FF88]/15 text-[#00FF88]"
+                : "bg-green-100 text-green-600"
+                }`}
             >
               B
             </div>
             <motion.span
               animate={{ opacity: open ? 1 : 0, width: open ? "auto" : 0 }}
-              className={`text-xl font-extrabold whitespace-nowrap overflow-hidden ${
-                dm ? "text-[#00FF88]" : "text-green-600"
-              }`}
+              className={`text-xl font-extrabold whitespace-nowrap overflow-hidden ${dm ? "text-[#00FF88]" : "text-green-600"
+                }`}
             >
               Ballers
               <span
@@ -102,18 +100,16 @@ export default function Sidebar() {
 
         {/* Bottom section — theme toggle + user + logout */}
         <div
-          className={`px-3 py-4 border-t space-y-1 ${
-            dm ? "border-[#87A98D]/10" : "border-gray-100"
-          }`}
+          className={`px-3 py-4 border-t space-y-1 ${dm ? "border-[#87A98D]/10" : "border-gray-100"
+            }`}
         >
           {/* Dark mode toggle */}
           <button
             onClick={() => dispatch(toggleDarkMode())}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-              dm
-                ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
-                : "text-gray-600 hover:text-green-600 hover:bg-green-50"
-            }`}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${dm
+              ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
+              : "text-gray-600 hover:text-green-600 hover:bg-green-50"
+              }`}
           >
             <span className="text-lg shrink-0">
               {dm ? <FiSun /> : <FiMoon />}
@@ -132,16 +128,14 @@ export default function Sidebar() {
           {/* User avatar */}
           <div
             onClick={() => navigate("/profile")}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${
-              dm ? "hover:bg-[#1a1a1a]" : "hover:bg-gray-50"
-            }`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${dm ? "hover:bg-[#1a1a1a]" : "hover:bg-gray-50"
+              }`}
           >
             <img
               src={user?.profilePic || "/default-avatar.png"}
               alt="avatar"
-              className={`w-8 h-8 rounded-full object-cover border shrink-0 ${
-                dm ? "border-[#00FF88]/30" : "border-green-300"
-              }`}
+              className={`w-8 h-8 rounded-full object-cover border shrink-0 ${dm ? "border-[#00FF88]/30" : "border-green-300"
+                }`}
               referrerPolicy="no-referrer"
             />
             <motion.span
@@ -149,9 +143,8 @@ export default function Sidebar() {
                 opacity: open ? 1 : 0,
                 display: open ? "inline-block" : "none",
               }}
-              className={`text-sm font-medium truncate whitespace-nowrap ${
-                dm ? "text-gray-300" : "text-gray-700"
-              }`}
+              className={`text-sm font-medium truncate whitespace-nowrap ${dm ? "text-gray-300" : "text-gray-700"
+                }`}
             >
               {user?.username || "Player"}
             </motion.span>
@@ -160,11 +153,10 @@ export default function Sidebar() {
           {/* Logout */}
           <button
             onClick={handleLogout}
-            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-              dm
-                ? "text-gray-500 hover:text-red-400 hover:bg-red-400/5"
-                : "text-gray-500 hover:text-red-600 hover:bg-red-50"
-            }`}
+            className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${dm
+              ? "text-gray-500 hover:text-red-400 hover:bg-red-400/5"
+              : "text-gray-500 hover:text-red-600 hover:bg-red-50"
+              }`}
           >
             <span className="text-lg shrink-0">
               <FiLogOut />
@@ -179,6 +171,30 @@ export default function Sidebar() {
               Logout
             </motion.span>
           </button>
+
+          {/* Collapse */}
+          {open && (
+            <button
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${dm
+                ? "text-gray-500 hover:text-white hover:bg-white/5"
+                : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                }`}
+            >
+              <span className="text-lg shrink-0">
+                <FiChevronLeft />
+              </span>
+              <motion.span
+                animate={{
+                  opacity: open ? 1 : 0,
+                  display: open ? "inline-block" : "none",
+                }}
+                className="whitespace-nowrap"
+              >
+                Collapse Sidebar
+              </motion.span>
+            </button>
+          )}
         </div>
       </motion.aside>
     </SidebarContext.Provider>
@@ -194,12 +210,11 @@ function SidebarLink({ link }) {
     <NavLink
       to={link.href}
       className={({ isActive }) =>
-        `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${
-          isActive
-            ? dm
-              ? "bg-[#00FF88]/10 text-[#00FF88]"
-              : "bg-green-50 text-green-700"
-            : dm
+        `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group ${isActive
+          ? dm
+            ? "bg-[#00FF88]/10 text-[#00FF88]"
+            : "bg-green-50 text-green-700"
+          : dm
             ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
             : "text-gray-600 hover:text-green-600 hover:bg-green-50"
         }`

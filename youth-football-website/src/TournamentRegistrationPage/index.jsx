@@ -9,7 +9,7 @@ import TournamentDescription from './components/TournamentDescription';
 import OngoingModule from './components/OngoingModule';
 import StickyActionPanel from './components/StickyActionPanel';
 import RegistrationOverview from './components/RegistrationOverview';
-import RegistrationFormModal from './components/RegistrationFormModal';
+import TeamRegistrationPage from './components/TeamRegistrationPage';
 import { useGetTournamentByIdQuery } from '../redux/slices/tournamentSlice';
 import {
   getTournamentPrimaryAction,
@@ -24,7 +24,7 @@ export default function TournamentRegistrationPage() {
   const { myTournaments } = useSelector((s) => s.player);
   const liveSectionRef = useRef(null);
   const registerSectionRef = useRef(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showRegistration, setShowRegistration] = useState(false);
 
   const routeTournament = location.state?.tournament || null;
   const {
@@ -48,7 +48,7 @@ export default function TournamentRegistrationPage() {
 
   const handlePrimaryAction = () => {
     if (!showLiveCenter) {
-      setIsModalOpen(true);
+      setShowRegistration(true);
     } else {
       liveSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -97,6 +97,15 @@ export default function TournamentRegistrationPage() {
   }
 
   if (!tournament) return null;
+
+  if (showRegistration) {
+    return (
+      <TeamRegistrationPage
+        tournament={tournament}
+        onBack={() => setShowRegistration(false)}
+      />
+    );
+  }
 
   return (
     <div className={`min-h-screen pb-28 lg:pb-12 ${dm ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -158,12 +167,6 @@ export default function TournamentRegistrationPage() {
           </button>
         )}
       </div>
-
-      <RegistrationFormModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        tournament={tournament} 
-      />
     </div>
   );
 }

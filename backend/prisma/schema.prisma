@@ -173,6 +173,10 @@ model Team {
   tournamentId Int
   tournament   Tournament @relation(fields: [tournamentId], references: [id])
 
+  city    String?
+  state   String?
+  country String?
+
   players         PlayerProfile[]    @relation("PlayerProfileToTeam")
   tournamentStats PlayerTournament[]
   teamInvites     TeamInvite[]

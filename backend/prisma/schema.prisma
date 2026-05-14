@@ -32,6 +32,7 @@ model User {
   organizedTournaments Tournament[]    @relation("OrganizedTournaments")
   captainedTeams       Team[]          @relation("TeamCaptain")
   issuedShareLinks     TeamShareLink[] @relation("ShareLinkIssuer")
+  academyReviews       AcademyReview[]
 
   @@index([role])
 }
@@ -273,6 +274,7 @@ model Academy {
   detailedInfo     String?
   services         String[]  @default(["Football"])
   noOfStudents     Int?      @default(0)
+  tournamentsWon   Int?      @default(0)
   primaryPictureId Int?      @unique
   userId           Int?      @unique
 
@@ -290,6 +292,7 @@ model Academy {
   invites        AcademyInvite[]
   teams          Team[]
   enrollments    AcademyEnrollment[]
+  reviews        AcademyReview[]
 
   @@index([name])
 }
@@ -546,6 +549,29 @@ model PlayerAcademyStats {
 }
 
 // =====================================================================
+// ACADEMY REVIEW — parents/players rate and review an academy
+// =====================================================================
+model AcademyReview {
+  id           Int          @id @default(autoincrement())
+  academyId    Int
+  userId       Int
+  rating       Int          // 1–5
+  title        String?
+  text         String
+  reviewerRole ReviewerRole @default(PARENT)
+  isVerified   Boolean      @default(false)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  academy Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, academyId])
+  @@index([academyId])
+  @@index([academyId, rating])
+}
+
+// =====================================================================
 // ENUMS
 // =====================================================================
 enum Role {
@@ -788,4 +814,11 @@ enum BadgeCategory {
   TOURNAMENT
   ACADEMY
   SOCIAL
+}
+
+enum ReviewerRole {
+  PARENT
+  PLAYER
+  COACH
+  OTHER
 }

@@ -1,5 +1,5 @@
 import express from 'express';
-import { getAcademyDetails, getAcademyDetailsById, filterAcademies, registerAcademy } from '../controllers/academyControllers.js';
+import { getAcademyDetails, getAcademyDetailsById, filterAcademies, registerAcademy, createAcademyReview } from '../controllers/academyControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
 
 
@@ -14,6 +14,9 @@ router.get('/filter', verifyAccessToken, filterAcademies);
 
 //For registering a new academy and linking coaches
 router.post('/register', verifyAccessToken, registerAcademy);
+
+//For creating or updating a review for an academy
+router.post('/:id/review', verifyAccessToken, createAcademyReview);
 
 
 

@@ -1,5 +1,5 @@
 import prisma from "../prismaClient.js";
-import { cacheGet } from "../config/cacheUtils.js";
+import { cacheGet, cacheDel, cacheInvalidate } from "../config/cacheUtils.js";
 
 // ── Shared pagination helpers ───────────────────────────────────────────
 const parsePagination = (query) => {
@@ -94,7 +94,30 @@ export const getAcademyDetailsById = async (req, res) => {
           academyLogoURL: true,
           rating: true,
           noOfStudents: true,
+          noOfReviews: true,
+          tournamentsWon: true,
           services: true,
+
+          reviews: {
+            orderBy: { createdAt: "desc" },
+            take: 20,
+            select: {
+              id: true,
+              rating: true,
+              title: true,
+              text: true,
+              reviewerRole: true,
+              isVerified: true,
+              createdAt: true,
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  profilePic: true,
+                },
+              },
+            },
+          },
 
           pricingPlans: {
             where: { active: true },
@@ -217,12 +240,15 @@ export const getAcademyDetailsById = async (req, res) => {
         academyLogoURL: academy.academyLogoURL,
         rating: academy.rating,
         noOfStudents: academy.noOfStudents,
+        noOfReviews: academy.noOfReviews,
+        tournamentsWon: academy.tournamentsWon,
         services: academy.services,
         pricing: academy.pricingPlans,
         coaches: academy.coaches,
         schedule: scheduleObj,
         pictures: academy.pictures,
-        batches: batches
+        batches: batches,
+        reviews: academy.reviews
       };
     });
 
@@ -286,6 +312,86 @@ export const filterAcademies = async (req, res) => {
 // =====================================================================
 //  POST /academy/register — Register a new academy club
 // =====================================================================
+// =====================================================================
+//  POST /academy/:id/review — create or update a review
+// =====================================================================
+export const createAcademyReview = async (req, res) => {
+  try {
+    const academyId = Number(req.params.id);
+    const userId = req.user.id;
+    const { rating, title, text, reviewerRole } = req.body;
+
+    if (!Number.isInteger(academyId) || academyId <= 0) {
+      return res.status(400).json({ message: "Invalid academy ID" });
+    }
+    if (!rating || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+      return res.status(400).json({ message: "Rating must be an integer between 1 and 5" });
+    }
+    if (!text || typeof text !== "string" || text.trim().length < 10) {
+      return res.status(400).json({ message: "Review text must be at least 10 characters" });
+    }
+
+    const validRoles = ["PARENT", "PLAYER", "COACH", "OTHER"];
+    const role = validRoles.includes(reviewerRole) ? reviewerRole : "PARENT";
+
+    const academy = await prisma.academy.findUnique({ where: { id: academyId } });
+    if (!academy) return res.status(404).json({ message: "Academy not found" });
+
+    const review = await prisma.$transaction(async (tx) => {
+      const rev = await tx.academyReview.upsert({
+        where: { userId_academyId: { userId, academyId } },
+        create: {
+          academyId,
+          userId,
+          rating,
+          title: title?.trim() || null,
+          text: text.trim(),
+          reviewerRole: role,
+        },
+        update: {
+          rating,
+          title: title?.trim() || null,
+          text: text.trim(),
+          reviewerRole: role,
+        },
+        select: {
+          id: true,
+          rating: true,
+          title: true,
+          text: true,
+          reviewerRole: true,
+          createdAt: true,
+          user: { select: { id: true, username: true, profilePic: true } },
+        },
+      });
+
+      const agg = await tx.academyReview.aggregate({
+        where: { academyId },
+        _avg: { rating: true },
+        _count: { id: true },
+      });
+
+      await tx.academy.update({
+        where: { id: academyId },
+        data: {
+          rating: Math.round((agg._avg.rating ?? 0) * 10) / 10,
+          noOfReviews: agg._count.id,
+        },
+      });
+
+      return rev;
+    });
+
+    cacheDel(`academy:detail:${academyId}`);
+    cacheInvalidate(`academy:list:*`);
+
+    return res.status(201).json({ message: "Review saved", review });
+  } catch (error) {
+    console.error("Error creating review:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 import { setAuthCookies } from "./authControllers.js";
 
 export const registerAcademy = async (req, res) => {

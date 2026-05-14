@@ -1,5 +1,5 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
 import { MapPin, Star } from "lucide-react";
 import { useSelector } from "react-redux";
 
@@ -21,10 +21,12 @@ const FloatingFootball = ({ dm }) => (
   </svg>
 );
 
+// Left-Card is no longer rendered in the main layout (hero replaced it),
+// but we keep it exported for backward compatibility.
 const LeftCard = ({ ACADEMY_DATA }) => {
   const dm = useSelector((state) => state.theme.darkMode);
   const address = `${ACADEMY_DATA.academy.address}, ${ACADEMY_DATA.academy.city}, ${ACADEMY_DATA.academy.state}, ${ACADEMY_DATA.academy.country}`;
-  
+
   return (
     <motion.aside
       initial={{ opacity: 0, x: -20 }}
@@ -32,7 +34,7 @@ const LeftCard = ({ ACADEMY_DATA }) => {
       className="lg:col-span-3 space-y-6"
     >
       {/* Main Profile Card */}
-      <div className={`rounded-3xl p-6 shadow-sm border flex flex-col items-center text-center relative overflow-hidden group transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
+      <div className={`rounded-2xl p-6 shadow-sm border flex flex-col items-center text-center relative overflow-hidden group transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
         {/* Animated Header */}
         <div className={`absolute top-0 left-0 w-full h-32 -z-0 overflow-hidden ${dm ? "bg-[#00FF88]/5" : "bg-emerald-50/50"}`}>
           <div
@@ -116,7 +118,7 @@ const LeftCard = ({ ACADEMY_DATA }) => {
       </div>
 
       {/* Map Card */}
-      <div className={`rounded-3xl p-4 shadow-sm border transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
+      <div className={`rounded-2xl p-4 shadow-sm border transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
         <div className={`relative w-full h-48 rounded-2xl overflow-hidden group cursor-pointer border ${dm ? "bg-[#2a2a2a] border-[#87A98D]/15" : "bg-gray-200 border-gray-200"}`}>
           <img
             src="https://images.unsplash.com/photo-1569336415962-a4bd9f69cd83?auto=format&fit=crop&q=80&w=600"

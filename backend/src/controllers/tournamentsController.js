@@ -5,6 +5,7 @@ import crypto from "node:crypto";
 import { v4 as uuidv4 } from "uuid";
 import { processEvent } from "../lib/gamificationService.js";
 import { enqueueBracketGeneration } from "../lib/bracketQueue.js";
+import razorpay from "../config/razorpayClient.js";
 
 // =====================================================================
 // Constants & helpers
@@ -523,7 +524,7 @@ export const registerTeam = async (req, res) => {
           kitColour: kitColourValue,
           tournamentId,
           captainId,
-          status: "PENDING",
+          status: useShareLink ? "DRAFT" : "PENDING",
           city: teamLocation.city,
           state: teamLocation.state,
           country: teamLocation.country,
@@ -588,7 +589,8 @@ export const registerTeam = async (req, res) => {
     );
 
     // Tournament Queue / Matchmaking Trigger — enqueue bracket generation via BullMQ
-    if (tournament.maxTeams) {
+    // Skip for DRAFT teams (link mode) — they haven't confirmed registration yet.
+    if (!useShareLink && tournament.maxTeams) {
       prisma.team.count({ where: { tournamentId, status: { not: "REJECTED" } } })
         .then(async (count) => {
           if (count < tournament.maxTeams) return;
@@ -891,6 +893,7 @@ export const validateTeamLink = async (req, res) => {
             name: true,
             kitColour: true,
             status: true,
+            _count: { select: { players: true } },
             captain: { select: { username: true } },
             tournament: {
               select: {
@@ -899,6 +902,8 @@ export const validateTeamLink = async (req, res) => {
                 category: true,
                 startDate: true,
                 location: true,
+                maxPlayersPerTeam: true,
+                registrationFeeCents: true,
               },
             },
           },
@@ -935,10 +940,8 @@ export const validateTeamLink = async (req, res) => {
         .json({ message: "This team's registration was rejected." });
     }
 
-    // Cache only 60s: team.status may change (APPROVED/REJECTED) and stale
-    // reads could surface a rejected team. Redeem path re-checks anyway.
     await redis
-      .setex(cacheKey, 60, JSON.stringify(shareLink.team))
+      .setex(cacheKey, 30, JSON.stringify(shareLink.team))
       .catch((err) => console.error("Redis SETEX error:", err.message));
 
     return res.status(200).json({ team: shareLink.team });
@@ -1083,7 +1086,7 @@ export const redeemTeamLink = async (req, res) => {
 
     return res
       .status(200)
-      .json({ message: "You've successfully joined the team!" });
+      .json({ message: "You've successfully joined the team!", teamId: team.id });
   } catch (error) {
     if (error && error.code === "LINK_EXHAUSTED") {
       return res
@@ -1169,5 +1172,446 @@ export const sendSignupInvite = async (req, res) => {
     }
     console.error('Error in sendSignupInvite:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// =====================================================================
+//  GET /tournament/team/:teamId/queue   (auth required — captain only)
+//  Returns the list of players on a DRAFT team so the captain can see
+//  who joined via the invite link in real-time.
+// =====================================================================
+export const getTeamQueue = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        captainId: true,
+        tournamentId: true,
+        tournament: {
+          select: {
+            registrationFeeCents: true,
+            maxPlayersPerTeam: true,
+          },
+        },
+        players: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            displayName: true,
+            position: true,
+            user: {
+              select: { email: true, profilePic: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+
+    if (team.captainId !== req.user.id) {
+      return res.status(403).json({ message: "Only the captain can view the team queue." });
+    }
+
+    return res.status(200).json({
+      teamId: team.id,
+      teamName: team.name,
+      status: team.status,
+      playerCount: team.players.length,
+      maxPlayers: team.tournament.maxPlayersPerTeam || null,
+      registrationFeeCents: team.tournament.registrationFeeCents || 0,
+      players: team.players.map((p) => ({
+        id: p.id,
+        name: p.displayName || [p.firstName, p.lastName].filter(Boolean).join(" ") || p.user.email,
+        position: p.position,
+        email: p.user.email,
+        profilePic: p.user.profilePic,
+      })),
+    });
+  } catch (error) {
+    console.error("Error in getTeamQueue:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
+//  POST /tournament/team/:teamId/confirm   (auth required — captain only)
+//  Confirms a DRAFT team for free tournaments (no payment needed).
+//  Changes status from DRAFT → PENDING.
+// =====================================================================
+export const confirmFreeRegistration = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        captainId: true,
+        status: true,
+        tournamentId: true,
+        _count: { select: { players: true } },
+        tournament: {
+          select: { registrationFeeCents: true, status: true },
+        },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    if (team.captainId !== req.user.id) {
+      return res.status(403).json({ message: "Only the captain can confirm registration." });
+    }
+    if (team.status !== "DRAFT") {
+      return res.status(400).json({ message: "Team is not in draft state." });
+    }
+    if (team.tournament.status !== "UPCOMING") {
+      return res.status(400).json({ message: "Tournament registration is closed." });
+    }
+    if (team.tournament.registrationFeeCents && team.tournament.registrationFeeCents > 0) {
+      return res.status(400).json({ message: "This tournament requires payment. Use the payment flow instead." });
+    }
+
+    const MIN_PLAYERS = 5;
+    if (team._count.players < MIN_PLAYERS) {
+      return res.status(400).json({
+        message: `Your squad needs at least ${MIN_PLAYERS} players before you can register.`,
+      });
+    }
+
+    await prisma.team.update({
+      where: { id: teamId },
+      data: { status: "PENDING" },
+    });
+
+    invalidateTournamentCaches(team.tournamentId).catch((err) =>
+      console.error("Cache invalidation after confirmFreeRegistration:", err.message)
+    );
+
+    return res.status(200).json({ message: "Team registration confirmed!", teamId });
+  } catch (error) {
+    console.error("Error in confirmFreeRegistration:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
+//  DELETE /tournament/team/:teamId/player/:playerId
+//  Captain removes a player from the team roster.
+// =====================================================================
+export const removePlayerFromTeam = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    const playerId = parseInt(req.params.playerId, 10);
+
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+    if (!Number.isInteger(playerId) || playerId <= 0) {
+      return res.status(400).json({ message: "Invalid player ID." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        captainId: true,
+        tournamentId: true,
+        players: { select: { id: true, userId: true } },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    if (team.captainId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Only the team captain can remove players." });
+    }
+
+    // Captain cannot remove themselves
+    const targetPlayer = team.players.find((p) => p.id === playerId);
+    if (!targetPlayer) {
+      return res
+        .status(404)
+        .json({ message: "Player is not on this team." });
+    }
+    if (targetPlayer.userId === req.user.id) {
+      return res
+        .status(400)
+        .json({ message: "Captain cannot remove themselves from the team." });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Disconnect player from team
+      await tx.team.update({
+        where: { id: teamId },
+        data: { players: { disconnect: { id: playerId } } },
+      });
+
+      // Delete PlayerTournament row for this player + tournament
+      await tx.playerTournament.deleteMany({
+        where: {
+          playerId,
+          tournamentId: team.tournamentId,
+          teamId,
+        },
+      });
+    });
+
+    invalidateTournamentCaches(team.tournamentId).catch((err) =>
+      console.error(
+        "Cache invalidation after removePlayerFromTeam:",
+        err.message
+      )
+    );
+
+    return res
+      .status(200)
+      .json({ message: "Player removed from the team." });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      return res
+        .status(404)
+        .json({ message: "Player or team no longer exists." });
+    }
+    console.error("Error in removePlayerFromTeam:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
+//  GET /tournament/team/:teamId/invite-link
+//  Returns an active share link or generates a fresh one (revoking old).
+// =====================================================================
+export const getOrCreateInviteLink = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: { id: true, captainId: true, status: true },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    if (team.captainId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Only the team captain can manage invite links." });
+    }
+    if (team.status === "REJECTED") {
+      return res
+        .status(400)
+        .json({ message: "Cannot generate invite link for a disbanded team." });
+    }
+
+    const { plain, tokenHash } = generateShareLinkToken();
+
+    // Revoke any existing active links, then create a fresh one — all atomic.
+    await prisma.$transaction(async (tx) => {
+      await tx.teamShareLink.updateMany({
+        where: {
+          teamId,
+          revokedAt: null,
+        },
+        data: { revokedAt: new Date() },
+      });
+
+      await tx.teamShareLink.create({
+        data: {
+          teamId,
+          tokenHash,
+          createdById: req.user.id,
+        },
+      });
+    });
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const inviteUrl = `${clientUrl}/join?token=${plain}`;
+
+    return res.status(200).json({
+      message: "Invite link generated.",
+      linkToken: plain,
+      inviteUrl,
+    });
+  } catch (error) {
+    console.error("Error in getOrCreateInviteLink:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
+//  POST /tournament/team/:teamId/disband
+//  Captain disbands the team before the registration deadline.
+//  If a captured payment exists, a full Razorpay refund is issued.
+// =====================================================================
+export const disbandTeam = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        captainId: true,
+        status: true,
+        tournamentId: true,
+        players: { select: { id: true } },
+        tournament: {
+          select: {
+            status: true,
+            registrationDeadline: true,
+          },
+        },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    if (team.captainId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Only the team captain can disband the team." });
+    }
+    if (team.status === "REJECTED") {
+      return res
+        .status(400)
+        .json({ message: "Team is already disbanded." });
+    }
+    if (team.tournament.status !== "UPCOMING") {
+      return res
+        .status(400)
+        .json({ message: "Cannot disband after the tournament has started." });
+    }
+    if (
+      team.tournament.registrationDeadline &&
+      new Date() > team.tournament.registrationDeadline
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Cannot disband after the registration deadline." });
+    }
+
+    // Check for a captured payment that needs refunding
+    const capturedPayment = await prisma.paymentTransaction.findFirst({
+      where: {
+        teamId,
+        tournamentId: team.tournamentId,
+        type: "TOURNAMENT_REGISTRATION",
+        status: "CAPTURED",
+      },
+      select: {
+        id: true,
+        razorpayPaymentId: true,
+        amountCents: true,
+      },
+    });
+
+    // Issue Razorpay refund BEFORE the database transaction so that if the
+    // refund call fails we don't leave the team in a half-disbanded state.
+    if (capturedPayment) {
+      if (!capturedPayment.razorpayPaymentId) {
+        return res.status(500).json({
+          message:
+            "Payment record exists but is missing the Razorpay payment ID. Please contact support.",
+        });
+      }
+
+      try {
+        await razorpay.payments.refund(capturedPayment.razorpayPaymentId, {
+          amount: capturedPayment.amountCents,
+        });
+      } catch (refundError) {
+        console.error("Razorpay refund failed:", refundError);
+        return res.status(502).json({
+          message:
+            "Refund could not be processed at this time. Please try again later.",
+        });
+      }
+    }
+
+    const playerIds = team.players.map((p) => p.id);
+
+    await prisma.$transaction(async (tx) => {
+      // Delete PlayerTournament rows for every player on this team
+      if (playerIds.length > 0) {
+        await tx.playerTournament.deleteMany({
+          where: {
+            playerId: { in: playerIds },
+            tournamentId: team.tournamentId,
+            teamId,
+          },
+        });
+      }
+
+      // Disconnect all players from the team
+      await tx.team.update({
+        where: { id: teamId },
+        data: {
+          status: "REJECTED",
+          players: {
+            disconnect: playerIds.map((id) => ({ id })),
+          },
+        },
+      });
+
+      // Revoke all share links
+      await tx.teamShareLink.updateMany({
+        where: { teamId, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+
+      // Mark payment as refunded
+      if (capturedPayment) {
+        await tx.paymentTransaction.update({
+          where: { id: capturedPayment.id },
+          data: { status: "REFUNDED" },
+        });
+      }
+    });
+
+    invalidateTournamentCaches(team.tournamentId).catch((err) =>
+      console.error("Cache invalidation after disbandTeam:", err.message)
+    );
+
+    return res.status(200).json({
+      message: capturedPayment
+        ? "Team disbanded and registration fee refunded."
+        : "Team disbanded.",
+      refunded: !!capturedPayment,
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      return res
+        .status(404)
+        .json({ message: "Team no longer exists." });
+    }
+    console.error("Error in disbandTeam:", error);
+    return res.status(500).json({ message: "Server error" });
   }
 };

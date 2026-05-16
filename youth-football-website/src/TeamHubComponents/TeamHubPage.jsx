@@ -9,6 +9,7 @@ import { TeamHubHeader, OverviewTab } from "./TeamHubHeader";
 import { RosterTab } from "./RosterTab";
 import { FixturesTab } from "./FixturesTab";
 import { StatsTab } from "./StatsTab";
+import { ManageTab } from "./ManageTab";
 import DetailViewSkeleton from "../components/skeletons/DetailViewSkeleton";
 
 // =====================================================================
@@ -101,6 +102,7 @@ export default function TeamHubPage() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onBack={() => navigate("/home")}
+        isCaptain={team.isCaptain}
       />
 
       {/* ── TAB CONTENT ───────────────────────────────────────────────── */}
@@ -117,13 +119,45 @@ export default function TeamHubPage() {
               <OverviewTab dm={dm} tournament={tournament} rulesArr={rulesArr} fmtDate={fmtDate} />
             )}
             {activeTab === "roster" && (
-              <RosterTab dm={dm} players={players} captain={captain} />
+              <RosterTab
+                dm={dm}
+                players={players}
+                captain={captain}
+                team={team}
+                tournament={tournament}
+                isCaptain={team.isCaptain}
+                paymentComplete={team.paymentComplete}
+                onPaymentSuccess={() => {
+                  setLoading(true);
+                  api.get(`/player/team-hub/${teamId}`)
+                    .then(res => setTeam(res.data.team))
+                    .catch(err => setError(err.response?.data?.message || "Refresh failed"))
+                    .finally(() => setLoading(false));
+                }}
+              />
             )}
             {activeTab === "fixtures" && (
               <FixturesTab dm={dm} fixtures={fixtures} teamName={team.name} fmtDate={fmtDate} fmtTime={fmtTime} />
             )}
             {activeTab === "stats" && (
               <StatsTab dm={dm} stats={tournamentStats} />
+            )}
+            {activeTab === "manage" && team.isCaptain && (
+              <ManageTab
+                dm={dm}
+                team={team}
+                players={players}
+                captain={captain}
+                tournament={tournament}
+                teamId={teamId}
+                onTeamUpdate={() => {
+                  setLoading(true);
+                  api.get(`/player/team-hub/${teamId}`)
+                    .then(res => setTeam(res.data.team))
+                    .catch(err => setError(err.response?.data?.message || "Refresh failed"))
+                    .finally(() => setLoading(false));
+                }}
+              />
             )}
           </motion.div>
         </AnimatePresence>

@@ -7,6 +7,7 @@ import tournamentRoutes from './routes/tournamentRoutes.js';
 import coachRoutes from './routes/coachRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
+import paymentRoutes from './routes/paymentRoutes.js';
 import { startRankingJob } from './lib/rankingJob.js';
 import { startBracketWorker } from './lib/bracketQueue.js';
 import './config/passportConfig.js';
@@ -20,6 +21,13 @@ app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true,
 }));
+
+// Capture raw body for webhook signature verification
+app.use('/api/v1/payment/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
+  req.rawBody = req.body;
+  req.body = JSON.parse(req.body);
+  next();
+});
 
 //For parsing application/json
 app.use(express.json({limit: '50mb'}));
@@ -42,6 +50,8 @@ app.use('/api/v1/coach', coachRoutes);
 app.use('/api/v1/leaderboard', leaderboardRoutes);
 //For gamification routes
 app.use('/api/v1/player', gamificationRoutes);
+//For payment routes
+app.use('/api/v1/payment', paymentRoutes);
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Youth Football Website Backend!');

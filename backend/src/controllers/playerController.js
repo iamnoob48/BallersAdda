@@ -675,6 +675,7 @@ export const getTeamHubData = async (req, res) => {
             venueAddressLink: true,
             formatAndRules: true,
             maxPlayersPerTeam: true,
+            registrationFeeCents: true,
             registrationDeadline: true,
             teams: {
               select: { name: true, status: true },
@@ -734,7 +735,18 @@ export const getTeamHubData = async (req, res) => {
       return res.status(403).json({ message: 'You are not on this team\'s roster.' });
     }
 
-    return res.status(200).json({ team: teamData });
+    const hasPaid = await prisma.paymentTransaction.findFirst({
+      where: { teamId, type: 'TOURNAMENT_REGISTRATION', status: 'CAPTURED' },
+      select: { id: true },
+    });
+
+    return res.status(200).json({
+      team: {
+        ...teamData,
+        paymentComplete: !!hasPaid,
+        isCaptain: teamData.captainId === userId,
+      },
+    });
   } catch (error) {
     console.error('Error fetching team hub data:', error);
     return res.status(500).json({ message: 'Server error' });

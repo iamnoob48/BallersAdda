@@ -1,6 +1,6 @@
 // ── Academy-Overview ──────────────────────────────────────────────────────
-// Compact academy history cards — current academy + previous academies.
-// Each card has a "View Performance" button.
+// Shows only the current/active academy enrollment(s) in the dashboard.
+// Former academies are displayed on the Profile page's Academy tab.
 // Props:
 //   enrollments      – array from /player/academyHistory (sorted newest first)
 //   onViewPerformance – callback(academyId) — parent switches to performance tab
@@ -10,19 +10,12 @@ import { motion } from "framer-motion";
 import { Trophy, MapPin, ChevronRight, Clock } from "lucide-react";
 
 function AcademyCard({ enrollment, onViewPerformance, dm, index }) {
-  const { academy, status, joinedAt, leftAt } = enrollment;
-  const isActive = status === "ACTIVE";
+  const { academy, joinedAt } = enrollment;
 
   const joined = new Date(joinedAt).toLocaleDateString("en-IN", {
     month: "short",
     year: "numeric",
   });
-  const left = leftAt
-    ? new Date(leftAt).toLocaleDateString("en-IN", {
-        month: "short",
-        year: "numeric",
-      })
-    : null;
 
   return (
     <motion.div
@@ -32,12 +25,8 @@ function AcademyCard({ enrollment, onViewPerformance, dm, index }) {
       whileHover={{ scale: 1.015, y: -1 }}
       className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
         dm
-          ? isActive
-            ? "bg-[#1a1a1a] border-[#00FF88]/20"
-            : "bg-[#141414] border-[#87A98D]/10"
-          : isActive
-          ? "bg-white border-emerald-200 shadow-sm"
-          : "bg-gray-50 border-gray-200"
+          ? "bg-[#1a1a1a] border-[#00FF88]/20"
+          : "bg-white border-emerald-200 shadow-sm"
       }`}
     >
       {/* Crest */}
@@ -57,13 +46,7 @@ function AcademyCard({ enrollment, onViewPerformance, dm, index }) {
         ) : (
           <Trophy
             className={`w-4 h-4 ${
-              isActive
-                ? dm
-                  ? "text-[#00FF88]/60"
-                  : "text-emerald-400"
-                : dm
-                ? "text-gray-600"
-                : "text-gray-300"
+              dm ? "text-[#00FF88]/60" : "text-emerald-400"
             }`}
           />
         )}
@@ -81,16 +64,12 @@ function AcademyCard({ enrollment, onViewPerformance, dm, index }) {
           </p>
           <span
             className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
-              isActive
-                ? dm
-                  ? "bg-[#00FF88]/15 text-[#00FF88]"
-                  : "bg-emerald-50 text-emerald-700"
-                : dm
-                ? "bg-gray-800 text-gray-500"
-                : "bg-gray-100 text-gray-500"
+              dm
+                ? "bg-[#00FF88]/15 text-[#00FF88]"
+                : "bg-emerald-50 text-emerald-700"
             }`}
           >
-            {isActive ? "Active" : "Former"}
+            Active
           </span>
         </div>
 
@@ -109,41 +88,23 @@ function AcademyCard({ enrollment, onViewPerformance, dm, index }) {
             </>
           )}
           <Clock className="w-3 h-3 shrink-0" />
-          <span className="text-xs">
-            {joined}
-            {left ? ` – ${left}` : " – Present"}
-          </span>
+          <span className="text-xs">{joined} – Present</span>
         </div>
       </div>
 
       {/* View Performance button */}
       <motion.button
-        whileHover={isActive ? { scale: 1.06 } : undefined}
-        whileTap={isActive ? { scale: 0.95 } : undefined}
-        onClick={() => onViewPerformance(academy?.id, isActive)}
-        disabled={!isActive}
+        whileHover={{ scale: 1.06 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={() => onViewPerformance(academy?.id, true)}
         className={`shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-          isActive
-            ? dm
-              ? "bg-[#00FF88]/15 text-[#00FF88] hover:bg-[#00FF88]/25"
-              : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            : dm
-            ? "bg-transparent text-gray-700 cursor-not-allowed"
-            : "bg-transparent text-gray-300 cursor-not-allowed"
+          dm
+            ? "bg-[#00FF88]/15 text-[#00FF88] hover:bg-[#00FF88]/25"
+            : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
         }`}
-        title={
-          isActive
-            ? "View performance stats"
-            : "Performance data available for current academy only"
-        }
+        title="View performance stats"
       >
-        {isActive ? (
-          <>
-            Stats <ChevronRight className="w-3 h-3" />
-          </>
-        ) : (
-          "Former"
-        )}
+        Stats <ChevronRight className="w-3 h-3" />
       </motion.button>
     </motion.div>
   );
@@ -154,34 +115,29 @@ export default function AcademyOverview({
   onViewPerformance,
   dm,
 }) {
-  if (!enrollments.length) return null;
-
   const current = enrollments.filter((e) => e.status === "ACTIVE");
-  const former = enrollments.filter((e) => e.status !== "ACTIVE");
-  const hasPrevious = former.length > 0;
+  if (!current.length) return null;
 
   return (
     <motion.section
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      aria-label="Academy history"
+      aria-label="Current academy"
       className={`rounded-2xl border p-4 ${
         dm
           ? "bg-[#1a1a1a] border-[#87A98D]/15"
           : "bg-white border-gray-200 shadow-sm"
       }`}
     >
-      {/* Header */}
       <p
         className={`text-xs font-semibold uppercase tracking-wider mb-3 ${
           dm ? "text-gray-600" : "text-gray-400"
         }`}
       >
-        Academy History
+        Current Academy
       </p>
 
       <div className="space-y-2">
-        {/* Current academy first */}
         {current.map((enrollment, i) => (
           <AcademyCard
             key={enrollment.id}
@@ -191,30 +147,6 @@ export default function AcademyOverview({
             index={i}
           />
         ))}
-
-        {/* Previous academies — only rendered when they exist */}
-        {hasPrevious && (
-          <>
-            {current.length > 0 && (
-              <p
-                className={`text-[10px] font-semibold uppercase tracking-wider pt-1 ${
-                  dm ? "text-gray-700" : "text-gray-300"
-                }`}
-              >
-                Previous
-              </p>
-            )}
-            {former.map((enrollment, i) => (
-              <AcademyCard
-                key={enrollment.id}
-                enrollment={enrollment}
-                onViewPerformance={onViewPerformance}
-                dm={dm}
-                index={current.length + i}
-              />
-            ))}
-          </>
-        )}
       </div>
     </motion.section>
   );

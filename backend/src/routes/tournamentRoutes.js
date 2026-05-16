@@ -10,6 +10,11 @@ import {
   validateTeamLink,
   redeemTeamLink,
   sendSignupInvite,
+  getTeamQueue,
+  confirmFreeRegistration,
+  removePlayerFromTeam,
+  getOrCreateInviteLink,
+  disbandTeam,
 } from '../controllers/tournamentsController.js';
 
 const router = express.Router();
@@ -24,6 +29,15 @@ router.post('/invite/redeem', verifyAccessToken, redeemInviteToken);
 // ── Generic shareable link routes ──
 router.get('/team-link/validate', validateTeamLink);
 router.post('/team-link/redeem', verifyAccessToken, redeemTeamLink);
+
+// Team queue & confirmation (invite link flow)
+router.get('/team/:teamId/queue', verifyAccessToken, getTeamQueue);
+router.post('/team/:teamId/confirm', verifyAccessToken, confirmFreeRegistration);
+
+// Manage team (captain only)
+router.delete('/team/:teamId/player/:playerId', verifyAccessToken, removePlayerFromTeam);
+router.get('/team/:teamId/invite-link', verifyAccessToken, getOrCreateInviteLink);
+router.post('/team/:teamId/disband', verifyAccessToken, disbandTeam);
 
 // POST endpoints for independent team roster mapping and generation
 router.post('/verify-players', verifyAccessToken, verifyRosterPlayers);

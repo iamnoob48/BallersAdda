@@ -85,6 +85,7 @@ const RightCard = ({ ACADEMY_DATA }) => {
           name: ACADEMY_DATA.academy.name,
         },
         plan: selectedPlan.title,
+        planId: selectedPlan.id,
         price: selectedPlan.priceCents / 100,
         batchId: selectedBatch,
       },

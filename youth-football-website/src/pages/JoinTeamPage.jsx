@@ -69,15 +69,17 @@ export default function JoinTeamPage() {
   const handleJoin = async () => {
     setRedeemError("");
     try {
+      let result;
       if (isLinkFlow) {
-        await redeemLink(linkToken).unwrap();
+        result = await redeemLink(linkToken).unwrap();
         sessionStorage.removeItem(LINK_STORAGE_KEY);
       } else {
-        await redeemToken(token).unwrap();
+        result = await redeemToken(token).unwrap();
         sessionStorage.removeItem(STORAGE_KEY);
       }
       setSuccess(true);
-      setTimeout(() => navigate("/home"), 3000);
+      const targetTeamId = result?.teamId || teamData?.id;
+      setTimeout(() => navigate(targetTeamId ? `/my-tournaments/${targetTeamId}` : "/home"), 3000);
     } catch (err) {
       setRedeemError(err?.data?.message || "Failed to join team. Please try again.");
     }
@@ -175,7 +177,7 @@ export default function JoinTeamPage() {
             <CheckCircle2 className={`w-20 h-20 ${dm ? "text-[#00FF88]" : "text-emerald-500"}`} />
             <h2 className="text-2xl font-black">You're on the squad!</h2>
             <p className={`text-sm ${dm ? "text-gray-400" : "text-gray-500"}`}>
-              You've been added to <strong>{teamData?.name}</strong>. Redirecting you home…
+              You've been added to <strong>{teamData?.name}</strong>. Redirecting to the locker room…
             </p>
           </div>
         </div>
@@ -251,6 +253,24 @@ export default function JoinTeamPage() {
               label="Kicks off"
               value={startDate}
             />
+          )}
+          {isLinkFlow && teamData?._count?.players != null && (
+            <div className="pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold uppercase ${dm ? "text-gray-500" : "text-gray-400"}`}>
+                  Squad
+                </span>
+                <span className={`text-xs font-black ${dm ? "text-[#00FF88]" : "text-emerald-600"}`}>
+                  {teamData._count.players} / {teamData.tournament?.maxPlayersPerTeam || 5} players
+                </span>
+              </div>
+              <div className={`h-2 rounded-full overflow-hidden ${dm ? "bg-gray-800" : "bg-gray-200"}`}>
+                <div
+                  className={`h-full rounded-full transition-all ${dm ? "bg-[#00FF88]" : "bg-emerald-500"}`}
+                  style={{ width: `${Math.min(100, (teamData._count.players / (teamData.tournament?.maxPlayersPerTeam || 5)) * 100)}%` }}
+                />
+              </div>
+            </div>
           )}
           {!isLinkFlow && invite?.email && (
             <div className={`pt-2 text-xs font-bold ${dm ? "text-gray-500" : "text-gray-400"}`}>

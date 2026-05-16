@@ -1,120 +1,240 @@
 import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { FaTrophy } from "react-icons/fa";
-import { GiWhistle } from "react-icons/gi";
-import { IoMdFootball } from "react-icons/io";
+import { motion, AnimatePresence } from "motion/react";
 import { useSelector, useDispatch } from "react-redux";
-import { fetchPlayerProfile, fetchPlayerAcademy } from "../redux/slices/playerSlice";
+import {
+  fetchPlayerProfile,
+  fetchPlayerAcademy,
+  fetchMyTournaments,
+  fetchAcademyHistory,
+  updatePlayerProfile,
+} from "../redux/slices/playerSlice";
+import { useGetAchievementsQuery } from "../redux/achievementsApi.js";
+import { User, Trophy, BarChart3, Award, Settings, School } from "lucide-react";
+import { FaTimes } from "react-icons/fa";
 
-import LeftCardProfile from "./Left-Card-Profile";
-import ProfileTab      from "./Profile-Tab";
-import AcademyTab      from "./Academy-Tab";
-import Stats           from "./Stats";
-import Badges          from "./Badges";
-import Settings        from "./Settings";
+import ProfileIdentityHeader from "./ProfileIdentityHeader";
+import ProfileStatsGrid from "./ProfileStatsGrid";
+import ProfileBadgesRow from "./ProfileBadgesRow";
+import ProfileTournaments from "./ProfileTournaments";
+import ProfilePersonalDetails from "./ProfilePersonalDetails";
+import ProfileSettingsSection from "./ProfileSettingsSection";
+import ProfileAcademyTab from "./ProfileAcademyTab";
 
-// ── Shared section wrapper (used for tournaments inline) ────────────────────
-const SectionWrapper = ({ children, dm }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10, scale: 0.98 }}
-    animate={{ opacity: 1, y: 0, scale: 1 }}
-    exit={{ opacity: 0, y: -10, scale: 0.98 }}
-    transition={{ duration: 0.3 }}
-    className={`rounded-3xl shadow-xl p-6 md:p-8 transition-colors duration-300 ${dm ? "bg-[#141414] border border-green-900/20 shadow-green-950/20" : "bg-white border border-white shadow-gray-200/50"}`}
-  >
-    {children}
-  </motion.div>
+const TABS = [
+  { id: "about", label: "About", icon: User },
+  { id: "tournaments", label: "Tournaments", icon: Trophy },
+  { id: "academy", label: "Academy", icon: School },
+  { id: "stats", label: "Stats", icon: BarChart3 },
+  { id: "badges", label: "Badges", icon: Award },
+  { id: "settings", label: "Settings", icon: Settings },
+];
+
+const FormField = ({ label, name, type = "text", value, onChange }) => (
+  <div>
+    <label className="block text-xs font-extrabold text-gray-500 uppercase mb-1.5">{label}</label>
+    <input
+      type={type} name={name} value={value || ""} onChange={onChange}
+      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 font-semibold focus:ring-2 focus:ring-green-600 focus:border-green-600 outline-none transition-all placeholder:text-gray-400"
+      placeholder={`Enter ${label}`}
+    />
+  </div>
 );
 
-// ── Tournaments section ─────────────────────────────────────────────────────
-const TournamentsSection = ({ dm, tournaments }) => (
-  <SectionWrapper dm={dm}>
-    <div className="flex items-center gap-3 mb-6">
-      <div className="p-3 bg-orange-100 text-orange-600 rounded-xl">
-        <FaTrophy className="text-xl" />
-      </div>
-      <div>
-        <h3 className={`text-2xl font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>Tournament History</h3>
-        <p className={`text-sm ${dm ? "text-gray-500" : "text-gray-500"}`}>Track your competitive journey.</p>
-      </div>
-    </div>
+function EditProfileModal({ onClose, player, onSave }) {
+  const [formData, setFormData] = useState({
+    firstName: player?.firstName || "", lastName: player?.lastName || "",
+    displayName: player?.displayName || "", age: player?.age || "",
+    gender: player?.gender || "", position: player?.position || "",
+    height: player?.height || "", weight: player?.weight || "",
+    dominantFoot: player?.dominantFoot || "", bio: player?.bio || "",
+  });
 
-    {tournaments?.length > 0 ? (
-      <div className="grid grid-cols-1 gap-4">
-        {tournaments.map((t, idx) => (
-          <motion.div
-            key={idx}
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className={`flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 rounded-2xl shadow-sm hover:shadow-md transition-all group ${dm ? "bg-[#1a1a1a] border border-green-900/20 hover:border-yellow-600/30" : "bg-white border border-gray-100 hover:border-green-200"}`}
-          >
-            <div className="flex items-center gap-4">
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${dm ? "bg-green-950/40 text-green-600 group-hover:bg-green-900/50 group-hover:text-yellow-400" : "bg-gray-100 text-gray-400 group-hover:bg-green-100 group-hover:text-green-600"}`}>
-                <IoMdFootball className="text-xl" />
-              </div>
-              <div>
-                <h4 className={`font-bold ${dm ? "text-gray-200" : "text-gray-800"}`}>{t.name}</h4>
-                <p className={`text-xs mt-0.5 flex items-center gap-2 ${dm ? "text-gray-500" : "text-gray-500"}`}>
-                  <span>{new Date(t.joinedAt).toLocaleDateString()}</span>
-                  {" • "}
-                  <span className="text-green-600 font-medium">{t.position || "Player"}</span>
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 sm:mt-0">
-              <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${dm ? "bg-green-950/30 text-green-400 border-green-900/30" : "bg-gray-50 text-gray-600 border-gray-100"}`}>
-                Played
-              </span>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-    ) : (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="text-5xl text-gray-200 mb-4"><GiWhistle /></div>
-        <p className="text-gray-500 font-medium">No tournaments played yet.</p>
-      </div>
-    )}
-  </SectionWrapper>
-);
-
-// ── Root page component ─────────────────────────────────────────────────────
-export default function PlayerProfilePage() {
-  const [activeSection, setActiveSection] = useState("personal");
-
-  const dispatch   = useDispatch();
-  const dm         = useSelector((state) => state.theme.darkMode);
-  const player     = useSelector((state) => state.player.profile);
-  const academy    = useSelector((state) => state.player.academy);
-  const tournaments = useSelector((state) => state.player.myTournaments);
-
-  useEffect(() => {
-    if (!player)  dispatch(fetchPlayerProfile());
-    if (!academy) dispatch(fetchPlayerAcademy());
-  }, []);
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
   return (
-    <div className={`min-h-screen font-sans pb-20 md:pb-10 transition-colors duration-300 ${dm ? "bg-[#0a0a0a] selection:bg-yellow-400/30 selection:text-yellow-200" : "bg-[#F0FDF4] selection:bg-green-200 selection:text-green-900"}`}>
-      {/* Background decoration */}
-      <div className={`fixed top-0 left-0 w-full h-80 -z-10 transition-colors duration-300 ${dm ? "bg-gradient-to-b from-green-950/40 to-transparent" : "bg-gradient-to-b from-green-100/50 to-transparent"}`} />
-      <div className={`fixed -top-20 -right-20 w-96 h-96 rounded-full blur-3xl -z-10 transition-colors duration-300 ${dm ? "bg-green-900/20" : "bg-green-200/30"}`} />
-      <div className={`fixed top-40 -left-20 w-72 h-72 rounded-full blur-3xl -z-10 transition-colors duration-300 ${dm ? "bg-emerald-900/15" : "bg-emerald-200/20"}`} />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        className="bg-white w-full max-w-2xl rounded-2xl shadow-[0_8px_0_0_rgba(0,0,0,0.08)] max-h-[85vh] flex flex-col overflow-hidden font-['Nunito']"
+      >
+        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-extrabold text-lg text-gray-800">Edit Profile</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition"><FaTimes /></button>
+        </div>
+        <div className="p-6 overflow-y-auto flex-1">
+          <form className="grid grid-cols-1 md:grid-cols-2 gap-5" onSubmit={(e) => { e.preventDefault(); onSave(formData); }}>
+            <FormField label="First Name" name="firstName" value={formData.firstName} onChange={handleChange} />
+            <FormField label="Last Name" name="lastName" value={formData.lastName} onChange={handleChange} />
+            <FormField label="Display Name" name="displayName" value={formData.displayName} onChange={handleChange} />
+            <FormField label="Age" name="age" type="number" value={formData.age} onChange={handleChange} />
+            <div className="md:col-span-2 grid grid-cols-2 gap-5">
+              <FormField label="Height (cm)" name="height" type="number" value={formData.height} onChange={handleChange} />
+              <FormField label="Weight (kg)" name="weight" type="number" value={formData.weight} onChange={handleChange} />
+            </div>
+            <FormField label="Position" name="position" value={formData.position} onChange={handleChange} />
+            <div>
+              <label className="block text-xs font-extrabold text-gray-500 uppercase mb-1.5">Dominant Foot</label>
+              <select name="dominantFoot" value={formData.dominantFoot} onChange={handleChange}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-gray-900 font-semibold focus:ring-2 focus:ring-green-600 outline-none transition-all">
+                <option value="">Select Foot</option>
+                <option value="Right">Right</option>
+                <option value="Left">Left</option>
+                <option value="Both">Both</option>
+              </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-xs font-extrabold text-gray-500 uppercase mb-1.5">Bio</label>
+              <textarea name="bio" rows="3" value={formData.bio} onChange={handleChange}
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 font-semibold focus:ring-2 focus:ring-green-600 outline-none resize-none" />
+            </div>
+          </form>
+        </div>
+        <div className="p-5 border-t border-gray-100 bg-white flex justify-end gap-3">
+          <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-gray-600 font-extrabold hover:bg-gray-50 transition">Cancel</button>
+          <button onClick={() => onSave(formData)} className="px-8 py-2.5 rounded-xl bg-green-600 text-white font-extrabold shadow-[0_4px_0_0_#15803d] hover:bg-green-700 active:shadow-none active:translate-y-[4px] transition-all">
+            Save Changes
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 flex flex-col md:flex-row gap-8">
-        <LeftCardProfile activeSection={activeSection} setActiveSection={setActiveSection} />
+export default function PlayerProfilePage() {
+  const dispatch = useDispatch();
+  const dm = useSelector((state) => state.theme.darkMode);
+  const player = useSelector((state) => state.player.profile);
+  const profilePic = useSelector((state) => state.player.profilePic);
+  const user = useSelector((state) => state.auth.user);
+  const academy = useSelector((state) => state.player.academy);
+  const tournaments = useSelector((state) => state.player.myTournaments);
+  const academyHistory = useSelector((state) => state.player.academyHistory);
+  const academyHistoryLoading = useSelector((state) => state.player.academyHistoryLoading);
+  const [activeTab, setActiveTab] = useState("about");
+  const [showEditModal, setShowEditModal] = useState(false);
 
-        <main className="flex-1 min-w-0">
+  const { data: achievementData } = useGetAchievementsQuery();
+
+  useEffect(() => {
+    if (!player) dispatch(fetchPlayerProfile());
+    if (!academy) dispatch(fetchPlayerAcademy());
+    if (!tournaments?.length) dispatch(fetchMyTournaments());
+    if (academyHistory === null) dispatch(fetchAcademyHistory());
+  }, []);
+
+  const handleSaveProfile = async (formData) => {
+    await dispatch(updatePlayerProfile(formData));
+    setShowEditModal(false);
+  };
+
+  return (
+    <div
+      className={`min-h-screen font-['Nunito'] pb-20 md:pb-10 transition-colors duration-300 ${
+        dm
+          ? "bg-[#121212] selection:bg-green-400/30 selection:text-green-200"
+          : "bg-[#F7F7F7] selection:bg-green-200 selection:text-green-900"
+      }`}
+    >
+      <div className="max-w-3xl mx-auto px-4 md:px-8 py-8 space-y-6">
+        <ProfileIdentityHeader
+          dm={dm}
+          player={player}
+          profilePic={profilePic}
+          user={user}
+          academy={academy}
+          achievementData={achievementData}
+          onEditProfile={() => setShowEditModal(true)}
+        />
+
+        {player && (
+          <div
+            className={`rounded-2xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar shadow-[0_4px_0_0_rgba(0,0,0,0.06)] ${
+              dm
+                ? "bg-[#1a1a1a] border border-[#87A98D]/15"
+                : "bg-white border border-gray-200"
+            }`}
+          >
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-all whitespace-nowrap flex-1 justify-center ${
+                    isActive
+                      ? dm
+                        ? "bg-[#00FF88] text-[#121212] shadow-[0_4px_0_0_#00CC6A]"
+                        : "bg-green-600 text-white shadow-[0_4px_0_0_#15803d]"
+                      : dm
+                      ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
+                      : "text-gray-500 hover:text-green-700 hover:bg-green-50"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {player && (
           <AnimatePresence mode="wait">
-            {activeSection === "personal"     && <ProfileTab      key="personal"     />}
-            {activeSection === "tournaments"  && <TournamentsSection key="tournaments" dm={dm} tournaments={tournaments} />}
-            {activeSection === "academy"      && <AcademyTab      key="academy"      />}
-            {activeSection === "performance"  && <Stats           key="performance"  />}
-            {activeSection === "achievements" && <Badges          key="achievements" />}
-            {activeSection === "settings"     && <Settings        key="settings"     />}
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              {activeTab === "about" && (
+                <ProfileStatsGrid
+                  dm={dm}
+                  player={player}
+                  achievementData={achievementData}
+                />
+              )}
+              {activeTab === "tournaments" && (
+                <ProfileTournaments dm={dm} tournaments={tournaments} />
+              )}
+              {activeTab === "academy" && (
+                <ProfileAcademyTab
+                  dm={dm}
+                  academyHistory={academyHistory}
+                  academyHistoryLoading={academyHistoryLoading}
+                />
+              )}
+              {activeTab === "stats" && (
+                <ProfilePersonalDetails
+                  dm={dm}
+                  player={player}
+                  achievementData={achievementData}
+                />
+              )}
+              {activeTab === "badges" && (
+                <ProfileBadgesRow dm={dm} achievementData={achievementData} />
+              )}
+              {activeTab === "settings" && <ProfileSettingsSection dm={dm} />}
+            </motion.div>
           </AnimatePresence>
-        </main>
+        )}
       </div>
+
+      <AnimatePresence>
+        {showEditModal && (
+          <EditProfileModal
+            onClose={() => setShowEditModal(false)}
+            player={player}
+            onSave={handleSaveProfile}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

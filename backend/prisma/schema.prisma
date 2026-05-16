@@ -33,6 +33,7 @@ model User {
   captainedTeams       Team[]          @relation("TeamCaptain")
   issuedShareLinks     TeamShareLink[] @relation("ShareLinkIssuer")
   academyReviews       AcademyReview[]
+  paymentTransactions  PaymentTransaction[]
 
   @@index([role])
 }
@@ -127,6 +128,7 @@ model Tournament {
   teams     Team[]
   matches   Match[]
   organizer User?              @relation("OrganizedTournaments", fields: [organizerId], references: [id])
+  paymentTransactions PaymentTransaction[]
 
   @@index([status])
   @@index([location])
@@ -293,6 +295,7 @@ model Academy {
   teams          Team[]
   enrollments    AcademyEnrollment[]
   reviews        AcademyReview[]
+  paymentTransactions PaymentTransaction[]
 
   @@index([name])
 }
@@ -329,6 +332,7 @@ model AcademyPlan {
   updatedAt    DateTime     @updatedAt
   academy      Academy      @relation(fields: [academyId], references: [id])
   enrollments  AcademyEnrollment[]
+  paymentTransactions PaymentTransaction[]
 
   @@index([academyId])
 }
@@ -404,6 +408,7 @@ model AcademyEnrollment {
   academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
   batch     AcademyBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
   plan      AcademyPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  paymentTransaction PaymentTransaction?
 
   @@index([playerId])
   @@index([academyId])
@@ -630,6 +635,7 @@ enum MatchStatus {
 }
 
 enum TeamApprovalStatus {
+  DRAFT
   PENDING
   APPROVED
   REJECTED
@@ -821,4 +827,74 @@ enum ReviewerRole {
   PLAYER
   COACH
   OTHER
+}
+
+// =====================================================================
+// PAYMENT — Razorpay transactions
+// =====================================================================
+model PaymentTransaction {
+  id                      Int            @id @default(autoincrement())
+
+  razorpayOrderId         String         @unique
+  razorpayPaymentId       String?        @unique
+
+  amountCents             Int
+  platformCommissionCents Int
+  payoutAmountCents       Int
+
+  type                    PaymentType
+  status                  PaymentStatus  @default(CREATED)
+  paymentMethod           PaymentMethod  @default(ONLINE)
+
+  userId                  Int
+  user                    User           @relation(fields: [userId], references: [id])
+
+  academyId               Int?
+  academy                 Academy?       @relation(fields: [academyId], references: [id])
+
+  planId                  Int?
+  plan                    AcademyPlan?   @relation(fields: [planId], references: [id])
+
+  batchId                 Int?
+
+  tournamentId            Int?
+  tournament              Tournament?    @relation(fields: [tournamentId], references: [id])
+
+  teamId                  Int?
+
+  enrollmentId            Int?           @unique
+  enrollment              AcademyEnrollment? @relation(fields: [enrollmentId], references: [id])
+
+  receipt                 String         @unique
+  failureReason           String?
+  webhookEventId          String?        @unique
+
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([academyId])
+  @@index([tournamentId])
+  @@index([status])
+  @@index([type])
+}
+
+enum PaymentType {
+  ACADEMY_MEMBERSHIP
+  TOURNAMENT_REGISTRATION
+}
+
+enum PaymentStatus {
+  CREATED
+  CAPTURED
+  FAILED
+  REFUNDED
+  PENDING_CASH
+  CASH_COLLECTED
+  SETTLED
+}
+
+enum PaymentMethod {
+  ONLINE
+  CASH
 }

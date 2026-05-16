@@ -11,7 +11,13 @@ import {
   useVerifyRosterEmailsMutation,
   useRegisterTeamForTournamentMutation,
   useGetPreviousTeammatesQuery,
+  useGetTeamQueueQuery,
+  useConfirmFreeRegistrationMutation,
 } from '../../redux/slices/tournamentSlice.js';
+import {
+  useCreateTournamentOrderMutation,
+  useVerifyTournamentPaymentMutation,
+} from '../../redux/slices/paymentApi.js';
 
 const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEmails, canRemove, onSendInvite, isMarkedForInvite }) => {
   const [status, setStatus] = useState('idle');
@@ -243,6 +249,25 @@ const PhoneInput = ({ value, onChange, countryCode, onCountryChange, dm }) => {
   );
 };
 
+const STORAGE_PREFIX = 'reg_draft_';
+
+function loadDraft(tournamentId) {
+  try {
+    const raw = sessionStorage.getItem(`${STORAGE_PREFIX}${tournamentId}`);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function saveDraft(tournamentId, data) {
+  try {
+    sessionStorage.setItem(`${STORAGE_PREFIX}${tournamentId}`, JSON.stringify(data));
+  } catch { /* quota exceeded — ignore */ }
+}
+
+function clearDraft(tournamentId) {
+  sessionStorage.removeItem(`${STORAGE_PREFIX}${tournamentId}`);
+}
+
 export default function TeamRegistrationPage({ tournament, onBack }) {
   const dm = useSelector((s) => s.theme.darkMode);
   const { profile } = useSelector((s) => s.player);
@@ -254,8 +279,14 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
   const { data: teammates = [], isLoading: teammatesLoading } = useGetPreviousTeammatesQuery();
   const [signupInvites, setSignupInvites] = useState([]);
 
-  const [countryCode, setCountryCode] = useState('+91');
+  const draft = useMemo(() => loadDraft(tournament.id), [tournament.id]);
+
+  const [countryCode, setCountryCode] = useState(() => {
+    if (draft?.countryCode) return draft.countryCode;
+    return '+91';
+  });
   const [formData, setFormData] = useState(() => {
+    if (draft?.formData) return draft.formData;
     let phone = user?.phone || '';
     const match = COUNTRY_CODES.find(c => phone.startsWith(c.code));
     if (match) phone = phone.slice(match.code.length).replace(/\D/g, '');
@@ -268,11 +299,37 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
     };
   });
 
-  const [rosterMode, setRosterMode] = useState('emails');
+  const [rosterMode, setRosterMode] = useState(draft?.rosterMode || 'emails');
   const [error, setError] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-  const [inviteLink, setInviteLink] = useState('');
+  const [inviteLink, setInviteLink] = useState(draft?.inviteLink || '');
   const [copied, setCopied] = useState(false);
+
+  const [draftTeamId, setDraftTeamId] = useState(draft?.draftTeamId || null);
+  const [linkGenerated, setLinkGenerated] = useState(draft?.linkGenerated || false);
+
+  useEffect(() => {
+    saveDraft(tournament.id, {
+      formData,
+      countryCode,
+      rosterMode,
+      inviteLink,
+      draftTeamId,
+      linkGenerated,
+    });
+  }, [tournament.id, formData, countryCode, rosterMode, inviteLink, draftTeamId, linkGenerated]);
+  const [createTournamentOrder] = useCreateTournamentOrderMutation();
+  const [verifyTournamentPayment] = useVerifyTournamentPaymentMutation();
+  const [confirmFreeRegistration, { isLoading: isConfirming }] = useConfirmFreeRegistrationMutation();
+  const { data: teamQueue } = useGetTeamQueueQuery(draftTeamId, {
+    skip: !draftTeamId,
+    pollingInterval: draftTeamId ? 5000 : 0,
+  });
+
+  const MIN_PLAYERS = 5;
+  const hasFee = tournament.registrationFeeCents && tournament.registrationFeeCents > 0;
+  const queuePlayerCount = teamQueue?.playerCount || 0;
+  const canRegister = queuePlayerCount >= MIN_PLAYERS;
 
   const [location, setLocation] = useState({ latitude: null, longitude: null, city: null, status: 'pending' });
 
@@ -421,12 +478,23 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
         longitude: location.longitude,
       }).unwrap();
 
-      if (result?.linkToken) {
+      if (rosterMode === 'link' && result?.linkToken) {
         setInviteLink(`${window.location.origin}/join?linkToken=${result.linkToken}`);
+        setDraftTeamId(result.team?.id);
+        setLinkGenerated(true);
+        return;
       }
+
       if (result?.signupInvites?.length > 0) {
         setSignupInvites(result.signupInvites);
       }
+
+      if (result?.team?.id) {
+        clearDraft(tournament.id);
+        navigate(`/my-tournaments/${result.team.id}`);
+        return;
+      }
+      clearDraft(tournament.id);
       setIsSuccess(true);
     } catch (err) {
       setError(err.data?.message || 'Failed to register. Please try again.');
@@ -448,6 +516,63 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
       setCopiedInviteIdx(idx);
       setTimeout(() => setCopiedInviteIdx(null), 2500);
     } catch {}
+  };
+
+  const handleRegisterNow = async () => {
+    setError('');
+    if (!draftTeamId) return;
+
+    if (!hasFee) {
+      try {
+        await confirmFreeRegistration(draftTeamId).unwrap();
+        clearDraft(tournament.id);
+        setIsSuccess(true);
+        setLinkGenerated(false);
+      } catch (err) {
+        setError(err.data?.message || 'Failed to confirm registration.');
+      }
+      return;
+    }
+
+    try {
+      const orderRes = await createTournamentOrder({
+        tournamentId: tournament.id,
+        teamId: draftTeamId,
+      }).unwrap();
+
+      const options = {
+        key: orderRes.keyId,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'BallersAdda',
+        description: `Tournament: ${tournament.name}`,
+        order_id: orderRes.orderId,
+        prefill: orderRes.prefill || {},
+        handler: async (response) => {
+          try {
+            await verifyTournamentPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }).unwrap();
+            clearDraft(tournament.id);
+            setIsSuccess(true);
+            setLinkGenerated(false);
+          } catch {
+            setError('Payment verification failed. Contact support if money was deducted.');
+          }
+        },
+        theme: { color: '#00FF88' },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', (resp) => {
+        setError(resp.error?.description || 'Payment failed. Please try again.');
+      });
+      rzp.open();
+    } catch (err) {
+      setError(err.data?.message || 'Failed to initiate payment.');
+    }
   };
 
   if (isSuccess) {
@@ -615,7 +740,8 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                   type="text"
                   value={formData.teamName}
                   onChange={e => setFormData({ ...formData, teamName: e.target.value })}
-                  className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${dm ? 'bg-[#121212] border-gray-800 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 focus:border-emerald-500'}`}
+                  disabled={linkGenerated}
+                  className={`w-full px-4 py-3 rounded-xl border text-sm outline-none transition-all ${linkGenerated ? 'opacity-70' : ''} ${dm ? 'bg-[#121212] border-gray-800 focus:border-[#00FF88]' : 'bg-gray-50 border-gray-200 focus:border-emerald-500'}`}
                   placeholder="FC Khairatabad"
                 />
               </div>
@@ -683,9 +809,10 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
               </div>
 
               {/* Mode Toggle */}
-              <div className={`flex rounded-xl p-1 gap-1 ${dm ? 'bg-[#121212]' : 'bg-gray-100'}`}>
+              <div className={`flex rounded-xl p-1 gap-1 ${linkGenerated ? 'opacity-50 pointer-events-none' : ''} ${dm ? 'bg-[#121212]' : 'bg-gray-100'}`}>
                 <button
-                  onClick={() => setRosterMode('emails')}
+                  onClick={() => !linkGenerated && setRosterMode('emails')}
+                  disabled={linkGenerated}
                   className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                     rosterMode === 'emails'
                       ? dm ? 'bg-white text-[#121212] shadow' : 'bg-white text-gray-900 shadow'
@@ -695,7 +822,8 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                   <Mail className="w-4 h-4" /> Enter Emails
                 </button>
                 <button
-                  onClick={() => setRosterMode('link')}
+                  onClick={() => !linkGenerated && setRosterMode('link')}
+                  disabled={linkGenerated}
                   className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${
                     rosterMode === 'link'
                       ? dm ? 'bg-[#00FF88] text-[#121212] shadow' : 'bg-emerald-600 text-white shadow'
@@ -737,20 +865,113 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                   </motion.div>
                 ) : (
                   <motion.div key="link" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className={`flex flex-col items-center justify-center gap-4 py-8 rounded-2xl border border-dashed text-center ${dm ? 'border-[#00FF88]/30 bg-[#00FF88]/5' : 'border-emerald-300 bg-emerald-50'}`}
+                    className="space-y-4"
                   >
-                    <Link2 className={`w-10 h-10 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
-                    <div>
-                      <p className={`font-black text-base mb-1 ${dm ? 'text-white' : 'text-gray-900'}`}>
-                        Shareable Invite Link
-                      </p>
-                      <p className={`text-sm max-w-xs mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-                        After you submit, you'll get a unique link. Anyone can join your squad directly.
-                      </p>
-                    </div>
-                    <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold ${dm ? 'bg-[#121212] text-[#00FF88]' : 'bg-white text-emerald-700 border border-emerald-200'}`}>
-                      <Check className="w-3.5 h-3.5" /> No email addresses needed
-                    </div>
+                    {!linkGenerated ? (
+                      <div className={`flex flex-col items-center justify-center gap-4 py-8 rounded-2xl border border-dashed text-center ${dm ? 'border-[#00FF88]/30 bg-[#00FF88]/5' : 'border-emerald-300 bg-emerald-50'}`}>
+                        <Link2 className={`w-10 h-10 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
+                        <div>
+                          <p className={`font-black text-base mb-1 ${dm ? 'text-white' : 'text-gray-900'}`}>
+                            Shareable Invite Link
+                          </p>
+                          <p className={`text-sm max-w-xs mx-auto ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Fill in squad basics above and generate your link. Anyone can join directly.
+                          </p>
+                        </div>
+                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold ${dm ? 'bg-[#121212] text-[#00FF88]' : 'bg-white text-emerald-700 border border-emerald-200'}`}>
+                          <Check className="w-3.5 h-3.5" /> No email addresses needed
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Invite Link Display */}
+                        <div className={`rounded-2xl border p-4 space-y-3 ${dm ? 'bg-[#121212] border-[#00FF88]/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                          <p className={`text-xs font-bold uppercase tracking-widest ${dm ? 'text-[#00FF88]' : 'text-emerald-700'}`}>
+                            Your Invite Link
+                          </p>
+                          <div className={`w-full rounded-xl border flex items-center gap-2 px-3 py-2.5 ${dm ? 'bg-[#1a1a1a] border-gray-700' : 'bg-white border-gray-200'}`}>
+                            <Link2 className={`w-4 h-4 shrink-0 ${dm ? 'text-[#00FF88]' : 'text-emerald-600'}`} />
+                            <span className="text-xs font-mono truncate flex-1 text-left">{inviteLink}</span>
+                            <button
+                              onClick={handleCopyLink}
+                              className={`shrink-0 px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 transition-colors ${
+                                copied
+                                  ? dm ? 'bg-[#00FF88]/20 text-[#00FF88]' : 'bg-emerald-100 text-emerald-700'
+                                  : dm ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                              }`}
+                            >
+                              {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                              {copied ? 'Copied!' : 'Copy'}
+                            </button>
+                          </div>
+                          <p className={`text-[10px] font-bold ${dm ? 'text-gray-600' : 'text-gray-400'}`}>
+                            Share this link with players. They'll appear below as they join.
+                          </p>
+                        </div>
+
+                        {/* Player Queue */}
+                        <div className={`rounded-2xl border p-4 space-y-3 ${dm ? 'bg-[#1a1a1a] border-gray-800' : 'bg-white border-gray-200'}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Users className={`w-4 h-4 ${dm ? 'text-[#00FF88]' : 'text-emerald-600'}`} />
+                              <p className="text-sm font-black">Squad Queue</p>
+                            </div>
+                            <span className={`text-xs font-black ${canRegister ? (dm ? 'text-[#00FF88]' : 'text-emerald-600') : (dm ? 'text-gray-500' : 'text-gray-400')}`}>
+                              {queuePlayerCount} / {MIN_PLAYERS} min
+                            </span>
+                          </div>
+
+                          {/* Progress bar */}
+                          <div className={`h-2 rounded-full overflow-hidden ${dm ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                            <motion.div
+                              className={`h-full rounded-full ${canRegister ? (dm ? 'bg-[#00FF88]' : 'bg-emerald-500') : (dm ? 'bg-yellow-500' : 'bg-yellow-400')}`}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${Math.min(100, (queuePlayerCount / MIN_PLAYERS) * 100)}%` }}
+                              transition={{ duration: 0.5 }}
+                            />
+                          </div>
+
+                          {/* Player list */}
+                          <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
+                            {teamQueue?.players?.map((player) => (
+                              <div
+                                key={player.id}
+                                className={`flex items-center gap-3 p-2.5 rounded-xl ${dm ? 'bg-[#121212]' : 'bg-gray-50'}`}
+                              >
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${dm ? 'bg-gray-800 text-gray-300' : 'bg-gray-200 text-gray-600'}`}>
+                                  {player.profilePic ? (
+                                    <img src={player.profilePic} alt="" className="w-full h-full rounded-full object-cover" />
+                                  ) : (
+                                    player.name.charAt(0).toUpperCase()
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold truncate">{player.name}</p>
+                                  {player.position && (
+                                    <p className={`text-[10px] font-bold uppercase ${dm ? 'text-gray-600' : 'text-gray-400'}`}>
+                                      {player.position.replace(/_/g, ' ')}
+                                    </p>
+                                  )}
+                                </div>
+                                <CheckCircle2 className={`w-4 h-4 shrink-0 ${dm ? 'text-[#00FF88]' : 'text-emerald-500'}`} />
+                              </div>
+                            ))}
+                            {queuePlayerCount === 0 && (
+                              <div className={`py-6 text-center rounded-xl border border-dashed ${dm ? 'border-gray-800 text-gray-600' : 'border-gray-200 text-gray-400'}`}>
+                                <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin opacity-50" />
+                                <p className="text-xs font-bold">Waiting for players to join...</p>
+                              </div>
+                            )}
+                          </div>
+
+                          {!canRegister && queuePlayerCount > 0 && (
+                            <p className={`text-[10px] text-center font-bold ${dm ? 'text-gray-600' : 'text-gray-400'}`}>
+                              {MIN_PLAYERS - queuePlayerCount} more player{MIN_PLAYERS - queuePlayerCount !== 1 ? 's' : ''} needed
+                            </p>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -767,16 +988,31 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
 
               <div className={`p-5 rounded-2xl border text-center ${dm ? 'bg-[#121212] border-[#87A98D]/20' : 'bg-emerald-50 border-emerald-200'}`}>
                 <p className="text-xs font-bold uppercase tracking-widest text-gray-500 mb-1">Total Entry Fee</p>
-                <p className="text-4xl font-black">₹{tournament.registrationFee}</p>
+                <p className="text-4xl font-black">
+                  {tournament.registrationFeeCents && tournament.registrationFeeCents > 0
+                    ? `₹${(tournament.registrationFeeCents / 100).toLocaleString('en-IN')}`
+                    : tournament.registrationFee
+                      ? `₹${tournament.registrationFee}`
+                      : 'FREE'}
+                </p>
                 <p className={`text-sm font-medium mt-1 ${dm ? 'text-[#00FF88]' : 'text-emerald-700'}`}>
-                  Pay at venue before kickoff
+                  {tournament.registrationFeeCents && tournament.registrationFeeCents > 0
+                    ? 'Captain pays after squad fills up (min 5 players)'
+                    : 'No payment required'}
                 </p>
               </div>
 
-              <div className={`p-4 rounded-xl border flex items-center gap-3 ${dm ? 'bg-gray-800/30 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-                <ShieldAlert className="w-5 h-5 text-yellow-500 shrink-0" />
-                <p className="text-xs font-bold">Pay in cash or UPI directly to the Organizer at least 1 hour before kickoff.</p>
-              </div>
+              {tournament.registrationFeeCents && tournament.registrationFeeCents > 0 ? (
+                <div className={`p-4 rounded-xl border flex items-center gap-3 ${dm ? 'bg-[#00FF88]/5 border-[#00FF88]/20' : 'bg-emerald-50 border-emerald-200'}`}>
+                  <ShieldCheck className={`w-5 h-5 shrink-0 ${dm ? 'text-[#00FF88]' : 'text-emerald-600'}`} />
+                  <p className="text-xs font-bold">Share your invite link, fill the roster, then pay via Razorpay. Supports UPI, Cards, Netbanking & Wallets.</p>
+                </div>
+              ) : (
+                <div className={`p-4 rounded-xl border flex items-center gap-3 ${dm ? 'bg-gray-800/30 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                  <ShieldAlert className="w-5 h-5 text-yellow-500 shrink-0" />
+                  <p className="text-xs font-bold">No registration fee for this tournament.</p>
+                </div>
+              )}
 
               <label className="flex items-start gap-3 p-4 rounded-xl border border-red-500/30 bg-red-500/5 cursor-pointer hover:bg-red-500/10 transition">
                 <input
@@ -801,7 +1037,25 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
             )}
 
             {/* Submit */}
-            {isRegistering ? (
+            {linkGenerated ? (
+              <button
+                onClick={handleRegisterNow}
+                disabled={!canRegister || isConfirming}
+                className={`w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-transform shadow-xl ${
+                  canRegister
+                    ? dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20 hover:scale-[1.01]' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700 hover:scale-[1.01]'
+                    : dm ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {isConfirming ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : canRegister ? (
+                  hasFee ? `Pay ₹${(tournament.registrationFeeCents / 100).toLocaleString('en-IN')} & Register` : 'Register Now'
+                ) : (
+                  `Need ${MIN_PLAYERS - queuePlayerCount} more player${MIN_PLAYERS - queuePlayerCount !== 1 ? 's' : ''}`
+                )}
+              </button>
+            ) : isRegistering ? (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -815,17 +1069,9 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                   >
                     &#9917;
                   </motion.span>
-                  <motion.span
-                    animate={{ opacity: [0.2, 0.6, 0.2] }}
-                    transition={{ duration: 1.5, repeat: Infinity }}
-                    className="absolute text-xs"
-                    style={{ left: '15%' }}
-                  >
-                    &#128168;
-                  </motion.span>
                 </div>
                 <p className={`text-sm font-bold ${dm ? 'text-gray-400' : 'text-gray-500'}`}>
-                  Drafting your squad...
+                  {rosterMode === 'link' ? 'Generating invite link...' : 'Drafting your squad...'}
                 </p>
               </motion.div>
             ) : (
@@ -833,7 +1079,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                 onClick={handleSubmit}
                 className={`w-full py-4 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-transform hover:scale-[1.01] shadow-xl ${dm ? 'bg-[#00FF88] text-[#121212] shadow-[#00FF88]/20' : 'bg-emerald-600 text-white shadow-emerald-500/30 hover:bg-emerald-700'}`}
               >
-                Submit & Draft Squad
+                {rosterMode === 'link' ? 'Generate Invite Link' : 'Create Squad'}
               </button>
             )}
           </div>

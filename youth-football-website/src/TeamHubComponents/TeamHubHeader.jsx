@@ -7,14 +7,23 @@ import {
   FaShieldAlt,
 } from "react-icons/fa";
 import { FiArrowLeft, FiExternalLink } from "react-icons/fi";
+import { Settings } from "lucide-react";
 
 // ── Tab definitions ─────────────────────────────────────────────────────
-export const TABS = [
+const BASE_TABS = [
   { key: "overview", label: "Overview", icon: FaInfoCircle },
   { key: "roster", label: "Roster", icon: FaUsers },
   { key: "fixtures", label: "Fixtures", icon: FaCalendarAlt },
   { key: "stats", label: "Stats", icon: FaChartBar },
 ];
+
+export const getTabs = (isCaptain) =>
+  isCaptain
+    ? [...BASE_TABS, { key: "manage", label: "Manage", icon: Settings }]
+    : BASE_TABS;
+
+// Keep TABS export for backward compat (non-captain view)
+export const TABS = BASE_TABS;
 
 // ── Status badge style helper ───────────────────────────────────────────
 export const statusColor = (dm, status) => {
@@ -29,7 +38,8 @@ export const statusColor = (dm, status) => {
 // =====================================================================
 //  TeamHubHeader — banner + floating info card + tab bar
 // =====================================================================
-export function TeamHubHeader({ dm, tournament, team, captain, activeTab, setActiveTab, onBack }) {
+export function TeamHubHeader({ dm, tournament, team, captain, activeTab, setActiveTab, onBack, isCaptain }) {
+  const tabs = getTabs(isCaptain);
   return (
     <>
       {/* ── HEADER ────────────────────────────────────────────────────── */}
@@ -65,15 +75,31 @@ export function TeamHubHeader({ dm, tournament, team, captain, activeTab, setAct
                     {tournament.status}
                   </span>
                 </div>
-                <p className={`text-sm font-medium ${dm ? "text-gray-400" : "text-gray-600"}`}>
-                  Playing for{" "}
-                  <span className={`font-bold ${dm ? "text-[#00FF88]" : "text-green-700"}`}>{team.name}</span>
+                <div className={`text-sm font-medium flex items-center gap-2 flex-wrap ${dm ? "text-gray-400" : "text-gray-600"}`}>
+                  <span>Playing for{" "}
+                    <span className={`font-bold ${dm ? "text-[#00FF88]" : "text-green-700"}`}>{team.name}</span>
+                  </span>
+                  {team.status === "PENDING" && (
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${dm ? "bg-yellow-500/10 text-yellow-400" : "bg-yellow-100 text-yellow-700"}`}>
+                      Forming Squad
+                    </span>
+                  )}
+                  {team.status === "APPROVED" && (
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${dm ? "bg-[#00FF88]/10 text-[#00FF88]" : "bg-green-100 text-green-700"}`}>
+                      Registered
+                    </span>
+                  )}
+                  {team.status === "REJECTED" && (
+                    <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-red-500/10 text-red-500">
+                      Rejected
+                    </span>
+                  )}
                   {captain && (
-                    <span className={`ml-2 text-xs ${dm ? "text-gray-500" : "text-gray-400"}`}>
+                    <span className={`text-xs ${dm ? "text-gray-500" : "text-gray-400"}`}>
                       · Captain: {captain.username}
                     </span>
                   )}
-                </p>
+                </div>
               </div>
               {tournament.category && (
                 <span className={`self-start sm:self-center text-xs font-bold px-3 py-1 rounded-lg ${dm ? "bg-[#00FF88]/10 text-[#00FF88]" : "bg-green-100 text-green-700"}`}>
@@ -88,7 +114,7 @@ export function TeamHubHeader({ dm, tournament, team, captain, activeTab, setAct
       {/* ── TAB BAR ───────────────────────────────────────────────────── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 mt-6">
         <div className={`flex gap-1 p-1 rounded-xl overflow-x-auto scrollbar-hide ${dm ? "bg-[#1a1a1a]" : "bg-gray-100"}`}>
-          {TABS.map((tab) => {
+          {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
             return (

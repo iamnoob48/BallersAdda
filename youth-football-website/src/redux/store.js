@@ -7,6 +7,7 @@ import { tournamentApi } from "./slices/tournamentSlice.js";
 import { coachApi } from "./slices/coachSlice.js";
 import { leaderboardApi } from "./slices/leaderboardApi.js";
 import { achievementsApi } from "../redux/achievementsApi.js";
+import { paymentApi } from "./slices/paymentApi.js";
 
 export const store = configureStore({
     reducer: {
@@ -18,6 +19,7 @@ export const store = configureStore({
         [coachApi.reducerPath]: coachApi.reducer,
         [leaderboardApi.reducerPath]: leaderboardApi.reducer,
         [achievementsApi.reducerPath]: achievementsApi.reducer,
+        [paymentApi.reducerPath]: paymentApi.reducer,
     },
     middleware: (getDefaultMiddleware) =>
         getDefaultMiddleware()
@@ -25,5 +27,6 @@ export const store = configureStore({
             .concat(tournamentApi.middleware)
             .concat(coachApi.middleware)
             .concat(leaderboardApi.middleware)
-            .concat(achievementsApi.middleware),
+            .concat(achievementsApi.middleware)
+            .concat(paymentApi.middleware),
 });

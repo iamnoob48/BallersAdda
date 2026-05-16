@@ -6,7 +6,7 @@ export const tournamentApi = createApi({
 
   baseQuery: createBaseQueryWithReauth("/api/v1"),
 
-  tagTypes: ["Tournament", "TournamentList"],
+  tagTypes: ["Tournament", "TournamentList", "TeamQueue"],
 
   endpoints: (builder) => ({
     // Fetch paginated tournaments with optional filters
@@ -109,9 +109,44 @@ export const tournamentApi = createApi({
       }),
     }),
 
+    getTeamQueue: builder.query({
+      query: (teamId) => `/tournament/team/${teamId}/queue`,
+      providesTags: (result, error, teamId) => [{ type: "TeamQueue", id: teamId }],
+    }),
+
+    confirmFreeRegistration: builder.mutation({
+      query: (teamId) => ({
+        url: `/tournament/team/${teamId}/confirm`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, teamId) => [
+        { type: "TeamQueue", id: teamId },
+        { type: "TournamentList", id: "LIST" },
+      ],
+    }),
+
     getPreviousTeammates: builder.query({
       query: () => `/player/previousTeammates`,
       transformResponse: (response) => response.teammates,
+    }),
+
+    getTeamInviteLink: builder.query({
+      query: (teamId) => `/tournament/team/${teamId}/invite-link`,
+      transformResponse: (response) => response,
+    }),
+
+    removeTeamPlayer: builder.mutation({
+      query: ({ teamId, playerId }) => ({
+        url: `/tournament/team/${teamId}/player/${playerId}`,
+        method: "DELETE",
+      }),
+    }),
+
+    disbandTeam: builder.mutation({
+      query: (teamId) => ({
+        url: `/tournament/team/${teamId}/disband`,
+        method: "POST",
+      }),
     }),
   }),
 });
@@ -125,6 +160,11 @@ export const {
   useRedeemInviteTokenMutation,
   useValidateTeamLinkTokenQuery,
   useRedeemTeamLinkTokenMutation,
+  useGetTeamQueueQuery,
+  useConfirmFreeRegistrationMutation,
   useGetPreviousTeammatesQuery,
   useSendSignupInviteMutation,
+  useLazyGetTeamInviteLinkQuery,
+  useRemoveTeamPlayerMutation,
+  useDisbandTeamMutation,
 } = tournamentApi;

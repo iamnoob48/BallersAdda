@@ -134,13 +134,12 @@ export default function PlayerProfilePage() {
 
   return (
     <div
-      className={`min-h-screen font-['Nunito'] pb-20 md:pb-10 transition-colors duration-300 ${
-        dm
+      className={`min-h-screen font-['Nunito'] pb-20 md:pb-10 transition-colors duration-300 ${dm
           ? "bg-[#121212] selection:bg-green-400/30 selection:text-green-200"
           : "bg-[#F7F7F7] selection:bg-green-200 selection:text-green-900"
-      }`}
+        }`}
     >
-      <div className="max-w-3xl mx-auto px-4 md:px-8 py-8 space-y-6">
+      <div className="max-w-3xl md:max-w-4xl lg:max-w-5xl xl:max-w-6xl mx-auto px-4 md:px-8 py-8 space-y-6">
         <ProfileIdentityHeader
           dm={dm}
           player={player}
@@ -153,11 +152,10 @@ export default function PlayerProfilePage() {
 
         {player && (
           <div
-            className={`rounded-2xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar shadow-[0_4px_0_0_rgba(0,0,0,0.06)] ${
-              dm
+            className={`rounded-2xl p-1.5 flex gap-1 overflow-x-auto no-scrollbar shadow-[0_4px_0_0_rgba(0,0,0,0.06)] ${dm
                 ? "bg-[#1a1a1a] border border-[#87A98D]/15"
                 : "bg-white border border-gray-200"
-            }`}
+              }`}
           >
             {TABS.map((tab) => {
               const Icon = tab.icon;
@@ -166,15 +164,14 @@ export default function PlayerProfilePage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-all whitespace-nowrap flex-1 justify-center ${
-                    isActive
+                  className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-extrabold transition-all whitespace-nowrap flex-1 justify-center ${isActive
                       ? dm
                         ? "bg-[#00FF88] text-[#121212] shadow-[0_4px_0_0_#00CC6A]"
                         : "bg-green-600 text-white shadow-[0_4px_0_0_#15803d]"
                       : dm
-                      ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
-                      : "text-gray-500 hover:text-green-700 hover:bg-green-50"
-                  }`}
+                        ? "text-gray-400 hover:text-[#00FF88] hover:bg-[#00FF88]/5"
+                        : "text-gray-500 hover:text-green-700 hover:bg-green-50"
+                    }`}
                 >
                   <Icon className="w-4 h-4" />
                   <span className="hidden sm:inline">{tab.label}</span>

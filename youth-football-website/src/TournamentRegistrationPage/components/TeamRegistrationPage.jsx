@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ArrowLeft, Users, Mail, Plus, Link2, Copy, Check,
@@ -13,13 +13,16 @@ import {
   useGetPreviousTeammatesQuery,
   useGetTeamQueueQuery,
   useConfirmFreeRegistrationMutation,
+  useAddPlayerToTeamMutation,
 } from '../../redux/slices/tournamentSlice.js';
 import {
   useCreateTournamentOrderMutation,
   useVerifyTournamentPaymentMutation,
 } from '../../redux/slices/paymentApi.js';
+import { useGetTournamentByIdQuery } from '../../redux/slices/tournamentSlice.js';
+import { mapTournamentToCardModel } from '../../lib/tournamentUtils';
 
-const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEmails, canRemove, onSendInvite, isMarkedForInvite }) => {
+const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEmails, canRemove, onSendInvite, isMarkedForInvite, verificationCache }) => {
   const [status, setStatus] = useState('idle');
   const [msg, setMsg] = useState('');
 
@@ -35,6 +38,14 @@ const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEm
       return;
     }
 
+    const normalised = email.trim().toLowerCase();
+    const cached = verificationCache?.current?.get(normalised);
+    if (cached) {
+      setStatus(cached.status);
+      setMsg(cached.msg);
+      return;
+    }
+
     setStatus('checking');
     setMsg('Verifying...');
 
@@ -43,9 +54,11 @@ const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEm
         await verifyEmails([email]).unwrap();
         setStatus('valid');
         setMsg('Found');
+        verificationCache?.current?.set(normalised, { status: 'valid', msg: 'Found' });
       } catch {
         setStatus('not_found');
         setMsg('Not on platform');
+        verificationCache?.current?.set(normalised, { status: 'not_found', msg: 'Not on platform' });
       }
     }, 600);
 
@@ -123,7 +136,7 @@ const RosterEmailInput = ({ email, onChange, onRemove, placeholder, dm, verifyEm
   );
 };
 
-const TeammateCard = ({ teammate, dm, onInvite, isInvited }) => {
+const TeammateCard = ({ teammate, dm, onInvite, isInvited, isAdding, isAdded }) => {
   const name = teammate.displayName || [teammate.firstName, teammate.lastName].filter(Boolean).join(' ') || teammate.email;
 
   return (
@@ -159,14 +172,22 @@ const TeammateCard = ({ teammate, dm, onInvite, isInvited }) => {
       </div>
       <button
         onClick={() => onInvite(teammate)}
-        disabled={isInvited}
-        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-          isInvited
+        disabled={isInvited || isAdding || isAdded}
+        className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+          isAdded || isInvited
             ? dm ? 'bg-[#00FF88]/20 text-[#00FF88]' : 'bg-emerald-100 text-emerald-700'
+            : isAdding
+            ? dm ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'
             : dm ? 'bg-gray-800 hover:bg-[#00FF88] hover:text-[#121212] text-white' : 'bg-gray-100 hover:bg-emerald-600 hover:text-white text-gray-700'
         }`}
       >
-        {isInvited ? <Check className="w-3.5 h-3.5" /> : <UserPlus className="w-3.5 h-3.5" />}
+        {isAdding ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : isAdded || isInvited ? (
+          <Check className="w-3.5 h-3.5" />
+        ) : (
+          <UserPlus className="w-3.5 h-3.5" />
+        )}
       </button>
     </motion.div>
   );
@@ -268,18 +289,29 @@ function clearDraft(tournamentId) {
   sessionStorage.removeItem(`${STORAGE_PREFIX}${tournamentId}`);
 }
 
-export default function TeamRegistrationPage({ tournament, onBack }) {
+export default function TeamRegistrationPage({ tournament: tournamentProp, onBack }) {
+  const { id } = useParams();
   const dm = useSelector((s) => s.theme.darkMode);
   const { profile } = useSelector((s) => s.player);
   const { user } = useSelector((s) => s.auth);
   const navigate = useNavigate();
 
+  const { data: tournamentResponse, isLoading: tournamentLoading } = useGetTournamentByIdQuery(id, { skip: !!tournamentProp });
+  const tournament = useMemo(() => {
+    if (tournamentProp) return tournamentProp;
+    if (tournamentResponse) return mapTournamentToCardModel(tournamentResponse);
+    return null;
+  }, [tournamentProp, tournamentResponse]);
+
+  const handleBack = onBack || (() => navigate(`/tournament/${id}`));
+
   const [verifyEmails] = useVerifyRosterEmailsMutation();
+  const verificationCache = useRef(new Map());
   const [registerTeam, { isLoading: isRegistering }] = useRegisterTeamForTournamentMutation();
   const { data: teammates = [], isLoading: teammatesLoading } = useGetPreviousTeammatesQuery();
   const [signupInvites, setSignupInvites] = useState([]);
 
-  const draft = useMemo(() => loadDraft(tournament.id), [tournament.id]);
+  const draft = useMemo(() => tournament ? loadDraft(tournament.id) : null, [tournament]);
 
   const [countryCode, setCountryCode] = useState(() => {
     if (draft?.countryCode) return draft.countryCode;
@@ -309,6 +341,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
   const [linkGenerated, setLinkGenerated] = useState(draft?.linkGenerated || false);
 
   useEffect(() => {
+    if (!tournament) return;
     saveDraft(tournament.id, {
       formData,
       countryCode,
@@ -317,7 +350,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
       draftTeamId,
       linkGenerated,
     });
-  }, [tournament.id, formData, countryCode, rosterMode, inviteLink, draftTeamId, linkGenerated]);
+  }, [tournament, formData, countryCode, rosterMode, inviteLink, draftTeamId, linkGenerated]);
   const [createTournamentOrder] = useCreateTournamentOrderMutation();
   const [verifyTournamentPayment] = useVerifyTournamentPaymentMutation();
   const [confirmFreeRegistration, { isLoading: isConfirming }] = useConfirmFreeRegistrationMutation();
@@ -327,7 +360,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
   });
 
   const MIN_PLAYERS = 5;
-  const hasFee = tournament.registrationFeeCents && tournament.registrationFeeCents > 0;
+  const hasFee = tournament?.registrationFeeCents && tournament.registrationFeeCents > 0;
   const queuePlayerCount = teamQueue?.playerCount || 0;
   const canRegister = queuePlayerCount >= MIN_PLAYERS;
 
@@ -391,7 +424,28 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
     setFormData({ ...formData, emails: newEmails });
   };
 
-  const handleInviteTeammate = (teammate) => {
+  const [addPlayerToTeam] = useAddPlayerToTeamMutation();
+  const [addingMate, setAddingMate] = useState(null);
+  const [addedMates, setAddedMates] = useState(new Set());
+
+  const handleInviteTeammate = async (teammate) => {
+    if (linkGenerated && draftTeamId) {
+      if (addingMate || addedMates.has(teammate.userId)) return;
+      setAddingMate(teammate.userId);
+      try {
+        await addPlayerToTeam({
+          teamId: draftTeamId,
+          playerProfileId: teammate.playerProfileId,
+        }).unwrap();
+        setAddedMates(prev => new Set(prev).add(teammate.userId));
+      } catch (err) {
+        setError(err.data?.message || 'Failed to add player.');
+      } finally {
+        setAddingMate(null);
+      }
+      return;
+    }
+
     const alreadyAdded = formData.emails.some(e => e.toLowerCase() === teammate.email.toLowerCase());
     if (alreadyAdded) return;
 
@@ -575,6 +629,14 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
     }
   };
 
+  if (tournamentLoading || !tournament) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${dm ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <Loader2 className="w-8 h-8 animate-spin opacity-50" />
+      </div>
+    );
+  }
+
   if (isSuccess) {
     return (
       <div className={`min-h-screen pb-20 ${dm ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'}`}>
@@ -684,7 +746,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
         {/* Top Bar */}
         <div className="flex items-center gap-4 mb-6">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className={`p-2 rounded-xl transition-colors ${dm ? 'hover:bg-gray-800 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}
           >
             <ArrowLeft className="w-5 h-5" />
@@ -847,6 +909,7 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                           placeholder={`Player ${idx + 1} email`}
                           dm={dm}
                           verifyEmails={verifyEmails}
+                          verificationCache={verificationCache}
                           canRemove={formData.emails.length > 5}
                           onSendInvite={handleMarkForInvite}
                           isMarkedForInvite={markedForInvite.has(email.trim().toLowerCase())}
@@ -1116,6 +1179,8 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                       dm={dm}
                       onInvite={handleInviteTeammate}
                       isInvited={invitedEmails.has(mate.email.toLowerCase())}
+                      isAdding={addingMate === mate.userId}
+                      isAdded={addedMates.has(mate.userId)}
                     />
                   ))}
                 </div>
@@ -1151,6 +1216,8 @@ export default function TeamRegistrationPage({ tournament, onBack }) {
                     dm={dm}
                     onInvite={handleInviteTeammate}
                     isInvited={invitedEmails.has(mate.email.toLowerCase())}
+                    isAdding={addingMate === mate.userId}
+                    isAdded={addedMates.has(mate.userId)}
                   />
                 ))}
               </div>

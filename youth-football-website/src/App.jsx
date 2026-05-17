@@ -21,6 +21,7 @@ import PlayerAcademyDashboard from "./PlayerAcademyDashboard/PlayerAcademyDashbo
 import CoachSetupPage from "./pages/CoachSetupPage";
 import CoachDashboard from "./pages/CoachDashboard";
 import TournamentRegistrationPage from "./TournamentRegistrationPage";
+import TeamRegistrationPage from "./TournamentRegistrationPage/components/TeamRegistrationPage";
 import AppLayout from "./components/AppLayout";
 import JoinTeamPage from "./pages/JoinTeamPage";
 import TeamHubPage from "./TeamHubComponents/TeamHubPage";
@@ -89,6 +90,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><TournamentRegistrationPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tournament/:id/register"
+            element={
+              <ProtectedRoute>
+                <AppLayout><TeamRegistrationPage /></AppLayout>
               </ProtectedRoute>
             }
           />

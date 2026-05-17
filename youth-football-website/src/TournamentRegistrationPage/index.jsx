@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
@@ -9,7 +9,6 @@ import TournamentDescription from './components/TournamentDescription';
 import OngoingModule from './components/OngoingModule';
 import StickyActionPanel from './components/StickyActionPanel';
 import RegistrationOverview from './components/RegistrationOverview';
-import TeamRegistrationPage from './components/TeamRegistrationPage';
 import { useGetTournamentByIdQuery } from '../redux/slices/tournamentSlice';
 import {
   getTournamentPrimaryAction,
@@ -24,7 +23,6 @@ export default function TournamentRegistrationPage() {
   const { myTournaments } = useSelector((s) => s.player);
   const liveSectionRef = useRef(null);
   const registerSectionRef = useRef(null);
-  const [showRegistration, setShowRegistration] = useState(false);
 
   const routeTournament = location.state?.tournament || null;
   const {
@@ -48,7 +46,7 @@ export default function TournamentRegistrationPage() {
 
   const handlePrimaryAction = () => {
     if (!showLiveCenter) {
-      setShowRegistration(true);
+      navigate(`/tournament/${id}/register`);
     } else {
       liveSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
@@ -97,15 +95,6 @@ export default function TournamentRegistrationPage() {
   }
 
   if (!tournament) return null;
-
-  if (showRegistration) {
-    return (
-      <TeamRegistrationPage
-        tournament={tournament}
-        onBack={() => setShowRegistration(false)}
-      />
-    );
-  }
 
   return (
     <div className={`min-h-screen pb-28 lg:pb-12 ${dm ? 'bg-[#121212] text-white' : 'bg-gray-50 text-gray-900'}`}>

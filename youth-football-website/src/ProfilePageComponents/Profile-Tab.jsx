@@ -107,7 +107,7 @@ const EditModal = ({ onClose, formData, setFormData, onSubmit }) => {
           <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-gray-600 font-bold hover:bg-gray-50 transition">
             Cancel
           </button>
-          <button onClick={onSubmit} className="px-8 py-2.5 rounded-xl bg-green-600 text-white font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition">
+          <button onClick={onSubmit} className="px-8 py-2.5 rounded-xl bg-green-600 text-white font-bold shadow-[0_4px_0_0_#15803d] hover:bg-green-700 active:shadow-none active:translate-y-[4px] transition-all">
             Save Changes
           </button>
         </div>
@@ -157,7 +157,11 @@ export default function ProfileTab() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => navigate("/profile-complete")}
-            className="bg-green-600 text-white px-8 py-3 rounded-full font-bold shadow-lg shadow-green-200 hover:bg-green-700 transition"
+            className={`px-8 py-3 rounded-xl font-extrabold active:shadow-none active:translate-y-[4px] transition-all ${
+              dm
+                ? "bg-[#00FF88] text-[#121212] shadow-[0_4px_0_0_#00CC6A] hover:bg-[#33FF9F]"
+                : "bg-green-600 text-white shadow-[0_4px_0_0_#15803d] hover:bg-green-700"
+            }`}
           >
             Complete Now
           </motion.button>

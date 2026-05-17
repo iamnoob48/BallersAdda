@@ -125,9 +125,9 @@ export default function ProfileSettingsSection({ dm }) {
       </div>
 
       <motion.button
-        whileTap={{ y: 4 }}
+        whileTap={{ scale: 0.98 }}
         onClick={handleLogout}
-        className={`w-full flex items-center gap-4 p-4 rounded-2xl font-extrabold text-sm transition-all shadow-[0_4px_0_0_rgba(220,38,38,0.3)] active:shadow-none active:translate-y-[4px] ${
+        className={`w-full flex items-center gap-4 p-4 rounded-2xl font-extrabold text-sm transition-all ${
           dm
             ? "bg-red-950/30 text-red-400 border border-red-900/30 hover:bg-red-950/50"
             : "bg-red-50 text-red-600 border border-red-100 hover:bg-red-100"

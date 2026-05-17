@@ -814,6 +814,21 @@ export const redeemInviteToken = async (req, res) => {
     }
     const playerProfileId = currentUser.playerProfile.id;
 
+    const existingRegistration = await prisma.playerTournament.findUnique({
+      where: {
+        playerId_tournamentId: {
+          playerId: playerProfileId,
+          tournamentId: inviteData.tournamentId,
+        },
+      },
+      select: { teamId: true },
+    });
+    if (existingRegistration) {
+      return res
+        .status(409)
+        .json({ message: "You are already registered for this tournament with another team." });
+    }
+
     // 6. Transactional join — no redundant team.findUnique; teamId +
     //    tournamentId already resolved above.
     await prisma.$transaction(async (tx) => {
@@ -822,19 +837,12 @@ export const redeemInviteToken = async (req, res) => {
         data: { players: { connect: { id: playerProfileId } } },
       });
 
-      await tx.playerTournament.upsert({
-        where: {
-          playerId_tournamentId: {
-            playerId: playerProfileId,
-            tournamentId: inviteData.tournamentId,
-          },
-        },
-        create: {
+      await tx.playerTournament.create({
+        data: {
           playerId: playerProfileId,
           tournamentId: inviteData.tournamentId,
           teamId: inviteData.teamId,
         },
-        update: { teamId: inviteData.teamId },
       });
 
       await tx.teamInvite.update({
@@ -1037,6 +1045,21 @@ export const redeemTeamLink = async (req, res) => {
       });
     }
 
+    const existingRegistration = await prisma.playerTournament.findUnique({
+      where: {
+        playerId_tournamentId: {
+          playerId: playerProfile.id,
+          tournamentId: team.tournamentId,
+        },
+      },
+      select: { teamId: true },
+    });
+    if (existingRegistration) {
+      return res
+        .status(409)
+        .json({ message: "You are already registered for this tournament with another team." });
+    }
+
     await prisma.$transaction(async (tx) => {
       // Atomic maxUses guard: only bump if still under the limit. Prevents a
       // race where two redeems both pass the pre-check and exceed maxUses.
@@ -1066,19 +1089,12 @@ export const redeemTeamLink = async (req, res) => {
         data: { players: { connect: { id: playerProfile.id } } },
       });
 
-      await tx.playerTournament.upsert({
-        where: {
-          playerId_tournamentId: {
-            playerId: playerProfile.id,
-            tournamentId: team.tournamentId,
-          },
-        },
-        create: {
+      await tx.playerTournament.create({
+        data: {
           playerId: playerProfile.id,
           tournamentId: team.tournamentId,
           teamId: team.id,
         },
-        update: { teamId: team.id },
       });
     });
 
@@ -1397,6 +1413,116 @@ export const removePlayerFromTeam = async (req, res) => {
 };
 
 // =====================================================================
+//  POST /tournament/team/:teamId/add-player
+//  Captain directly adds an existing platform player to the team roster.
+// =====================================================================
+export const addPlayerToTeam = async (req, res) => {
+  try {
+    const teamId = parseInt(req.params.teamId, 10);
+    const { playerProfileId } = req.body || {};
+
+    if (!Number.isInteger(teamId) || teamId <= 0) {
+      return res.status(400).json({ message: "Invalid team ID." });
+    }
+    if (!playerProfileId || !Number.isInteger(playerProfileId) || playerProfileId <= 0) {
+      return res.status(400).json({ message: "Valid player profile ID is required." });
+    }
+
+    const team = await prisma.team.findUnique({
+      where: { id: teamId },
+      select: {
+        id: true,
+        captainId: true,
+        status: true,
+        tournamentId: true,
+        players: { select: { id: true } },
+      },
+    });
+
+    if (!team) {
+      return res.status(404).json({ message: "Team not found." });
+    }
+    if (team.captainId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ message: "Only the team captain can add players." });
+    }
+    if (team.status === "REJECTED") {
+      return res
+        .status(400)
+        .json({ message: "Cannot add players to a disbanded team." });
+    }
+
+    if (team.players.some((p) => p.id === playerProfileId)) {
+      return res
+        .status(409)
+        .json({ message: "Player is already on this team." });
+    }
+
+    const playerProfile = await prisma.playerProfile.findUnique({
+      where: { id: playerProfileId },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    if (!playerProfile) {
+      return res
+        .status(404)
+        .json({ message: "Player profile not found." });
+    }
+
+    const existingRegistration = await prisma.playerTournament.findUnique({
+      where: {
+        playerId_tournamentId: {
+          playerId: playerProfileId,
+          tournamentId: team.tournamentId,
+        },
+      },
+      select: { teamId: true },
+    });
+    if (existingRegistration) {
+      return res
+        .status(409)
+        .json({ message: "Player is already registered for this tournament with another team." });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.team.update({
+        where: { id: teamId },
+        data: { players: { connect: { id: playerProfileId } } },
+      });
+
+      await tx.playerTournament.create({
+        data: {
+          playerId: playerProfileId,
+          tournamentId: team.tournamentId,
+          teamId,
+        },
+      });
+    });
+
+    invalidateTournamentCaches(team.tournamentId).catch((err) =>
+      console.error("Cache invalidation after addPlayerToTeam:", err.message)
+    );
+
+    return res.status(200).json({
+      message: `${playerProfile.firstName} ${playerProfile.lastName} added to the team.`,
+    });
+  } catch (error) {
+    if (isRecordNotFound(error)) {
+      return res
+        .status(404)
+        .json({ message: "Player or team no longer exists." });
+    }
+    if (isUniqueViolation(error)) {
+      return res
+        .status(409)
+        .json({ message: "Player is already registered for this tournament." });
+    }
+    console.error("Error in addPlayerToTeam:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// =====================================================================
 //  GET /tournament/team/:teamId/invite-link
 //  Returns an active share link or generates a fresh one (revoking old).
 // =====================================================================
@@ -1448,7 +1574,7 @@ export const getOrCreateInviteLink = async (req, res) => {
     });
 
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-    const inviteUrl = `${clientUrl}/join?token=${plain}`;
+    const inviteUrl = `${clientUrl}/join?linkToken=${plain}`;
 
     return res.status(200).json({
       message: "Invite link generated.",

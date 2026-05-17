@@ -148,6 +148,14 @@ export const tournamentApi = createApi({
         method: "POST",
       }),
     }),
+
+    addPlayerToTeam: builder.mutation({
+      query: ({ teamId, playerProfileId }) => ({
+        url: `/tournament/team/${teamId}/add-player`,
+        method: "POST",
+        body: { playerProfileId },
+      }),
+    }),
   }),
 });
 
@@ -167,4 +175,5 @@ export const {
   useLazyGetTeamInviteLinkQuery,
   useRemoveTeamPlayerMutation,
   useDisbandTeamMutation,
+  useAddPlayerToTeamMutation,
 } = tournamentApi;

@@ -13,6 +13,7 @@ import {
   getTeamQueue,
   confirmFreeRegistration,
   removePlayerFromTeam,
+  addPlayerToTeam,
   getOrCreateInviteLink,
   disbandTeam,
 } from '../controllers/tournamentsController.js';
@@ -36,6 +37,7 @@ router.post('/team/:teamId/confirm', verifyAccessToken, confirmFreeRegistration)
 
 // Manage team (captain only)
 router.delete('/team/:teamId/player/:playerId', verifyAccessToken, removePlayerFromTeam);
+router.post('/team/:teamId/add-player', verifyAccessToken, addPlayerToTeam);
 router.get('/team/:teamId/invite-link', verifyAccessToken, getOrCreateInviteLink);
 router.post('/team/:teamId/disband', verifyAccessToken, disbandTeam);
 

@@ -13,8 +13,25 @@ import { startBracketWorker } from './lib/bracketQueue.js';
 import './config/passportConfig.js';
 import cookieParser from 'cookie-parser';
 import { urlencoded } from 'express';
+import { requireCsrfHeader } from './middleware/csrfMiddleware.js';
+const REQUIRED_ENV = [
+  'ACCESS_TOKEN_JWT_SECRET',
+  'REFRESH_TOKEN_JWT_SECRET',
+  'DATABASE_URL',
+];
+const missing = REQUIRED_ENV.filter(k => !process.env[k]);
+if (missing.length) {
+  console.error(`FATAL: Missing required env vars: ${missing.join(', ')}`);
+  process.exit(1);
+}
+const WEAK_SECRETS = ['my_secret_key', 'my_refresh_secret_key', 'secret', 'password'];
+if (WEAK_SECRETS.includes(process.env.ACCESS_TOKEN_JWT_SECRET) || WEAK_SECRETS.includes(process.env.REFRESH_TOKEN_JWT_SECRET)) {
+  console.error('FATAL: JWT secrets are trivially guessable. Generate strong random secrets before running in production.');
+  if (process.env.NODE_ENV === 'production') process.exit(1);
+}
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // CORS — allow frontend origin with credentials (cookies)
 app.use(cors({
@@ -25,16 +42,26 @@ app.use(cors({
 // Capture raw body for webhook signature verification
 app.use('/api/v1/payment/webhook', express.raw({ type: 'application/json' }), (req, res, next) => {
   req.rawBody = req.body;
-  req.body = JSON.parse(req.body);
+  try {
+    req.body = JSON.parse(req.body);
+  } catch {
+    return res.status(400).json({ message: 'Invalid JSON in webhook body' });
+  }
   next();
 });
 
 //For parsing application/json
-app.use(express.json({limit: '50mb'}));
+app.use(express.json({limit: '10mb'}));
 //For parsing cookies
 app.use(cookieParser());
 //For URL limit for url encoder
-app.use(urlencoded({limit: '50mb', extended: true }));
+app.use(urlencoded({limit: '10mb', extended: true }));
+
+// CSRF protection for all mutating requests (webhook excluded — uses signature verification)
+app.use((req, res, next) => {
+  if (req.path.startsWith('/api/v1/payment/webhook')) return next();
+  return requireCsrfHeader(req, res, next);
+});
 
 //For auth endpoints
 app.use('/api/v1/auth', authRoutes);

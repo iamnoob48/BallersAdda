@@ -1,24 +1,6 @@
 import prisma from "../prismaClient.js";
 import { cacheGet, cacheDel, cacheInvalidate } from "../config/cacheUtils.js";
-
-// ── Shared pagination helpers ───────────────────────────────────────────
-const parsePagination = (query) => {
-  const page = Math.max(parseInt(query.page) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(query.limit) || 10, 1), 50);
-  return { page, limit, skip: (page - 1) * limit };
-};
-
-const paginationMeta = (totalItems, page, limit) => {
-  const totalPages = Math.ceil(totalItems / limit);
-  return {
-    totalItems,
-    totalPages,
-    currentPage: page,
-    limit,
-    hasNextPage: page < totalPages,
-    hasPrevPage: page > 1,
-  };
-};
+import { parsePagination, paginationMeta } from "../lib/pagination.js";
 
 // ── Shared select object (avoids repeating field lists) ─────────────────
 const ACADEMY_LIST_SELECT = {

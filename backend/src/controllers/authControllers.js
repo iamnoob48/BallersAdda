@@ -123,7 +123,6 @@ export const registerUser = async (req, res) => {
       message: 'User registered successfully. Check your email to verify your account.',
       user: safeUser,
       hasPlayerProfile: false,
-      rawToken,
     });
   } catch (error) {
     console.error('Register error:', error);

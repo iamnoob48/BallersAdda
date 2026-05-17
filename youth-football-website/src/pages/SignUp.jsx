@@ -169,7 +169,8 @@ export default function SignUp() {
   }, [resendCooldown]);
 
   const handleGoogleSignIn = () => {
-    window.location.href = "http://localhost:4000/api/v1/auth/google";
+    const base = import.meta.env.VITE_BACKEND_URL || '';
+    window.location.href = `${base}/api/v1/auth/google`;
   };
 
   const handleChange = (e) => {

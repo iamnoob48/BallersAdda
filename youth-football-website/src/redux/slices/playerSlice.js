@@ -34,7 +34,7 @@ export const updatePlayerProfile = createAsyncThunk(
   "player/updateProfile",
   async (profileData, { rejectWithValue }) => {
     try {
-      const res = await api.post("/player/updatePlayerProfile", profileData);
+      const res = await api.patch("/player/updatePlayerProfile", profileData);
       return res.data.playerProfile;
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || "Failed to update profile");

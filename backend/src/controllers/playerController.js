@@ -809,6 +809,11 @@ export const uploadProfilePic = async (req, res) => {
 
     if (!image) return res.status(400).json({ message: 'No image provided' });
 
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+    if (Buffer.byteLength(image, 'utf8') > MAX_IMAGE_BYTES) {
+      return res.status(413).json({ message: 'Image too large. Maximum 5MB allowed.' });
+    }
+
     const result = await cloudinary.uploader.upload(image, {
       folder: 'profile_pics',
       public_id: `user_${userId}`,

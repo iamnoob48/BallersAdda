@@ -6,12 +6,12 @@ import { v4 as uuidv4 } from "uuid";
 import { processEvent } from "../lib/gamificationService.js";
 import { enqueueBracketGeneration } from "../lib/bracketQueue.js";
 import razorpay from "../config/razorpayClient.js";
+import { parsePagination } from "../lib/pagination.js";
 
 // =====================================================================
 // Constants & helpers
 // =====================================================================
 
-// Plaintext token for share link; only SHA-256 hash persisted.
 const generateShareLinkToken = () => {
   const plain = crypto.randomBytes(24).toString("base64url");
   const tokenHash = crypto.createHash("sha256").update(plain).digest("hex");
@@ -20,13 +20,6 @@ const generateShareLinkToken = () => {
 
 const hashToken = (plain) =>
   crypto.createHash("sha256").update(plain).digest("hex");
-
-// ── Shared pagination helpers ───────────────────────────────────────────
-const parsePagination = (query) => {
-  const page = Math.max(parseInt(query.page) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(query.limit) || 10, 1), 50);
-  return { page, limit, skip: (page - 1) * limit };
-};
 
 // Enum whitelists kept in sync with prisma/schema.prisma
 const VALID_STATUSES = ["UPCOMING", "ONGOING", "COMPLETED"];
@@ -145,8 +138,8 @@ export const getAllTournaments = async (req, res) => {
     // --- Cache key from query params ---
     const cacheKey = `tournament:list:${req.query.status || "all"}:${req.query.location || "all"}:${req.query.category || "all"}:${sort || "date-asc"}:p${page}:l${limit}`;
 
-    const { data: result } = await cacheGet(cacheKey, 120, async () => {
-      const [totalItems, tournaments, playerTournaments] = await Promise.all([
+    const { data: cached } = await cacheGet(cacheKey, 120, async () => {
+      const [totalItems, tournaments] = await Promise.all([
         prisma.tournament.count({ where }),
         prisma.tournament.findMany({
           where,
@@ -181,14 +174,6 @@ export const getAllTournaments = async (req, res) => {
             },
           },
         }),
-        prisma.playerTournament.findMany({
-          where: {
-            playerId: userId,
-          },
-          select: {
-            tournamentId: true,
-          },
-        }),
       ]);
 
       const totalPages = Math.ceil(totalItems / limit);
@@ -206,7 +191,15 @@ export const getAllTournaments = async (req, res) => {
       };
     });
 
-    return res.status(200).json(result);
+    let playerTournaments = [];
+    if (userId) {
+      playerTournaments = await prisma.playerTournament.findMany({
+        where: { player: { userId } },
+        select: { tournamentId: true },
+      });
+    }
+
+    return res.status(200).json({ ...cached, playerTournaments });
   } catch (error) {
     console.error("Error fetching tournaments:", error);
     return res.status(500).json({ message: "Server error" });

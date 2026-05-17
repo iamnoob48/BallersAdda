@@ -1,6 +1,4 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prismaClient.js';
 
 // =====================================================================
 //  GET /coach/profile
@@ -35,7 +33,7 @@ export const getCoachProfile = async (req, res) => {
     return res.status(200).json(coach);
   } catch (error) {
     console.error("Error fetching coach profile:", error);
-    res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -68,7 +66,7 @@ export const updateCoachProfile = async (req, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ message: "License No already exists" });
     }
-    res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -97,7 +95,7 @@ export const getAcademyRoster = async (req, res) => {
     return res.status(200).json(roster);
   } catch (error) {
     console.error("Error fetching roster:", error);
-    res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error" });
   }
 };
 
@@ -154,6 +152,6 @@ export const createTeam = async (req, res) => {
     return res.status(201).json(newTeam);
   } catch (error) {
     console.error("Error creating team:", error);
-    res.status(500).json({ message: "Server Error" });
+    return res.status(500).json({ message: "Server Error" });
   }
 };

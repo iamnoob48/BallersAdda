@@ -1,7 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '/api/v1',
+    baseURL: import.meta.env.VITE_BACKEND_URL
+      ? `${import.meta.env.VITE_BACKEND_URL}/api/v1`
+      : '/api/v1',
     withCredentials: true, // Include cookies in requests
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
 })

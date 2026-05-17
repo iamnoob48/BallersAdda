@@ -34,6 +34,7 @@ model User {
   issuedShareLinks     TeamShareLink[] @relation("ShareLinkIssuer")
   academyReviews       AcademyReview[]
   paymentTransactions  PaymentTransaction[]
+  pushSubscriptions    PushSubscription[]
 
   @@index([role])
 }
@@ -808,6 +809,8 @@ model PushSubscription {
   endpoint String @unique
   p256dh   String
   auth     String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 

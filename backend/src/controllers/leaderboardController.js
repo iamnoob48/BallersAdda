@@ -10,18 +10,9 @@ import {
 } from "../config/rankingConfig.js";
 import redis from "../config/redisClient.js";
 import { createLogger } from "../config/logger.js";
+import { parsePagination } from "../lib/pagination.js";
 
 const logger = createLogger("leaderboardController");
-
-// =====================================================================
-// Helpers
-// =====================================================================
-
-const parsePagination = (query) => {
-  const page = Math.max(parseInt(query.page) || 1, 1);
-  const limit = Math.min(Math.max(parseInt(query.limit) || 20, 1), 50);
-  return { page, limit, skip: (page - 1) * limit };
-};
 
 const VALID_PLAYER_SORTS = ["goals", "assists", "rating", "yellowCards", "redCards"];
 
@@ -291,7 +282,7 @@ export const getTournamentPlayerLeaderboard = async (req, res) => {
       ? req.query.sortBy
       : "goals";
 
-    const { page, limit, skip } = parsePagination(req.query);
+    const { page, limit, skip } = parsePagination(req.query, 20);
 
     const cacheKey = `tournament:leaderboard:players:${id}:${sortBy}:p${page}:l${limit}`;
 
@@ -412,7 +403,7 @@ export const getAcademyLeaderboard = async (req, res) => {
       ? req.query.sortBy
       : "composite";
 
-    const { page, limit, skip } = parsePagination(req.query);
+    const { page, limit, skip } = parsePagination(req.query, 20);
     const cacheKey = `academy:leaderboard:${academyId}:${sortBy}:p${page}:l${limit}`;
 
     const { data: result } = await cacheGet(
@@ -591,7 +582,7 @@ export const getPlayerLeaderboard = async (req, res) => {
       ? req.query.position.toUpperCase()
       : "OVERALL";
 
-    const { page, limit, skip } = parsePagination(req.query);
+    const { page, limit, skip } = parsePagination(req.query, 20);
 
     // Versioned cache key — stale keys expire naturally when version bumps
     let version = 0;

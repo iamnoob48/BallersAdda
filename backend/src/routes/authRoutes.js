@@ -14,7 +14,6 @@ import {
     resetPassword,
 } from '../controllers/authControllers.js';
 import { verifyAccessToken } from '../middleware/authMiddleware.js';
-import { requireCsrfHeader } from '../middleware/csrfMiddleware.js';
 import {
     loginLimiter,
     registerLimiter,
@@ -25,15 +24,13 @@ import {
     forgotPasswordLimiter,
     resetPasswordLimiter,
 } from '../middleware/rateLimiters.js';
-import cookieParser from 'cookie-parser';
 import passport from 'passport';
 
 const router = express.Router();
-router.use(cookieParser());
 
 
 // Register
-router.post('/register', registerUser);
+router.post('/register', registerLimiter, registerUser);
 
 // Login
 router.post('/login', loginLimiter, loginUser);
@@ -43,7 +40,7 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
 router.get(
     '/google/callback',
     passport.authenticate('google', {
-        failureRedirect: 'http://localhost:5173/Login',
+        failureRedirect: `${process.env.CLIENT_URL || 'http://localhost:5173'}/Login`,
         session: false,
     }),
     googleAuthCallback

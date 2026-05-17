@@ -4,6 +4,13 @@ import prisma from '../prismaClient.js';
 import { cacheDel, cacheInvalidate } from '../config/cacheUtils.js';
 import { processEvent } from '../lib/gamificationService.js';
 
+function safeCompareHex(a, b) {
+  const bufA = Buffer.from(a, 'hex');
+  const bufB = Buffer.from(b, 'hex');
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 const ACADEMY_COMMISSION_RATE = parseFloat(process.env.PLATFORM_COMMISSION_RATE || '0.07');
 const TOURNAMENT_COMMISSION_RATE = parseFloat(process.env.TOURNAMENT_COMMISSION_RATE || '0.05');
 
@@ -136,7 +143,7 @@ export const verifyAcademyPayment = async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
-    if (expectedSignature !== razorpay_signature) {
+    if (!safeCompareHex(expectedSignature, razorpay_signature)) {
       return res.status(400).json({ message: 'Payment signature verification failed' });
     }
 
@@ -252,7 +259,7 @@ export const handleWebhook = async (req, res) => {
       .update(req.rawBody)
       .digest('hex');
 
-    if (expectedSignature !== signature) {
+    if (!safeCompareHex(expectedSignature, signature)) {
       return res.status(400).json({ message: 'Invalid webhook signature' });
     }
 
@@ -439,7 +446,7 @@ export const verifyTournamentPayment = async (req, res) => {
       .update(`${razorpay_order_id}|${razorpay_payment_id}`)
       .digest('hex');
 
-    if (expectedSignature !== razorpay_signature) {
+    if (!safeCompareHex(expectedSignature, razorpay_signature)) {
       return res.status(400).json({ message: 'Payment signature verification failed' });
     }
 

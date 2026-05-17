@@ -8,8 +8,8 @@ function ProtectedRoute({ children }) {
 
   if (loading || isAuthenticated === null) {
     return (
-      <div className="flex justify-center items-center h-screen text-lg font-medium">
-        Verifying session...
+      <div className="flex justify-center items-center h-screen">
+        <div className="w-8 h-8 border-[3px] border-gray-200 border-t-green-500 rounded-full animate-spin" />
       </div>
     );
   }

@@ -1,6 +1,32 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios";
 
+// ── Persistent auth hint (localStorage) ──────────────────────────────
+// We cache a lightweight snapshot so returning users get instant routing
+// instead of a flash of the landing page while verifyUser() resolves.
+const AUTH_CACHE_KEY = "ba_auth_hint";
+
+function loadCachedAuth() {
+  try {
+    const raw = localStorage.getItem(AUTH_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheAuth(snapshot) {
+  try {
+    localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(snapshot));
+  } catch { /* quota — ignore */ }
+}
+
+function clearCachedAuth() {
+  localStorage.removeItem(AUTH_CACHE_KEY);
+}
+
+const cached = loadCachedAuth();
+
 export const verifyUser = createAsyncThunk(
   "auth/verifyUser",
   async (_, { rejectWithValue }) => {
@@ -17,11 +43,13 @@ const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: null,
-    isAuthenticated: null, // null = unknown, true/false = resolved
-    loading: false,
+    // If we have a cached hint, start as `true` (optimistic) so routing
+    // is instant. verifyUser() will correct it if the token is stale.
+    isAuthenticated: cached ? true : null,
+    loading: cached ? true : false, // show spinner while we re-validate
     error: null,
     isCoachProfileIncomplete: false,
-    hasPlayerProfile: false,
+    hasPlayerProfile: cached?.hasPlayerProfile ?? false,
   },
   reducers: {
     loginSuccess: (state, action) => {
@@ -29,6 +57,7 @@ const authSlice = createSlice({
       state.isAuthenticated = true;
       state.loading = false;
       state.error = null;
+      cacheAuth({ isAuthenticated: true, hasPlayerProfile: state.hasPlayerProfile });
     },
     logout: (state) => {
       state.user = null;
@@ -36,6 +65,7 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.hasPlayerProfile = false;
+      clearCachedAuth();
     },
     updateCredentials: (state, action) => {
       state.user = { ...state.user, ...action.payload };
@@ -45,6 +75,7 @@ const authSlice = createSlice({
     },
     setPlayerProfileComplete: (state) => {
       state.hasPlayerProfile = true;
+      cacheAuth({ isAuthenticated: true, hasPlayerProfile: true });
     },
   },
   extraReducers: (builder) => {
@@ -60,15 +91,18 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.loading = false;
         state.error = null;
+        cacheAuth({ isAuthenticated: true, hasPlayerProfile: state.hasPlayerProfile });
       })
       .addCase(verifyUser.rejected, (state, action) => {
         state.user = null;
         state.isAuthenticated = false;
         state.loading = false;
         state.error = action.payload || "Verification failed";
+        clearCachedAuth();
       });
   },
 });
 
 export const { loginSuccess, logout, clearAuthError, updateCredentials, setPlayerProfileComplete } = authSlice.actions;
 export default authSlice.reducer;
+

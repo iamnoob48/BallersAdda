@@ -33,6 +33,8 @@ if (WEAK_SECRETS.includes(process.env.ACCESS_TOKEN_JWT_SECRET) || WEAK_SECRETS.i
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+app.set('trust proxy', 1);
+
 // CORS — allow frontend origin with credentials (cookies)
 app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',

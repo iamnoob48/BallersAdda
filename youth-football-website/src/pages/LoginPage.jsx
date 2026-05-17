@@ -10,7 +10,7 @@ import api from "../api/axios";
 import { useDispatch } from "react-redux";
 import { loginSuccess, setPlayerProfileComplete } from "../redux/slices/authSlice.js";
 
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
 
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({

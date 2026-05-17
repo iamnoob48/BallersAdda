@@ -28,9 +28,11 @@ const mutex = new Mutex();
  *
  * @param {string} baseUrl — e.g. "/api/v1" or "/api/v1/coach"
  */
+const BACKEND = import.meta.env.VITE_BACKEND_URL || '';
+
 export const createBaseQueryWithReauth = (baseUrl) => {
   const rawBaseQuery = fetchBaseQuery({
-    baseUrl,
+    baseUrl: `${BACKEND}${baseUrl}`,
     credentials: "include", // 🔥 cookies are always sent
     prepareHeaders: (headers) => {
       headers.set('X-Requested-With', 'XMLHttpRequest');
@@ -54,7 +56,7 @@ export const createBaseQueryWithReauth = (baseUrl) => {
           // Use a dedicated query pointed at /api/v1 so the refresh URL
           // is always correct regardless of the slice's own baseUrl
           const refreshBaseQuery = fetchBaseQuery({
-            baseUrl: "/api/v1",
+            baseUrl: `${BACKEND}/api/v1`,
             credentials: "include",
             prepareHeaders: (headers) => {
               headers.set('X-Requested-With', 'XMLHttpRequest');

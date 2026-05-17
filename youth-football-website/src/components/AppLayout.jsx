@@ -33,7 +33,7 @@ export default function AppLayout({ children }) {
         <Sidebar />
 
         {/* Main content — pt accounts for fixed navbar height */}
-        <main className="flex-1 overflow-y-auto pb-16 md:pb-0 md:pt-16">
+        <main className="flex-1 overflow-y-auto pt-14 pb-16 md:pb-0 md:pt-16">
           {children}
         </main>
       </div>

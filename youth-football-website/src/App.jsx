@@ -31,22 +31,11 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import LeaderboardPage from "./LeaderboardPage/LeaderboardPage";
 
 function App() {
-  const { isAuthenticated, loading } = useSelector((state) => state.auth);
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
   useEffect(() => {
-    // Only verify if we don’t already know the auth state
-    if (isAuthenticated === null) {
-      dispatch(verifyUser());
-    }
-  }, [dispatch, isAuthenticated]);
-
-  if (loading || isAuthenticated === null) {
-    return (
-      <div className="flex justify-center items-center h-screen text-lg font-medium">
-        Verifying session...
-      </div>
-    );
-  }
+    dispatch(verifyUser());
+  }, [dispatch]);
 
   return (
     <>

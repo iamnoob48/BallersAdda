@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../api/axios";
+import { clearTokens } from "../../api/tokenStorage.js";
 
 // ── Persistent auth hint (localStorage) ──────────────────────────────
 // We cache a lightweight snapshot so returning users get instant routing
@@ -66,6 +67,7 @@ const authSlice = createSlice({
       state.error = null;
       state.hasPlayerProfile = false;
       clearCachedAuth();
+      clearTokens();
     },
     updateCredentials: (state, action) => {
       state.user = { ...state.user, ...action.payload };
@@ -99,6 +101,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Verification failed";
         clearCachedAuth();
+        clearTokens();
       });
   },
 });

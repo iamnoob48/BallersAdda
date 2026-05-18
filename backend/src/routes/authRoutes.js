@@ -3,6 +3,7 @@ import {
     registerUser,
     loginUser,
     googleAuthCallback,
+    exchangeOAuthCode,
     verifyUser,
     getUserProfile,
     refreshAccessToken,
@@ -45,6 +46,9 @@ router.get(
     }),
     googleAuthCallback
 );
+
+// Exchange OAuth code for tokens (Safari ITP fallback)
+router.post('/exchange-oauth-code', loginLimiter, exchangeOAuthCode);
 
 // Verify token
 router.get('/verify-token', verifyAccessToken, verifyUser);

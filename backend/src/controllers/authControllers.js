@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import prisma from '../prismaClient.js';
 import { storeRefreshToken, consumeRefreshToken, deleteRefreshToken } from '../lib/refreshTokenStore.js';
+import { storeOAuthCode, consumeOAuthCode } from '../lib/oauthCodeStore.js';
 import { generateVerificationToken, storeVerificationToken, consumeVerificationToken } from '../lib/emailVerificationStore.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../lib/mailer.js';
 import { generateResetToken, storeResetToken, consumeResetToken } from '../lib/passwordResetStore.js';
@@ -110,7 +111,7 @@ export const registerUser = async (req, res) => {
       data: { username: username || null, email, password: hashedPassword },
     });
 
-    await setAuthCookies(res, newUser);
+    const tokens = await setAuthCookies(res, newUser);
 
     // Send verification email — fire and forget, don't block registration response
     const rawToken = generateVerificationToken();
@@ -123,6 +124,7 @@ export const registerUser = async (req, res) => {
       message: 'User registered successfully. Check your email to verify your account.',
       user: safeUser,
       hasPlayerProfile: false,
+      tokens,
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -163,7 +165,7 @@ export const loginUser = async (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    await setAuthCookies(res, user);
+    const tokens = await setAuthCookies(res, user);
 
     prisma.user.update({ where: { id: user.id }, data: { lastLogin: new Date() } }).catch(() => { });
 
@@ -175,7 +177,7 @@ export const loginUser = async (req, res) => {
     }
 
     const { password: _pw, ...safeUser } = user;
-    return res.status(200).json({ message: 'User logged in successfully', user: safeUser, hasPlayerProfile });
+    return res.status(200).json({ message: 'User logged in successfully', user: safeUser, hasPlayerProfile, tokens });
   } catch (error) {
     console.error('Login error:', error);
     return res.status(500).json({ message: 'Server error' });
@@ -190,7 +192,7 @@ export const loginUser = async (req, res) => {
 //  bump tokenVersion to invalidate all sessions.
 // =====================================================================
 export const refreshAccessToken = async (req, res) => {
-  const token = req.cookies?.refreshToken;
+  const token = req.cookies?.refreshToken || req.body?.refreshToken;
   if (!token) {
     return res.status(401).json({ message: 'No refresh token provided' });
   }
@@ -245,8 +247,8 @@ export const refreshAccessToken = async (req, res) => {
       return res.status(401).json({ message: 'Session revoked, please log in again' });
     }
 
-    await setAuthCookies(res, user);
-    return res.status(200).json({ message: 'Tokens refreshed successfully' });
+    const tokens = await setAuthCookies(res, user);
+    return res.status(200).json({ message: 'Tokens refreshed successfully', tokens });
   } catch (error) {
     res.clearCookie('accessToken', clearCookieOpts);
     res.clearCookie('refreshToken', clearCookieOpts);
@@ -273,7 +275,11 @@ export const googleAuthCallback = async (req, res) => {
     });
 
     await setAuthCookies(res, user || passportUser);
-    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/success`);
+
+    const code = randomBytes(32).toString('hex');
+    await storeOAuthCode(code, (user || passportUser).id);
+
+    res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/auth/success?code=${code}`);
   } catch (error) {
     console.error('Google callback error:', error);
     res.redirect(`${process.env.CLIENT_URL || 'http://localhost:5173'}/Login?error=server_error`);
@@ -351,7 +357,7 @@ export const getUserProfile = async (req, res) => {
 // =====================================================================
 export const logoutUser = async (req, res) => {
   try {
-    const token = req.cookies?.refreshToken;
+    const token = req.cookies?.refreshToken || req.body?.refreshToken;
     if (token) {
       try {
         const decoded = jwt.verify(token, process.env.REFRESH_TOKEN_JWT_SECRET);
@@ -522,5 +528,34 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error('Reset password error:', error);
     return res.status(500).json({ message: 'Server error.' });
+  }
+};
+
+// =====================================================================
+//  POST /auth/exchange-oauth-code
+//  Exchanges a short-lived OAuth code for tokens (Safari ITP fallback).
+// =====================================================================
+export const exchangeOAuthCode = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ message: 'Code is required' });
+
+    const userId = await consumeOAuthCode(code);
+    if (!userId) return res.status(401).json({ message: 'Invalid or expired code' });
+
+    const user = await prisma.user.findUnique({
+      where: { id: Number(userId) },
+      select: { id: true, role: true, tokenVersion: true, status: true },
+    });
+
+    if (!user || user.status !== 'ACTIVE') {
+      return res.status(403).json({ message: 'Account unavailable' });
+    }
+
+    const tokens = await setAuthCookies(res, user);
+    return res.status(200).json({ message: 'Authenticated', tokens });
+  } catch (error) {
+    console.error('OAuth code exchange error:', error);
+    return res.status(500).json({ message: 'Server error' });
   }
 };

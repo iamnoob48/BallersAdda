@@ -3,8 +3,15 @@ import prisma from '../prismaClient.js';
 
 const VALID_ROLES = new Set(['PLAYER', 'ACADEMY', 'COACH', 'SCOUT', 'ADMIN', 'ORGANIZER']);
 
+function resolveAccessToken(req) {
+  if (req.cookies?.accessToken) return req.cookies.accessToken;
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) return authHeader.slice(7);
+  return null;
+}
+
 export const verifyAccessToken = (req, res, next) => {
-  const token = req.cookies?.accessToken;
+  const token = resolveAccessToken(req);
 
   if (!token) {
     return res.status(401).json({ message: 'No access token provided' });
@@ -30,7 +37,7 @@ export const verifyAccessToken = (req, res, next) => {
 // For sensitive routes — DB-checks tokenVersion so revocation is instant,
 // not delayed by the 15min access token window.
 export const verifyAccessTokenStrict = async (req, res, next) => {
-  const token = req.cookies?.accessToken;
+  const token = resolveAccessToken(req);
 
   if (!token) {
     return res.status(401).json({ message: 'No access token provided' });

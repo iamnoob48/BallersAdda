@@ -1,14 +1,20 @@
 import axios from 'axios';
+import { getAccessToken, getRefreshToken, storeTokens, clearTokens } from './tokenStorage.js';
 
 const api = axios.create({
     baseURL: import.meta.env.VITE_BACKEND_URL
       ? `${import.meta.env.VITE_BACKEND_URL}/api/v1`
       : '/api/v1',
-    withCredentials: true, // Include cookies in requests
+    withCredentials: true,
     headers: { 'X-Requested-With': 'XMLHttpRequest' },
-})
+});
 
-//Response interceptor to handle responses globally
+api.interceptors.request.use((config) => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
@@ -19,11 +25,14 @@ api.interceptors.response.use(
         originalRequest._retry = true;
 
         try {
-          await api.post("/auth/refresh-token");
-          return api(originalRequest); // retry original request
+          const refreshToken = getRefreshToken();
+          const res = await api.post("/auth/refresh-token",
+            refreshToken ? { refreshToken } : undefined
+          );
+          if (res.data?.tokens) storeTokens(res.data.tokens);
+          return api(originalRequest);
         } catch (refreshError) {
-          console.error("Refresh failed:", refreshError);
-          // Dynamic import avoids circular dep (store → authSlice → axios → store)
+          clearTokens();
           const { store } = await import('../redux/store.js');
           const { logout } = await import('../redux/slices/authSlice.js');
           store.dispatch(logout());

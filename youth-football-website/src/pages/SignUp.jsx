@@ -14,6 +14,7 @@ import OTP from "../LandingComponents/OTP.jsx";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios.js";
+import { storeTokens } from "../api/tokenStorage.js";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -126,11 +127,12 @@ export default function SignUp() {
 
     try {
       setSubmitting(true);
-      await api.post("/auth/register", {
+      const res = await api.post("/auth/register", {
         username: trimmedUsername,
         email: trimmedEmail,
         password: signUpData.password,
       });
+      if (res.data?.tokens) storeTokens(res.data.tokens);
       setRegisteredEmail(trimmedEmail);
       setRegistered(true);
     } catch (error) {

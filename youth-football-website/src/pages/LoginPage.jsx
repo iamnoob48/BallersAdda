@@ -7,6 +7,7 @@ import OTP from "../LandingComponents/OTP";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import api from "../api/axios";
+import { storeTokens } from "../api/tokenStorage.js";
 import { useDispatch } from "react-redux";
 import { loginSuccess, setPlayerProfileComplete } from "../redux/slices/authSlice.js";
 
@@ -53,7 +54,7 @@ export default function LoginPage() {
         password: loginData.password,
       });
 
-      // Dispatch with the safe user object returned by the backend
+      if (res.data.tokens) storeTokens(res.data.tokens);
       dispatch(loginSuccess(res.data.user));
       if (res.data.hasPlayerProfile) {
         dispatch(setPlayerProfileComplete());

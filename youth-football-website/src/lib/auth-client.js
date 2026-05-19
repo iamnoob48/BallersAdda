@@ -1,9 +1,9 @@
 import { createAuthClient } from "better-auth/react";
 
-const baseURL = import.meta.env.VITE_BACKEND_URL || "";
-
 export const authClient = createAuthClient({
-  baseURL,
+  baseURL: import.meta.env.DEV
+    ? import.meta.env.VITE_BACKEND_URL || "http://localhost:4001"
+    : "",
 });
 
 export const {

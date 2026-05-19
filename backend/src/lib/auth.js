@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import { oAuthProxy } from "better-auth/plugins";
 import prisma from "../prismaClient.js";
 import { sendPasswordResetEmail } from "./mailer.js";
 
@@ -9,6 +10,12 @@ export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
 
   database: prismaAdapter(prisma, { provider: "postgresql" }),
+
+  plugins: [
+    oAuthProxy({
+      productionURL: process.env.BETTER_AUTH_URL,
+    }),
+  ],
 
   user: {
     fields: {
@@ -70,14 +77,10 @@ export const auth = betterAuth({
     },
   },
 
-  account: {
-    storeStateStrategy: "cookie",
-  },
-
   advanced: {
     cookiePrefix: "ba",
     defaultCookieAttributes: {
-      sameSite: "lax",
+      sameSite: "none",
       secure: true,
     },
   },

@@ -87,8 +87,7 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    const base = import.meta.env.VITE_BETTER_AUTH_URL || "";
-    await signIn.social({ provider: "google", callbackURL: base + nextPath });
+    await signIn.social({ provider: "google", callbackURL: window.location.origin + nextPath });
   };
 
   const handleChange = (e) => {

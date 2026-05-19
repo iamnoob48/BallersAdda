@@ -183,7 +183,7 @@ export const enterPlayerProfile = async (req, res) => {
 export const updatePlayerProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const { firstName, lastName, bio, dateOfBirth, gender, height, weight, position, dominantFoot } = req.body;
+    const { firstName, lastName, displayName, bio, dateOfBirth, gender, height, weight, position, dominantFoot } = req.body;
 
     // --- Check profile exists ---
     const existing = await prisma.playerProfile.findUnique({ where: { userId } });
@@ -203,6 +203,7 @@ export const updatePlayerProfile = async (req, res) => {
       data.lastName = lastName.trim();
     }
     if (bio !== undefined) data.bio = bio?.trim() || null;
+    if (displayName !== undefined) data.displayName = displayName?.trim() || null;
 
     if (dateOfBirth !== undefined) {
       if (dateOfBirth === null || dateOfBirth === '') {

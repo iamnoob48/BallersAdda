@@ -9,23 +9,24 @@ datasource db {
 
 // =====================================================================
 // USER — single source of truth for human identity
+// better-auth manages auth via Session/Account/Verification tables.
+// Field mapping: better-auth "name" → username, "image" → profilePic
 // =====================================================================
 model User {
-  id           Int        @id @default(autoincrement())
-  email        String     @unique
-  username     String?    @unique
-  password     String?
-  phone        String?    @unique
-  profilePic   String?
-  role         Role       @default(PLAYER)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  googleId     String?    @unique
-  isVerified   Boolean    @default(false)
-  lastLogin    DateTime?
-  status       UserStatus @default(ACTIVE)
-  tokenVersion Int        @default(0)
+  id            String     @id @default(cuid())
+  email         String     @unique
+  username      String?    @unique
+  phone         String?    @unique
+  profilePic    String?
+  role          Role       @default(PLAYER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  emailVerified Boolean    @default(false)
+  lastLogin     DateTime?
+  status        UserStatus @default(ACTIVE)
 
+  sessions             Session[]
+  accounts             Account[]
   academy              Academy?
   coach                Coach?
   playerProfile        PlayerProfile?
@@ -37,6 +38,52 @@ model User {
   pushSubscriptions    PushSubscription[]
 
   @@index([role])
+}
+
+// =====================================================================
+// BETTER-AUTH — Session, Account, Verification
+// =====================================================================
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
 
 // =====================================================================
@@ -79,7 +126,7 @@ model PlayerProfile {
   longestStreak     Int       @default(0)
   lastStreakEvent   DateTime?
 
-  userId       Int                  @unique
+  userId       String               @unique
   user         User                 @relation(fields: [userId], references: [id])
   academy      Academy?             @relation(fields: [academyId], references: [id])
   academyBatch AcademyBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
@@ -115,7 +162,7 @@ model Tournament {
   maxTeams             Int?
   maxPlayersPerTeam    Int?
   status               Status              @default(UPCOMING)
-  organizerId          Int?
+  organizerId          String?
   isPublic             Boolean             @default(true)
   formatAndRules       String?
   venueAddressLink     String?
@@ -168,7 +215,7 @@ model Team {
   academyId Int?
   academy   Academy? @relation(fields: [academyId], references: [id])
 
-  captainId Int?
+  captainId String?
   captain   User? @relation("TeamCaptain", fields: [captainId], references: [id])
 
   coachId Int?
@@ -207,7 +254,7 @@ model TeamShareLink {
   team   Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   tokenHash   String @unique
-  createdById Int
+  createdById String
   createdBy   User   @relation("ShareLinkIssuer", fields: [createdById], references: [id])
 
   expiresAt  DateTime?
@@ -279,7 +326,7 @@ model Academy {
   noOfStudents     Int?      @default(0)
   tournamentsWon   Int?      @default(0)
   primaryPictureId Int?      @unique
-  userId           Int?      @unique
+  userId           String?   @unique
 
   primaryPicture AcademyPicture?      @relation("PrimaryPicture", fields: [primaryPictureId], references: [id])
   user           User?                @relation(fields: [userId], references: [id])
@@ -437,7 +484,7 @@ model Coach {
   coachLicenceNo  String?  @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  userId          Int      @unique
+  userId          String   @unique
 
   academy Academy? @relation(fields: [academyId], references: [id])
   user    User     @relation(fields: [userId], references: [id])
@@ -560,7 +607,7 @@ model PlayerAcademyStats {
 model AcademyReview {
   id           Int          @id @default(autoincrement())
   academyId    Int
-  userId       Int
+  userId       String
   rating       Int          // 1–5
   title        String?
   text         String
@@ -805,7 +852,7 @@ model PlayerBadge {
 
 model PushSubscription {
   id       Int    @id @default(autoincrement())
-  userId   Int
+  userId   String
   endpoint String @unique
   p256dh   String
   auth     String
@@ -849,7 +896,7 @@ model PaymentTransaction {
   status                  PaymentStatus  @default(CREATED)
   paymentMethod           PaymentMethod  @default(ONLINE)
 
-  userId                  Int
+  userId                  String
   user                    User           @relation(fields: [userId], references: [id])
 
   academyId               Int?

@@ -7,7 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { toggleDarkMode } from "../redux/slices/themeSlice";
 import { logout } from "../redux/slices/authSlice";
 import { resetPlayerState } from "../redux/slices/playerSlice";
-import api from "../api/axios";
+import { signOut } from "../lib/auth-client.js";
 
 const SectionWrapper = ({ children, dm }) => (
   <motion.div
@@ -41,13 +41,11 @@ export default function Settings() {
 
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout");
-      dispatch(logout());
-      dispatch(resetPlayerState());
-      navigate("/login");
-    } catch (error) {
-      console.error("Error during logout:", error);
-    }
+      await signOut();
+    } catch {}
+    dispatch(logout());
+    dispatch(resetPlayerState());
+    navigate("/login");
   };
 
   return (

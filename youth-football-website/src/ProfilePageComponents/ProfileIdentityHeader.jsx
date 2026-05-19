@@ -167,7 +167,7 @@ export default function ProfileIdentityHeader({ dm, player, profilePic, user, ac
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjEpIi8+PC9zdmc+')] opacity-50" />
         </div>
 
-        <div className="px-6 pb-6 -mt-12">
+        <div className="px-6 pb-6 -mt-12 relative z-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4">
             {/* Avatar */}
             <div className="relative shrink-0">

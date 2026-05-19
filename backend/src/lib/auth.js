@@ -70,10 +70,15 @@ export const auth = betterAuth({
     },
   },
 
+  account: {
+    storeStateStrategy: "cookie",
+  },
+
   advanced: {
     cookiePrefix: "ba",
-    crossSubDomainCookies: {
-      enabled: false,
+    defaultCookieAttributes: {
+      sameSite: "none",
+      secure: true,
     },
   },
 

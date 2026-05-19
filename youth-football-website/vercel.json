@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/api/:path(.*)", "destination": "https://ballersadda.onrender.com/api/:path" },
+    { "source": "/api/:path(.*)", "destination": "https://api.ballersadda.co.in/api/:path" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

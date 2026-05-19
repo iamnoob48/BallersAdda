@@ -136,7 +136,7 @@ export default function SignUp() {
   }, [resendCooldown]);
 
   const handleGoogleSignIn = async () => {
-    await signIn.social({ provider: "google", callbackURL: "/home" });
+    await signIn.social({ provider: "google", callbackURL: window.location.origin + "/home" });
   };
 
   const handleChange = (e) => {

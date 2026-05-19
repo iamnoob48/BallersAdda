@@ -374,8 +374,6 @@ export const createAcademyReview = async (req, res) => {
   }
 };
 
-import { setAuthCookies } from "./authControllers.js";
-
 export const registerAcademy = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -491,9 +489,6 @@ export const registerAcademy = async (req, res) => {
       return { newAcademy, updatedOwner };
     });
 
-    // Re-issue JWT since role changed
-    setAuthCookies(res, result.updatedOwner);
-
     return res.status(201).json({
       message: "Academy registered successfully.",
       user: {
@@ -502,7 +497,7 @@ export const registerAcademy = async (req, res) => {
         username: result.updatedOwner.username,
         profilePic: result.updatedOwner.profilePic,
         role: result.updatedOwner.role,
-        isVerified: result.updatedOwner.isVerified
+        emailVerified: result.updatedOwner.emailVerified
       },
       academy: result.newAcademy
     });

@@ -1,10 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { authClient } from "../../lib/auth-client.js";
 import api from "../../api/axios";
-import { clearTokens } from "../../api/tokenStorage.js";
 
-// ── Persistent auth hint (localStorage) ──────────────────────────────
-// We cache a lightweight snapshot so returning users get instant routing
-// instead of a flash of the landing page while verifyUser() resolves.
 const AUTH_CACHE_KEY = "ba_auth_hint";
 
 function loadCachedAuth() {
@@ -19,7 +16,7 @@ function loadCachedAuth() {
 function cacheAuth(snapshot) {
   try {
     localStorage.setItem(AUTH_CACHE_KEY, JSON.stringify(snapshot));
-  } catch { /* quota — ignore */ }
+  } catch {}
 }
 
 function clearCachedAuth() {
@@ -32,10 +29,41 @@ export const verifyUser = createAsyncThunk(
   "auth/verifyUser",
   async (_, { rejectWithValue }) => {
     try {
-      const res = await api.get("/auth/verify-token", { withCredentials: true });
-      return res.data;
+      const { data, error } = await authClient.getSession();
+      if (error || !data) {
+        return rejectWithValue("Not authenticated");
+      }
+
+      const user = {
+        id: data.user.id,
+        email: data.user.email,
+        username: data.user.name,
+        profilePic: data.user.image,
+        role: data.user.role,
+        status: data.user.status,
+      };
+
+      let isCoachProfileIncomplete = false;
+      if (user.role === "COACH") {
+        try {
+          const res = await api.get("/coach/profile");
+          if (res.data?.firstName === "Pending") {
+            isCoachProfileIncomplete = true;
+          }
+        } catch {}
+      }
+
+      let hasPlayerProfile = false;
+      if (user.role === "PLAYER") {
+        try {
+          const res = await api.get("/player/playerProfile");
+          hasPlayerProfile = !!res.data?.playerProfile?.id;
+        } catch {}
+      }
+
+      return { success: true, user, isCoachProfileIncomplete, hasPlayerProfile };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || "Verification failed");
+      return rejectWithValue(err.message || "Verification failed");
     }
   }
 );
@@ -44,10 +72,8 @@ const authSlice = createSlice({
   name: "auth",
   initialState: {
     user: null,
-    // If we have a cached hint, start as `true` (optimistic) so routing
-    // is instant. verifyUser() will correct it if the token is stale.
     isAuthenticated: cached ? true : null,
-    loading: cached ? true : false, // show spinner while we re-validate
+    loading: cached ? true : false,
     error: null,
     isCoachProfileIncomplete: false,
     hasPlayerProfile: cached?.hasPlayerProfile ?? false,
@@ -67,7 +93,6 @@ const authSlice = createSlice({
       state.error = null;
       state.hasPlayerProfile = false;
       clearCachedAuth();
-      clearTokens();
     },
     updateCredentials: (state, action) => {
       state.user = { ...state.user, ...action.payload };
@@ -101,11 +126,9 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = action.payload || "Verification failed";
         clearCachedAuth();
-        clearTokens();
       });
   },
 });
 
 export const { loginSuccess, logout, clearAuthError, updateCredentials, setPlayerProfileComplete } = authSlice.actions;
 export default authSlice.reducer;
-

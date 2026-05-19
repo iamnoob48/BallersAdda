@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, KeyRound, Loader2, XCircle } from "lucide-react";
 import { useSelector } from "react-redux";
-import api from "../api/axios";
+import { resetPassword as betterAuthResetPassword } from "../lib/auth-client.js";
 
 function StrengthBar({ password }) {
   if (!password) return null;
@@ -74,10 +74,14 @@ export default function ResetPasswordPage() {
     }
     setLoading(true);
     try {
-      await api.post("/auth/reset-password", { token, password });
-      navigate("/Login", { state: { message: "Password reset. Please log in." } });
+      const { error: err } = await betterAuthResetPassword({ token, newPassword: password });
+      if (err) {
+        setError(err.message || "Invalid or expired link. Request a new one.");
+      } else {
+        navigate("/Login", { state: { message: "Password reset. Please log in." } });
+      }
     } catch (err) {
-      setError(err.response?.data?.message || "Invalid or expired link. Request a new one.");
+      setError(err?.message || "Invalid or expired link. Request a new one.");
     } finally {
       setLoading(false);
     }

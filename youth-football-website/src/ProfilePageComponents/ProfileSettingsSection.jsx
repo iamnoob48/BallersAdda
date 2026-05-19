@@ -7,14 +7,14 @@ import { useNavigate } from "react-router-dom";
 import { toggleDarkMode } from "../redux/slices/themeSlice";
 import { logout } from "../redux/slices/authSlice";
 import { resetPlayerState } from "../redux/slices/playerSlice";
-import api from "../api/axios";
+import { signOut } from "../lib/auth-client.js";
 
 export default function ProfileSettingsSection({ dm }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    try { await api.post("/auth/logout"); } catch {}
+    try { await signOut(); } catch {}
     dispatch(logout());
     dispatch(resetPlayerState());
     navigate("/login");

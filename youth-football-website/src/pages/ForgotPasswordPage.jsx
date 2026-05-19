@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Mail, ArrowLeft, CheckCircle2, Loader2 } from "lucide-react";
 import { useSelector } from "react-redux";
-import api from "../api/axios";
+import { forgetPassword } from "../lib/auth-client.js";
 
 export default function ForgotPasswordPage() {
   const dm = useSelector((s) => s.theme.darkMode);
@@ -23,8 +23,12 @@ export default function ForgotPasswordPage() {
     setError("");
     setLoading(true);
     try {
-      await api.post("/auth/forgot-password", { email: email.trim() });
-      setSubmitted(true);
+      const { error: err } = await forgetPassword({ email: email.trim(), redirectTo: "/reset-password" });
+      if (err) {
+        setError(err.message || "Something went wrong. Please try again.");
+      } else {
+        setSubmitted(true);
+      }
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

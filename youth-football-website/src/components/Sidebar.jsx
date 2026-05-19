@@ -17,7 +17,7 @@ import {
 import { FaTrophy, FaMedal } from "react-icons/fa";
 import { logout } from "../redux/slices/authSlice";
 import { toggleDarkMode } from "../redux/slices/themeSlice";
-import api from "../api/axios";
+import { signOut } from "../lib/auth-client.js";
 
 // ── Sidebar Context ─────────────────────────────────────────────────────
 const SidebarContext = createContext(undefined);
@@ -46,10 +46,8 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     try {
-      await api.post("/auth/logout");
-    } catch {
-      // even if the call fails, clear client state
-    }
+      await signOut();
+    } catch { }
     dispatch(logout());
     navigate("/Login");
   };
@@ -131,13 +129,19 @@ export default function Sidebar() {
             className={`flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-colors ${dm ? "hover:bg-[#1a1a1a]" : "hover:bg-gray-50"
               }`}
           >
-            <img
-              src={user?.profilePic || "/default-avatar.png"}
-              alt="avatar"
-              className={`w-8 h-8 rounded-full object-cover border shrink-0 ${dm ? "border-[#00FF88]/30" : "border-green-300"
-                }`}
-              referrerPolicy="no-referrer"
-            />
+            <div className={`w-8 h-8 -ml-[7px] rounded-full overflow-hidden border shrink-0 flex items-center justify-center text-sm font-extrabold aspect-square ${dm ? "border-[#00FF88]/30 bg-[#00FF88]/10 text-[#00FF88]" : "border-green-300 bg-green-50 text-green-600"
+              }`}>
+              {user?.profilePic ? (
+                <img
+                  src={user.profilePic}
+                  alt="avatar"
+                  className="w-full h-full object-cover rounded-full"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <span>{user?.username?.[0]?.toUpperCase() || "P"}</span>
+              )}
+            </div>
             <motion.span
               animate={{
                 opacity: open ? 1 : 0,

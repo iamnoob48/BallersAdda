@@ -3,7 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CheckCircle2, XCircle, Loader2, Mail } from "lucide-react";
 import { useSelector } from "react-redux";
-import api from "../api/axios";
+import { authClient } from "../lib/auth-client.js";
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
@@ -20,17 +20,19 @@ export default function VerifyEmailPage() {
       return;
     }
 
-    api
-      .get(`/auth/verify-email?token=${token}`)
-      .then((res) => {
-        setStatus("success");
-        setMessage(res.data.message || "Email verified successfully.");
+    authClient.verifyEmail({ query: { token } })
+      .then(({ error }) => {
+        if (error) {
+          setStatus("error");
+          setMessage(error.message || "Invalid or expired verification link.");
+        } else {
+          setStatus("success");
+          setMessage("Email verified successfully.");
+        }
       })
-      .catch((err) => {
+      .catch(() => {
         setStatus("error");
-        setMessage(
-          err.response?.data?.message || "Invalid or expired verification link."
-        );
+        setMessage("Invalid or expired verification link.");
       });
   }, [token]);
 

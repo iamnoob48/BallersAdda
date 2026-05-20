@@ -15,10 +15,10 @@ function Header() {
   }, []);
 
   const navLinks = [
-    { name: "Tournaments", path: "/tournaments" },
-    { name: "Academies", path: "/academy" },
-    { name: "About Us", path: "/host" },
-    { name: "Features", path: "/register" },
+    { name: "Tournaments", path: "/Login" },
+    { name: "Academies", path: "/Login" },
+    { name: "Features", path: "/#features", isAnchor: true },
+    { name: "About Us", path: "/about" },
   ];
 
   return (
@@ -37,21 +37,35 @@ function Header() {
           </a>
         </h1>
 
-        <ul className="hidden md:flex gap-10 font-medium">
+        <ul className="hidden lg:flex gap-10 font-medium">
           {navLinks.map((item) => (
             <li key={item.name} className="relative group cursor-pointer">
-              <Link
-                to={item.path}
-                className="text-white/70 group-hover:text-emerald-400 transition-all duration-300 text-sm tracking-wide"
-              >
-                {item.name}
-              </Link>
+              {item.isAnchor ? (
+                <a
+                  href={item.path}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const el = document.getElementById("features");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  className="text-white/70 group-hover:text-emerald-400 transition-all duration-300 text-sm tracking-wide"
+                >
+                  {item.name}
+                </a>
+              ) : (
+                <Link
+                  to={item.path}
+                  className="text-white/70 group-hover:text-emerald-400 transition-all duration-300 text-sm tracking-wide"
+                >
+                  {item.name}
+                </Link>
+              )}
               <span className="absolute left-0 -bottom-1 w-0 h-[2px] bg-emerald-400 transition-all duration-300 group-hover:w-full" />
             </li>
           ))}
         </ul>
 
-        <div className="hidden md:flex gap-3">
+        <div className="hidden lg:flex gap-3">
           <Button
             className="border border-white/15 bg-white/5 text-white/80 font-medium px-5 py-2 rounded-full text-sm hover:bg-white/10 hover:text-white transition duration-300 backdrop-blur-sm"
             onClick={() => navigate("/Login")}
@@ -59,14 +73,14 @@ function Header() {
             Login
           </Button>
           <Button
-            className="bg-emerald-500 text-emerald-950 font-semibold px-5 py-2 rounded-full text-sm shadow-[0_4px_20px_rgb(16,185,129,0.3)] hover:bg-emerald-400 hover:shadow-[0_4px_25px_rgb(16,185,129,0.4)] transition duration-300"
+            className="border border-emerald-400/30 bg-transparent text-emerald-400 font-medium px-5 py-2 rounded-full text-sm hover:bg-emerald-400/10 hover:border-emerald-400/50 transition duration-300"
             onClick={() => navigate("/Register")}
           >
             Register
           </Button>
         </div>
 
-        <div className="md:hidden">
+        <div className="lg:hidden">
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="text-white/80 hover:text-emerald-400 hover:scale-110 transition-all duration-200"
@@ -82,16 +96,34 @@ function Header() {
         }`}
       >
         <div className="flex flex-col items-start p-6 gap-6 mt-16">
-          {navLinks.map((item) => (
-            <Link
-              key={item.name}
-              to={item.path}
-              className="text-white/70 text-lg font-medium hover:text-emerald-400 transition"
-              onClick={() => setMenuOpen(false)}
-            >
-              {item.name}
-            </Link>
-          ))}
+          {navLinks.map((item) =>
+            item.isAnchor ? (
+              <a
+                key={item.name}
+                href={item.path}
+                className="text-white/70 text-lg font-medium hover:text-emerald-400 transition"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setMenuOpen(false);
+                  setTimeout(() => {
+                    const el = document.getElementById("features");
+                    if (el) el.scrollIntoView({ behavior: "smooth" });
+                  }, 300);
+                }}
+              >
+                {item.name}
+              </a>
+            ) : (
+              <Link
+                key={item.name}
+                to={item.path}
+                className="text-white/70 text-lg font-medium hover:text-emerald-400 transition"
+                onClick={() => setMenuOpen(false)}
+              >
+                {item.name}
+              </Link>
+            )
+          )}
 
           <hr className="w-full border-t border-white/10 my-2" />
 

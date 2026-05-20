@@ -2,10 +2,10 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Hero from "../LandingComponents/Hero.jsx";
 import Header from "../LandingComponents/Header.jsx";
-import Tournaments from "../LandingComponents/Tournaments.jsx";
+import ConnectingSection from "../LandingComponents/ConnectingSection.jsx";
 import Academy from "../LandingComponents/Academy.jsx";
+import HowItWorks from "../LandingComponents/HowItWorks.jsx";
 import CTA from "../LandingComponents/CTA.jsx";
-import Footer from "../LandingComponents/Footer.jsx";
 import api from "../api/axios.js";
 
 function LandingPage() {
@@ -15,10 +15,10 @@ function LandingPage() {
     <>
       <Header />
       <Hero />
-      <Tournaments />
+      <ConnectingSection />
       <Academy />
+      <HowItWorks />
       <CTA />
-      <Footer />
     </>
   );
 }

@@ -1,53 +1,249 @@
-import { Button } from "@/src/components/ui/button";
-import { motion } from "framer-motion";
+import { motion } from "motion/react";
+import { Link } from "react-router-dom";
+import { FiArrowRight } from "react-icons/fi";
 
 function CTA() {
   return (
-    <section className="relative py-20 bg-gradient-to-br from-green-600 to-green-800 overflow-hidden">
-      {/* Background Glow Effect */}
-      <div className="absolute inset-0 -z-10">
-        <div className="absolute top-1/2 left-1/2 w-[500px] h-[500px] bg-green-400 opacity-20 blur-3xl rounded-full -translate-x-1/2 -translate-y-1/2" />
-      </div>
-
-      {/* Content */}
-      <motion.div
-        className="max-w-3xl mx-auto text-center px-6"
-        initial={{ opacity: 0, y: 40 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <motion.h2
-          className="text-4xl md:text-5xl font-bold text-white mb-6 drop-shadow-lg"
-          initial={{ scale: 0.9 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
-        >
-          Join the Ballers Revolution
-        </motion.h2>
-
-        <motion.p
-          className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl mx-auto"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-        >
-          Be part of India's fastest-growing youth football community. Compete,
-          connect, and showcase your talent like never before.
-        </motion.p>
-
+    <section className="bg-[#060908] pt-28 pb-0 px-6 lg:px-20">
+      <div className="max-w-[1200px] mx-auto">
+        {/* CTA block */}
         <motion.div
-          initial={{ scale: 0.8 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 0.6, type: "spring", stiffness: 120 }}
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-8"
         >
-          <Button
-            size="lg"
-            className="bg-white text-green-700 font-semibold shadow-lg hover:shadow-2xl hover:bg-green-50 transition-all hover:cursor-pointer"
+          <h2
+            className="text-white text-3xl lg:text-5xl mb-6"
+            style={{
+              fontFamily: "'Inter', sans-serif",
+              fontWeight: 700,
+              letterSpacing: "-0.03em",
+              lineHeight: 1.1,
+            }}
           >
-            Get Started
-          </Button>
+            Ready to hit the pitch?
+          </h2>
+
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <Link
+              to="/Register"
+              className="inline-flex items-center gap-2 px-7 py-3.5 bg-emerald-400 text-emerald-950 font-semibold rounded-full text-sm hover:bg-emerald-300 transition-colors duration-300"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Get started free
+              <FiArrowRight className="w-4 h-4" />
+            </Link>
+            <Link
+              to="/tournaments"
+              className="inline-flex items-center gap-2 px-7 py-3.5 border border-white/15 text-white/80 font-medium rounded-full text-sm hover:border-white/30 hover:bg-white/[0.03] transition-all duration-300"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Browse tournaments
+            </Link>
+          </div>
+
+          <p
+            className="text-white/30 text-sm"
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+          >
+            Join hundreds of players and academies already on BallersAdda.
+          </p>
         </motion.div>
-      </motion.div>
+
+        {/* Divider */}
+        <div className="h-px bg-white/[0.06] my-16" />
+
+        {/* Footer columns */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="grid grid-cols-2 md:grid-cols-4 gap-10 md:gap-16 mb-16"
+        >
+          {/* Platform */}
+          <div>
+            <h4
+              className="text-white text-sm mb-5"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
+            >
+              Platform
+            </h4>
+            <ul className="flex flex-col gap-3">
+              {[
+                { label: "Find Academies", path: "/academy" },
+                { label: "Tournaments", path: "/tournaments" },
+                { label: "Player Profiles", path: "/Register" },
+                { label: "Coach Dashboard", path: "/Register" },
+                { label: "Scout Network", path: "/Register" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link
+                    to={item.path}
+                    className="text-white/35 text-sm hover:text-white/70 transition-colors duration-300"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Features */}
+          <div>
+            <h4
+              className="text-white text-sm mb-5"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
+            >
+              Features
+            </h4>
+            <ul className="flex flex-col gap-3">
+              {[
+                "Team Management",
+                "Match Scheduling",
+                "Live Scores",
+                "Player Stats",
+                "Session Booking",
+              ].map((item) => (
+                <li key={item}>
+                  <span
+                    className="text-white/35 text-sm"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+                  >
+                    {item}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4
+              className="text-white text-sm mb-5"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
+            >
+              Company
+            </h4>
+            <ul className="flex flex-col gap-3">
+              {[
+                { label: "About Us", path: "/about" },
+                { label: "Contact", path: "/about" },
+                { label: "Careers", path: "/" },
+                { label: "Blog", path: "/" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link
+                    to={item.path}
+                    className="text-white/35 text-sm hover:text-white/70 transition-colors duration-300"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <h4
+              className="text-white text-sm mb-5"
+              style={{ fontFamily: "'Inter', sans-serif", fontWeight: 600 }}
+            >
+              Legal
+            </h4>
+            <ul className="flex flex-col gap-3">
+              {[
+                { label: "Privacy Policy", path: "/privacy" },
+                { label: "Terms of Service", path: "/terms" },
+                { label: "Cookie Policy", path: "/cookies" },
+                { label: "Refund Policy", path: "/refund" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link
+                    to={item.path}
+                    className="text-white/35 text-sm hover:text-white/70 transition-colors duration-300"
+                    style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </motion.div>
+
+        {/* Bottom bar */}
+        <div className="h-px bg-white/[0.06]" />
+        <div className="flex flex-col md:flex-row items-center justify-between py-8 gap-4">
+          {/* Brand */}
+          <Link to="/" className="flex items-center gap-1">
+            <span
+              className="text-xl font-extrabold text-emerald-400"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Ballers
+            </span>
+            <span
+              className="text-xl text-white/60 font-normal"
+              style={{ fontFamily: "'Inter', sans-serif" }}
+            >
+              Adda
+            </span>
+          </Link>
+
+          {/* Copyright */}
+          <p
+            className="text-white/25 text-xs"
+            style={{ fontFamily: "'Inter', sans-serif", fontWeight: 400 }}
+          >
+            &copy; {new Date().getFullYear()} BallersAdda. All rights reserved.
+          </p>
+
+          {/* Social links */}
+          <div className="flex items-center gap-3">
+            {[
+              {
+                label: "Instagram",
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
+                  </svg>
+                ),
+              },
+              {
+                label: "Twitter",
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                ),
+              },
+              {
+                label: "LinkedIn",
+                icon: (
+                  <svg viewBox="0 0 24 24" className="w-4 h-4" fill="currentColor">
+                    <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                  </svg>
+                ),
+              },
+            ].map((social) => (
+              <a
+                key={social.label}
+                href="#"
+                aria-label={social.label}
+                className="w-9 h-9 rounded-full border border-white/[0.08] flex items-center justify-center text-white/30 hover:text-white/60 hover:border-white/20 transition-all duration-300"
+              >
+                {social.icon}
+              </a>
+            ))}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

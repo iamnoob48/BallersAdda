@@ -1,7 +1,38 @@
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
+import crypto from "crypto";
 import prisma from "../prismaClient.js";
 import { sendPasswordResetEmail } from "./mailer.js";
+
+/**
+ * Generate a unique username from a base name.
+ * If "John" is taken, tries "John-a8x3", "John-k9m2", etc.
+ */
+async function uniqueUsername(baseName) {
+  // Sanitise: lowercase, trim, collapse whitespace → hyphens
+  let slug = (baseName || "player")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_-]/g, "");
+
+  if (!slug) slug = "player";
+
+  // Check if the base slug is available
+  const existing = await prisma.user.findUnique({ where: { username: slug } });
+  if (!existing) return slug;
+
+  // Append random suffix until unique (max 5 attempts, then use full random)
+  for (let i = 0; i < 5; i++) {
+    const suffix = crypto.randomBytes(2).toString("hex"); // 4 hex chars
+    const candidate = `${slug}-${suffix}`;
+    const taken = await prisma.user.findUnique({ where: { username: candidate } });
+    if (!taken) return candidate;
+  }
+
+  // Fallback: slug + timestamp
+  return `${slug}-${Date.now().toString(36)}`;
+}
 
 export const auth = betterAuth({
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:4000",
@@ -14,6 +45,18 @@ export const auth = betterAuth({
 
   account: {
     skipStateCookieCheck: true,
+  },
+
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          // "name" in better-auth maps to "username" in our DB
+          const unique = await uniqueUsername(user.name);
+          return { data: { ...user, name: unique } };
+        },
+      },
+    },
   },
 
   user: {
@@ -81,6 +124,7 @@ export const auth = betterAuth({
     defaultCookieAttributes: {
       sameSite: "lax",
       secure: true,
+      ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
     },
   },
 

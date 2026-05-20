@@ -2,10 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { FcGoogle } from "react-icons/fc";
-import { FiPhone, FiEye, FiEyeOff, FiArrowRight, FiAlertCircle, FiX } from "react-icons/fi";
-import OTP from "../LandingComponents/OTP";
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
+import { FiEye, FiEyeOff, FiArrowRight, FiAlertCircle, FiX } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import { verifyUser } from "../redux/slices/authSlice.js";
 import { signIn } from "../lib/auth-client.js";
@@ -31,9 +28,6 @@ const INPUT_CLS =
 export default function LoginPage() {
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
-  const [phoneNum, setPhoneNum] = useState("");
-  const [isPhone, setIsPhone] = useState(false);
-  const [isPhoneLogin, setIsPhoneLogin] = useState(false);
   const [errors, setErrors] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [slide, setSlide] = useState(0);
@@ -61,7 +55,7 @@ export default function LoginPage() {
       el.scrollTo({ left: pos, behavior: "smooth" });
     }, 30);
     return () => clearInterval(id);
-  }, [isPhone, isPhoneLogin]);
+  }, []);
 
   const validateEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -94,52 +88,7 @@ export default function LoginPage() {
     setLoginData({ ...loginData, [e.target.name]: e.target.value });
   };
 
-  // ── Phone login sub-views ──────────────────────────────────────────
-  if (isPhoneLogin) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-[#0e0e10] px-4">
-        <OTP onBack={() => setIsPhoneLogin(false)} onVerify={() => navigate("/home")} />
-      </section>
-    );
-  }
 
-  if (isPhone) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-[#0e0e10] px-4">
-        <motion.div
-          initial={{ y: 30, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="w-full max-w-md bg-[#1a1a1a] rounded-3xl border border-[#00FF88]/8 shadow-2xl shadow-black/40 p-8"
-        >
-          <h1 className="text-2xl font-extrabold text-white mb-1">Phone Login</h1>
-          <p className="text-sm text-[#888] mb-6">We'll send you a one-time code</p>
-          <form className="space-y-5">
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-[#aaa] mb-1.5">Phone Number</label>
-              <PhoneInput
-                country={"in"}
-                value={phoneNum}
-                onChange={(phone) => setPhoneNum(phone)}
-                inputProps={{ name: "phone", required: true }}
-                inputClass="!w-full !text-white !font-medium !bg-[#111] !rounded-xl !border !border-[#2a2a2a] !px-14 !py-3.5 focus:!outline-none focus:!border-[#00FF88]/60 focus:!ring-2 focus:!ring-[#00FF88]/20 transition-all"
-                buttonClass="!bg-transparent !border-none !absolute !left-3"
-                containerClass="!w-full"
-                dropdownClass="!bg-[#1a1a1a] !text-white"
-              />
-              <p className="text-xs text-[#666] mt-1.5">You'll receive an OTP on this number</p>
-            </div>
-            <motion.button type="button" onClick={() => setIsPhoneLogin(true)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 rounded-xl font-bold text-[#0e0e10] bg-gradient-to-r from-[#00FF88] to-[#00CC6A] shadow-lg shadow-[#00FF88]/20">
-              Get OTP
-            </motion.button>
-            <button type="button" onClick={() => setIsPhone(false)} className="w-full text-sm text-[#00FF88] font-medium hover:underline">
-              ← Back to Email Login
-            </button>
-          </form>
-        </motion.div>
-      </section>
-    );
-  }
 
   // ── Main login view ────────────────────────────────────────────────
   return (
@@ -259,10 +208,6 @@ export default function LoginPage() {
             <motion.button type="button" onClick={handleGoogleLogin} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               className="flex items-center justify-center gap-2.5 flex-1 py-3 rounded-xl border border-[#2a2a2a] bg-[#222] hover:border-[#3a3a3a] hover:bg-[#282828] transition-all text-white">
               <FcGoogle className="text-lg" /><span className="text-sm font-medium">Google</span>
-            </motion.button>
-            <motion.button type="button" onClick={() => setIsPhone(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className="flex items-center justify-center gap-2.5 flex-1 py-3 rounded-xl border border-[#2a2a2a] bg-[#222] hover:border-[#3a3a3a] hover:bg-[#282828] transition-all text-white">
-              <FiPhone className="text-[#00FF88]" /><span className="text-sm font-medium">Phone</span>
             </motion.button>
           </div>
 

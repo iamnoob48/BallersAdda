@@ -34,3 +34,4 @@ export const isCoach = (req, res, next) => {
   if (req.user.role !== 'COACH') return res.status(403).json({ message: 'Forbidden: Requires Coach access' });
   next();
 };
+

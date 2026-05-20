@@ -6,14 +6,10 @@ import {
   FiEye,
   FiEyeOff,
   FiMail,
-  FiPhone,
   FiX,
   FiArrowRight,
 } from "react-icons/fi";
 import { Link } from "react-router-dom";
-import OTP from "../LandingComponents/OTP.jsx";
-import PhoneInput from "react-phone-input-2";
-import "react-phone-input-2/lib/style.css";
 import { signUp as betterAuthSignUp, signIn } from "../lib/auth-client.js";
 
 // ── Hero slides for desktop ─────────────────────────────────────────────
@@ -68,9 +64,6 @@ export default function SignUp() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [isPhone, setIsPhone] = useState(false);
-  const [isPhoneLogin, setIsPhoneLogin] = useState(false);
-  const [phoneNum, setPhoneNum] = useState("");
   const [errors, setErrors] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [registered, setRegistered] = useState(false);
@@ -143,43 +136,7 @@ export default function SignUp() {
     setSignUpData({ ...signUpData, [e.target.name]: e.target.value });
   };
 
-  // ── Phone sub-view ────────────────────────────────────────────────
-  if (isPhoneLogin) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-[#0e0e10] px-4">
-        <OTP key="otp" onBack={() => setIsPhoneLogin(false)} />
-      </section>
-    );
-  }
 
-  if (isPhone) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-[#0e0e10] px-4">
-        <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
-          className="w-full max-w-md bg-[#1a1a1a] rounded-3xl border border-[#00FF88]/8 shadow-2xl shadow-black/40 p-8">
-          <h1 className="text-2xl font-extrabold text-white mb-1">Register With Phone</h1>
-          <p className="text-sm text-[#888] mb-6">We'll send you a one-time code</p>
-          <form className="space-y-5">
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-[#aaa] mb-1.5">Phone Number</label>
-              <PhoneInput country="in" value={phoneNum} onChange={(phone) => setPhoneNum(phone)}
-                inputProps={{ id: "phone", name: "phone", required: true }}
-                inputClass="!w-full !text-white !font-medium !bg-[#111] !rounded-xl !border !border-[#2a2a2a] !px-14 !py-3.5 focus:!outline-none focus:!border-[#00FF88]/60 focus:!ring-2 focus:!ring-[#00FF88]/20 transition-all"
-                buttonClass="!bg-transparent !border-none !absolute !left-3" containerClass="!w-full" dropdownClass="!bg-[#1a1a1a] !text-white" />
-              <p className="text-xs text-[#666] mt-1.5">You'll receive an OTP on this number</p>
-            </div>
-            <motion.button type="button" onClick={() => setIsPhoneLogin(true)} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 rounded-xl font-bold text-[#0e0e10] bg-gradient-to-r from-[#00FF88] to-[#00CC6A] shadow-lg shadow-[#00FF88]/20">
-              Get OTP
-            </motion.button>
-            <button type="button" onClick={() => setIsPhone(false)} className="w-full text-sm text-[#00FF88] font-medium hover:underline">
-              ← Back to Email Registration
-            </button>
-          </form>
-        </motion.div>
-      </section>
-    );
-  }
 
   // ── Email verification success ────────────────────────────────────
   if (registered) {
@@ -346,10 +303,6 @@ export default function SignUp() {
             <motion.button type="button" onClick={handleGoogleSignIn} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
               className="flex items-center justify-center gap-2.5 flex-1 py-3 rounded-xl border border-[#2a2a2a] bg-[#222] hover:border-[#3a3a3a] hover:bg-[#282828] transition-all text-white">
               <FcGoogle className="text-lg" /><span className="text-sm font-medium">Google</span>
-            </motion.button>
-            <motion.button type="button" onClick={() => setIsPhone(true)} whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
-              className="flex items-center justify-center gap-2.5 flex-1 py-3 rounded-xl border border-[#2a2a2a] bg-[#222] hover:border-[#3a3a3a] hover:bg-[#282828] transition-all text-white">
-              <FiPhone className="text-[#00FF88]" /><span className="text-sm font-medium">Phone</span>
             </motion.button>
           </div>
 

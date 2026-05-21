@@ -67,7 +67,9 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
   const prevImage = () =>
     setCurrentImage((prev) => (prev - 1 + safeLength) % safeLength);
   const displayImages =
-    pictures.length > 0 ? pictures[currentImage] : fallbackImages[currentImage];
+    pictures.length > 0
+      ? (pictures[currentImage]?.pictureURL || pictures[currentImage])
+      : fallbackImages[currentImage];
 
   const coaches = ACADEMY_DATA?.academy?.coaches;
   const academy = ACADEMY_DATA?.academy;

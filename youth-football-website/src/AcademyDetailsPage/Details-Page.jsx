@@ -34,7 +34,7 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
   ];
 
   const heroImage =
-    ACADEMY_DATA?.academy?.pictures?.[0] ||
+    ACADEMY_DATA?.academy?.pictures?.[0]?.pictureURL ||
     "https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=1600";
 
   return (

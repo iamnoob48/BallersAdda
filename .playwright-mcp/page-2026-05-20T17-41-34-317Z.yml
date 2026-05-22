@@ -1,0 +1,232 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - heading "BallersAdda" [level=1] [ref=e5]:
+        - link "BallersAdda" [ref=e6] [cursor=pointer]:
+          - /url: /
+      - list [ref=e7]:
+        - listitem [ref=e8] [cursor=pointer]:
+          - link "Tournaments" [ref=e9]:
+            - /url: /tournaments
+        - listitem [ref=e10] [cursor=pointer]:
+          - link "Academies" [ref=e11]:
+            - /url: /academy
+        - listitem [ref=e12] [cursor=pointer]:
+          - link "About Us" [ref=e13]:
+            - /url: /host
+        - listitem [ref=e14] [cursor=pointer]:
+          - link "Features" [ref=e15]:
+            - /url: /register
+      - generic [ref=e16]:
+        - button "Login" [ref=e17]
+        - button "Register" [ref=e18]
+    - generic [ref=e20]:
+      - link "Tournaments" [ref=e21] [cursor=pointer]:
+        - /url: /tournaments
+      - link "Academies" [ref=e22] [cursor=pointer]:
+        - /url: /academy
+      - link "About Us" [ref=e23] [cursor=pointer]:
+        - /url: /host
+      - link "Features" [ref=e24] [cursor=pointer]:
+        - /url: /register
+      - separator [ref=e25]
+      - button "Login" [ref=e26]
+      - button "Register" [ref=e27]
+  - generic [ref=e28]:
+    - generic:
+      - img
+    - generic [ref=e35]:
+      - generic [ref=e36]:
+        - img [ref=e37] [cursor=pointer]
+        - generic [ref=e44]: Youth Football Platform
+        - img [ref=e45] [cursor=pointer]
+      - heading "Find Academies. Play Tournaments. Get Discovered." [level=1] [ref=e52]:
+        - generic [ref=e53]: Find Academies.
+        - generic [ref=e54]: Play Tournaments.
+        - generic [ref=e55]: Get Discovered.
+      - paragraph [ref=e56]: One platform to discover academies, register for tournaments, build your player profile, and get seen by coaches and scouts.
+      - generic [ref=e57]:
+        - link "Join as Player" [ref=e58] [cursor=pointer]:
+          - /url: /Register
+          - generic [ref=e59]: Join as Player
+          - generic [ref=e60]:
+            - img [ref=e61]
+            - img [ref=e63]
+        - link "Explore Tournaments" [ref=e65] [cursor=pointer]:
+          - /url: /tournaments
+          - generic [ref=e66]: Explore Tournaments
+          - generic [ref=e67]:
+            - img [ref=e68]
+            - img [ref=e70]
+      - generic [ref=e72]:
+        - generic [ref=e73]: 500+ Players
+        - generic [ref=e75]: 30+ Academies
+        - generic [ref=e77]: Live Tournaments
+  - generic [ref=e78]:
+    - heading "Connecting academies, players and coaches" [level=2] [ref=e79]
+    - generic [ref=e80]:
+      - generic [ref=e81]:
+        - img "For Academies" [ref=e83]
+        - generic [ref=e84]:
+          - heading "For Academies" [level=3] [ref=e85]
+          - paragraph [ref=e86]: Manage your sessions, showcase talent, and grow enrollment — all from one dashboard.
+          - link "List your academy" [ref=e87] [cursor=pointer]:
+            - /url: /academy
+      - generic [ref=e88]:
+        - img "For Players" [ref=e90]
+        - generic [ref=e91]:
+          - heading "For Players" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Find academies near you, register for tournaments, build your profile, and get seen by scouts.
+          - link "Join as player" [ref=e94] [cursor=pointer]:
+            - /url: /Register
+      - generic [ref=e95]:
+        - img "For Coaches" [ref=e97]
+        - generic [ref=e98]:
+          - heading "For Coaches" [level=3] [ref=e99]
+          - paragraph [ref=e100]: Track player progress, manage your squads, and discover talent across the platform.
+          - link "Start coaching" [ref=e101] [cursor=pointer]:
+            - /url: /Register
+  - generic [ref=e103]:
+    - generic [ref=e104]:
+      - generic [ref=e105]: Everything you need
+      - heading "Built for the beautiful game" [level=2] [ref=e106]
+    - generic [ref=e107]:
+      - generic [ref=e111]:
+        - img [ref=e113]
+        - generic [ref=e116]:
+          - heading "Discover Academies" [level=3] [ref=e117]
+          - paragraph [ref=e118]: Find top-rated football academies near you. Filter by location, age group, and skill level to find the perfect fit.
+      - generic [ref=e122]:
+        - img [ref=e124]
+        - generic [ref=e129]:
+          - heading "Player Profiles" [level=3] [ref=e130]
+          - paragraph [ref=e131]: Build your football CV. Track stats, showcase highlights, and get discovered by scouts and coaches.
+      - generic [ref=e135]:
+        - img [ref=e137]
+        - generic [ref=e140]:
+          - heading "Live Tournaments" [level=3] [ref=e141]
+          - paragraph [ref=e142]: Register your team, track fixtures, and follow live scores — all in one place.
+      - generic [ref=e146]:
+        - img [ref=e148]
+        - generic [ref=e149]:
+          - heading "Coach Dashboard" [level=3] [ref=e150]
+          - paragraph [ref=e151]: Manage squads, track player development, and scout talent across the platform.
+      - generic [ref=e155]:
+        - img [ref=e157]
+        - generic [ref=e159]:
+          - heading "Session Booking" [level=3] [ref=e160]
+          - paragraph [ref=e161]: Book training sessions, trials, and academy visits with real-time availability.
+      - generic [ref=e165]:
+        - img [ref=e167]
+        - generic [ref=e170]:
+          - heading "Scout Network" [level=3] [ref=e171]
+          - paragraph [ref=e172]: Scouts and coaches browse verified player profiles, stats, and match footage to find the next star.
+    - link "Get Started Free" [ref=e174] [cursor=pointer]:
+      - /url: /Register
+  - generic [ref=e176]:
+    - generic [ref=e177]:
+      - generic [ref=e178]: How it works
+      - heading "Three steps to the pitch" [level=2] [ref=e179]
+    - generic [ref=e181]:
+      - generic [ref=e182]:
+        - generic [ref=e183]:
+          - img [ref=e185]
+          - generic [ref=e188]: "01"
+        - heading "Create your profile" [level=3] [ref=e189]
+        - paragraph [ref=e190]: Sign up as a player, coach, or academy. Set up your football profile in under two minutes.
+      - generic [ref=e191]:
+        - generic [ref=e192]:
+          - img [ref=e194]
+          - generic [ref=e197]: "02"
+        - heading "Find your match" [level=3] [ref=e198]
+        - paragraph [ref=e199]: Browse academies, register for tournaments, or scout talent — all filtered to your location and level.
+      - generic [ref=e200]:
+        - generic [ref=e201]:
+          - img [ref=e203]
+          - generic [ref=e205]: "03"
+        - heading "Get discovered" [level=3] [ref=e206]
+        - paragraph [ref=e207]: Build your stats, earn badges, and get noticed by coaches and scouts across the platform.
+  - generic [ref=e209]:
+    - generic [ref=e210]:
+      - heading "Ready to hit the pitch?" [level=2] [ref=e211]
+      - generic [ref=e212]:
+        - link "Get started free" [ref=e213] [cursor=pointer]:
+          - /url: /Register
+          - text: Get started free
+          - img [ref=e214]
+        - link "Browse tournaments" [ref=e216] [cursor=pointer]:
+          - /url: /tournaments
+      - paragraph [ref=e217]: Join hundreds of players and academies already on BallersAdda.
+    - generic [ref=e219]:
+      - generic [ref=e220]:
+        - heading "Platform" [level=4] [ref=e221]
+        - list [ref=e222]:
+          - listitem [ref=e223]:
+            - link "Find Academies" [ref=e224] [cursor=pointer]:
+              - /url: /academy
+          - listitem [ref=e225]:
+            - link "Tournaments" [ref=e226] [cursor=pointer]:
+              - /url: /tournaments
+          - listitem [ref=e227]:
+            - link "Player Profiles" [ref=e228] [cursor=pointer]:
+              - /url: /Register
+          - listitem [ref=e229]:
+            - link "Coach Dashboard" [ref=e230] [cursor=pointer]:
+              - /url: /Register
+          - listitem [ref=e231]:
+            - link "Scout Network" [ref=e232] [cursor=pointer]:
+              - /url: /Register
+      - generic [ref=e233]:
+        - heading "Features" [level=4] [ref=e234]
+        - list [ref=e235]:
+          - listitem [ref=e236]: Team Management
+          - listitem [ref=e237]: Match Scheduling
+          - listitem [ref=e238]: Live Scores
+          - listitem [ref=e239]: Player Stats
+          - listitem [ref=e240]: Session Booking
+      - generic [ref=e241]:
+        - heading "Company" [level=4] [ref=e242]
+        - list [ref=e243]:
+          - listitem [ref=e244]:
+            - link "About Us" [ref=e245] [cursor=pointer]:
+              - /url: /host
+          - listitem [ref=e246]:
+            - link "Contact" [ref=e247] [cursor=pointer]:
+              - /url: /host
+          - listitem [ref=e248]:
+            - link "Careers" [ref=e249] [cursor=pointer]:
+              - /url: /
+          - listitem [ref=e250]:
+            - link "Blog" [ref=e251] [cursor=pointer]:
+              - /url: /
+      - generic [ref=e252]:
+        - heading "Legal" [level=4] [ref=e253]
+        - list [ref=e254]:
+          - listitem [ref=e255]:
+            - link "Privacy Policy" [ref=e256] [cursor=pointer]:
+              - /url: /privacy
+          - listitem [ref=e257]:
+            - link "Terms of Service" [ref=e258] [cursor=pointer]:
+              - /url: /terms
+          - listitem [ref=e259]:
+            - link "Cookie Policy" [ref=e260] [cursor=pointer]:
+              - /url: /cookies
+          - listitem [ref=e261]:
+            - link "Refund Policy" [ref=e262] [cursor=pointer]:
+              - /url: /refund
+    - generic [ref=e264]:
+      - link "Ballers Adda" [ref=e265] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e266]: Ballers
+        - generic [ref=e267]: Adda
+      - paragraph [ref=e268]: © 2026 BallersAdda. All rights reserved.
+      - generic [ref=e269]:
+        - link "Instagram" [ref=e270] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e271]
+        - link "Twitter" [ref=e273] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e274]
+        - link "LinkedIn" [ref=e276] [cursor=pointer]:
+          - /url: "#"
+          - img [ref=e277]

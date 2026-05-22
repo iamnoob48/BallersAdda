@@ -29,11 +29,12 @@ import VerifyEmailPage from "./pages/VerifyEmailPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import LeaderboardPage from "./LeaderboardPage/LeaderboardPage";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
+import SitePrivacy from "./pages/SitePrivacy";
 import TermsOfService from "./pages/TermsOfService";
 import AboutUs from "./pages/AboutUs";
 import RefundPolicy from "./pages/RefundPolicy";
-import CookiePolicy from "./pages/CookiePolicy";
+import SiteCookies from "./pages/SiteCookies";
+import TrialConfirmedPage from "./AcademyDetailsPage/TrialConfirmedPage.jsx";
 
 function App() {
   const { isAuthenticated } = useSelector((state) => state.auth);
@@ -61,11 +62,11 @@ function App() {
           <Route path="/verify-email" element={<VerifyEmailPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/privacy" element={<SitePrivacy />} />
           <Route path="/terms" element={<TermsOfService />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/refund" element={<RefundPolicy />} />
-          <Route path="/cookies" element={<CookiePolicy />} />
+          <Route path="/cookies" element={<SiteCookies />} />
 
           {/* Protected routes — wrapped in AppLayout (sidebar + nav) */}
           <Route
@@ -133,6 +134,14 @@ function App() {
             }
           />
 
+          <Route
+            path="/academy/trial-confirmed/:id"
+            element={
+              <ProtectedRoute>
+                <TrialConfirmedPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/academy/payment/:id"
             element={

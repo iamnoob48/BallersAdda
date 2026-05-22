@@ -7,6 +7,10 @@ export const createBaseQueryWithReauth = (baseUrl) => {
   const rawBaseQuery = fetchBaseQuery({
     baseUrl: `${BACKEND}${baseUrl}`,
     credentials: "include",
+    prepareHeaders: (headers) => {
+      headers.set("X-Requested-With", "XMLHttpRequest");
+      return headers;
+    },
   });
 
   return async (args, api, extraOptions) => {

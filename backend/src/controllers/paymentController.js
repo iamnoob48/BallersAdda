@@ -3,6 +3,7 @@ import razorpay from '../config/razorpayClient.js';
 import prisma from '../prismaClient.js';
 import { cacheDel, cacheInvalidate } from '../config/cacheUtils.js';
 import { processEvent } from '../lib/gamificationService.js';
+import { invalidateAcademyCache } from './academyControllers.js';
 
 function safeCompareHex(a, b) {
   const bufA = Buffer.from(a, 'hex');
@@ -224,8 +225,7 @@ export const verifyAcademyPayment = async (req, res) => {
       return { updatedTransaction, updatedPlayer, enrollment };
     });
 
-    cacheDel(`academy:detail:${transaction.academyId}`);
-    cacheInvalidate(`academy:list:*`);
+    invalidateAcademyCache(transaction.academyId);
 
     processEvent('ACADEMY_JOIN', playerProfile.id).catch(err =>
       console.error(`gamification error (ACADEMY_JOIN, player ${playerProfile.id}):`, err.message)

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   ChevronLeft,
@@ -17,42 +17,28 @@ import {
   Medal,
   GraduationCap,
   Target,
+  CalendarDays,
 } from "lucide-react";
 import { useSelector } from "react-redux";
+import { useGetMyTrialsQuery } from "../redux/slices/academySlice";
 import BorderBeam from "../components/ui/BorderBeam";
-
-/* ---------- FALLBACK DATA ---------- */
-const FALLBACK_TESTIMONIALS = [
-  {
-    name: "Priya Sharma",
-    role: "Parent",
-    rating: 5,
-    text: "My son has been training here for 2 years and the transformation is incredible. The coaches are patient, professional, and truly care about each child's development.",
-    avatar: "PS",
-  },
-  {
-    name: "Rajesh Patel",
-    role: "Parent",
-    rating: 5,
-    text: "Best decision we made for our daughter. She went from a beginner to representing the district team in just 18 months. The structured training program is world-class.",
-    avatar: "RP",
-  },
-  {
-    name: "Anita Desai",
-    role: "Parent",
-    rating: 4,
-    text: "The academy provides a safe, competitive environment. My child looks forward to every session. The coaches communicate well with parents about progress.",
-    avatar: "AD",
-  },
-];
 
 const getInitials = (name) => {
   if (!name) return "??";
   return name.split(" ").map((w) => w[0]).join("").toUpperCase().slice(0, 2);
 };
 
-const MiddleSection = ({ ACADEMY_DATA }) => {
+const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
   const dm = useSelector((state) => state.theme.darkMode);
+  const { data: myTrialsData } = useGetMyTrialsQuery();
+  const academyId = ACADEMY_DATA?.academy?.id;
+  const haveFreeTrial = ACADEMY_DATA?.academy?.haveFreeTrial;
+  const playerAcademyId = useSelector((state) => state.player.profile?.academyId ?? null);
+  const existingTrial = myTrialsData?.trials?.find((t) => t.academyId === academyId);
+  const trialUsed = existingTrial && ["ATTENDED", "CONVERTED", "NO_SHOW", "EXPIRED"].includes(existingTrial.status);
+  const trialPending = existingTrial?.status === "BOOKED";
+  const alreadyMember = playerAcademyId !== null && playerAcademyId;
+  const showTrialCard = haveFreeTrial && !alreadyMember && !trialUsed && !trialPending;
 
   const fallbackImages = [
     "https://images.unsplash.com/photo-1551958219-acbc608c6377?auto=format&fit=crop&q=80&w=1200",
@@ -61,6 +47,8 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
   ];
   const pictures = ACADEMY_DATA?.academy.pictures || fallbackImages;
   const [currentImage, setCurrentImage] = useState(0);
+  const [billingCycle, setBillingCycle] = useState("MONTH");
+  const pricingRef = useRef(null);
   const safeLength = pictures?.length || fallbackImages.length;
 
   const nextImage = () => setCurrentImage((prev) => (prev + 1) % safeLength);
@@ -85,16 +73,17 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
     { icon: GraduationCap, label: "Certified Coaches", value: `${coaches?.length || 0}` },
   ];
 
-  const apiReviews = (academy?.reviews || []).map((r) => ({
+  const testimonials = (academy?.reviews || []).map((r) => ({
     name: r.user?.username || "Anonymous",
     role: r.reviewerRole?.charAt(0) + r.reviewerRole?.slice(1).toLowerCase(),
     rating: r.rating,
     text: r.text,
+    title: r.title,
     avatar: r.user?.profilePic || getInitials(r.user?.username),
     isImage: !!r.user?.profilePic,
     isVerified: r.isVerified,
+    createdAt: r.createdAt,
   }));
-  const testimonials = apiReviews.length > 0 ? apiReviews : FALLBACK_TESTIMONIALS;
 
   const formatPrice = (plan) => {
     if (!plan.priceCents) return plan.price || "Free";
@@ -364,7 +353,7 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
 
       {/* ===== 5. TRAINING SCHEDULE ===== */}
       <SectionCard alternate>
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6">
           <div className="flex items-center gap-2.5">
             <div
               className={`p-2 rounded-xl ${
@@ -377,16 +366,27 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 }`}
               />
             </div>
-            <div>
-              <h3
-                className={`text-2xl font-bold tracking-tight ${
-                  dm ? "text-gray-100" : "text-gray-900"
-                }`}
-              >
-                Training Schedule
-              </h3>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2">
+                <h3
+                  className={`text-xl md:text-2xl font-bold tracking-tight ${
+                    dm ? "text-gray-100" : "text-gray-900"
+                  }`}
+                >
+                  Training Schedule
+                </h3>
+                <span
+                  className={`text-[10px] md:text-xs font-medium px-2.5 py-1 md:px-3 md:py-1.5 rounded-full whitespace-nowrap flex-shrink-0 ${
+                    dm
+                      ? "text-gray-500 bg-white/[0.04]"
+                      : "text-gray-400 bg-gray-100"
+                  }`}
+                >
+                  Updates Weekly
+                </span>
+              </div>
               <p
-                className={`text-sm ${
+                className={`text-sm mt-0.5 ${
                   dm ? "text-gray-500" : "text-gray-400"
                 }`}
               >
@@ -394,19 +394,10 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
               </p>
             </div>
           </div>
-          <span
-            className={`text-xs font-medium px-3 py-1.5 rounded-full ${
-              dm
-                ? "text-gray-500 bg-white/[0.04]"
-                : "text-gray-400 bg-gray-100"
-            }`}
-          >
-            Updates Weekly
-          </span>
         </div>
 
         <div
-          className={`flex justify-between items-center p-4 md:p-5 rounded-2xl ${
+          className={`grid grid-cols-7 gap-1.5 md:gap-0 md:flex md:justify-between md:items-center p-3 md:p-5 rounded-2xl ${
             dm ? "bg-[#0a0a0a]" : "bg-white"
           }`}
         >
@@ -418,10 +409,10 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.05 }}
-                className="flex flex-col items-center gap-3"
+                className="flex flex-col items-center gap-1.5 md:gap-3"
               >
                 <span
-                  className={`text-xs font-bold uppercase tracking-wider ${
+                  className={`text-[10px] md:text-xs font-bold uppercase tracking-wider ${
                     active
                       ? dm
                         ? "text-[#00FF88]"
@@ -434,7 +425,7 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                   {dayOfWeek}
                 </span>
                 <div
-                  className={`w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center transition-all ${
+                  className={`w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl flex items-center justify-center transition-all ${
                     active
                       ? dm
                         ? "bg-[#00FF88]/15 border border-[#00FF88]/30"
@@ -446,14 +437,14 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 >
                   {active ? (
                     <CheckCircle2
-                      className={`w-5 h-5 ${
+                      className={`w-4 h-4 md:w-5 md:h-5 ${
                         dm
                           ? "text-[#00FF88]"
                           : "text-emerald-500"
                       }`}
                     />
                   ) : (
-                    <XCircle className="w-5 h-5 text-gray-300 dark:text-gray-600 opacity-50" />
+                    <XCircle className="w-4 h-4 md:w-5 md:h-5 text-gray-300 dark:text-gray-600 opacity-50" />
                   )}
                 </div>
               </motion.div>
@@ -469,8 +460,118 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
           title="Membership Plans"
           subtitle="Choose the plan that fits your goals"
         />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {ACADEMY_DATA?.academy?.pricing?.map((plan, idx) => (
+
+        {/* Billing cycle toggle */}
+        <div ref={pricingRef} className="flex justify-center mb-6">
+          <div
+            className={`relative inline-flex items-center rounded-full p-1 ${
+              dm ? "bg-white/[0.06]" : "bg-gray-100"
+            }`}
+          >
+            {[
+              { value: "MONTH", label: "Monthly" },
+              { value: "YEAR", label: "Annually" },
+            ].map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => {
+                  setBillingCycle(tab.value);
+                  requestAnimationFrame(() => {
+                    pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                  });
+                }}
+                className={`relative z-10 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-colors duration-200 ${
+                  billingCycle === tab.value
+                    ? dm
+                      ? "text-[#0a0a0a]"
+                      : "text-white"
+                    : dm
+                    ? "text-gray-400 hover:text-gray-200"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {billingCycle === tab.value && (
+                  <motion.span
+                    layoutId="billing-pill"
+                    className={`absolute inset-0 rounded-full ${
+                      dm ? "bg-[#00FF88]" : "bg-emerald-600"
+                    }`}
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <span className="relative z-10">{tab.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 md:gap-4">
+          {showTrialCard && (
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              whileHover={{ y: -6, scale: 1.02 }}
+              className={`relative rounded-2xl border-2 border-dashed cursor-pointer ${
+                dm ? "border-[#00FF88]/30 hover:border-[#00FF88]/50" : "border-emerald-300 hover:border-emerald-400"
+              }`}
+              onClick={() => {
+                if (onStartTrial) onStartTrial();
+                document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              <div className={`relative z-10 p-3 md:p-7 rounded-2xl ${
+                dm ? "bg-[#00FF88]/5" : "bg-emerald-50/80"
+              }`}>
+                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-wider mb-2 ${
+                  dm ? "bg-[#00FF88]/15 text-[#00FF88]" : "bg-emerald-100 text-emerald-700"
+                }`}>
+                  <CalendarDays className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  Free Trial
+                </div>
+
+                <h4 className={`text-xs md:text-sm font-medium ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                  Trial Session
+                </h4>
+
+                <div className={`text-lg md:text-4xl font-black my-1 md:my-3 tracking-tight ${dm ? "text-[#00FF88]" : "text-emerald-600"}`}>
+                  Free
+                  <span className={`text-[9px] md:text-sm font-normal opacity-70 ml-0.5 md:ml-1`}>/session</span>
+                </div>
+
+                <ul className="space-y-2 md:space-y-2.5 mt-2 md:mt-4 mb-2 md:mb-5">
+                  {["One free training session", "Experience the academy", "No commitment required"].map((feat, i) => (
+                    <li key={i} className={`text-[10px] leading-normal md:text-sm flex items-start gap-1.5 md:gap-2.5 ${dm ? "text-gray-400" : "text-gray-600"}`}>
+                      <CheckCircle2 className={`w-2.5 h-2.5 md:w-4 md:h-4 flex-shrink-0 mt-[2px] md:mt-0 ${dm ? "text-[#00FF88]" : "text-emerald-500"}`} />
+                      {feat}
+                    </li>
+                  ))}
+                </ul>
+
+                <motion.span
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`inline-flex items-center justify-center w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm mt-1 md:mt-2 transition-colors ${
+                    dm ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90" : "bg-emerald-600 text-white hover:bg-emerald-700"
+                  }`}
+                >
+                  Get Started
+                </motion.span>
+              </div>
+            </motion.div>
+          )}
+          {ACADEMY_DATA?.academy?.pricing?.filter((p) => p.billingCycle === billingCycle).map((plan, idx, allPlans) => {
+            const planFeatures = Array.isArray(plan.features) ? plan.features : [];
+            const prevFeatures = idx > 0 && Array.isArray(allPlans[idx - 1].features)
+              ? new Set(allPlans[idx - 1].features.map((f) => f.toLowerCase()))
+              : null;
+            const extraFeatures = prevFeatures
+              ? planFeatures.filter((f) => !prevFeatures.has(f.toLowerCase()))
+              : planFeatures;
+            const displayFeatures = extraFeatures.slice(0, 4);
+            const prevPlanTitle = idx > 0 ? allPlans[idx - 1].title : null;
+
+            return (
             <motion.div
               key={idx}
               initial={{ opacity: 0, y: 16 }}
@@ -516,7 +617,7 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
 
               {/* Card body */}
               <div
-                className={`relative z-10 p-6 md:p-7 rounded-2xl ${
+                className={`relative z-10 p-3 md:p-7 rounded-2xl ${
                   plan.recommended
                     ? dm
                       ? "bg-gradient-to-br from-[#00FF88]/80 to-[#00DCFF]/60 text-[#0a0a0a]"
@@ -529,20 +630,20 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 {/* Popular badge */}
                 {plan.recommended && (
                   <motion.div
-                    className={`absolute top-4 right-4 backdrop-blur-md px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 overflow-hidden border ${
+                    className={`absolute top-2 right-2 md:top-4 md:right-4 backdrop-blur-md px-1.5 py-0.5 md:px-4 md:py-2 rounded-full text-[7px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest flex items-center gap-0.5 md:gap-1.5 overflow-hidden border ${
                       dm
                         ? "bg-[#0a0a0a]/30 text-[#0a0a0a] border-[#0a0a0a]/10"
                         : "bg-white/25 text-white border-white/20"
                     }`}
                     whileHover={{ scale: 1.05 }}
                   >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>Most Popular</span>
+                    <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
+                    <span>Popular</span>
                   </motion.div>
                 )}
 
                 <h4
-                  className={`text-sm font-medium ${
+                  className={`text-xs md:text-sm font-medium ${
                     plan.recommended
                       ? dm
                         ? "text-[#0a0a0a]/70"
@@ -556,14 +657,12 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 </h4>
 
                 {/* Price */}
-                <motion.div
-                  className="text-4xl font-black my-3 inline-block tracking-tight"
-                  whileHover={{ scale: 1.03 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                <div
+                  className="text-lg md:text-4xl font-black my-1 md:my-3 inline-block tracking-tight"
                 >
                   {formatPrice(plan)}
                   <span
-                    className={`text-sm font-normal opacity-70 ml-1 ${
+                    className={`text-[9px] md:text-sm font-normal opacity-70 ml-0.5 md:ml-1 ${
                       plan.recommended
                         ? dm
                           ? "text-[#0a0a0a]"
@@ -573,30 +672,32 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                   >
                     /{plan.billingCycle?.toLowerCase()}
                   </span>
-                </motion.div>
+                </div>
+
+                {/* "Includes previous plan" label */}
+                {prevPlanTitle && (
+                  <p
+                    className={`text-[9px] md:text-xs font-semibold mt-2 md:mt-4 mb-1 md:mb-2 ${
+                      plan.recommended
+                        ? dm ? "text-[#0a0a0a]/60" : "text-white/70"
+                        : dm ? "text-gray-500" : "text-gray-400"
+                    }`}
+                  >
+                    All in {prevPlanTitle}, plus:
+                  </p>
+                )}
 
                 {/* Feature list */}
-                <ul className="space-y-2.5 mt-4 mb-5">
-                  {(Array.isArray(plan.features) ? plan.features : []).map(
-                    (feat, i) => (
-                      <motion.li
-                        key={i}
-                        className="text-sm flex items-center gap-2.5 opacity-90"
-                        initial={{ x: -4, opacity: 0.7 }}
-                        whileInView={{ x: 0, opacity: 0.9 }}
-                        transition={{
-                          delay: i * 0.06,
-                          type: "spring",
-                          stiffness: 300,
-                          damping: 20,
-                        }}
-                        viewport={{ once: true }}
-                      >
-                        <CheckCircle2 className="w-4 h-4 flex-shrink-0" />{" "}
-                        {feat}
-                      </motion.li>
-                    )
-                  )}
+                <ul className={`space-y-2 md:space-y-2.5 ${prevPlanTitle ? "" : "mt-2 md:mt-4"} mb-2 md:mb-5`}>
+                  {displayFeatures.map((feat, i) => (
+                    <li
+                      key={i}
+                      className="text-[10px] leading-normal md:text-sm flex items-start gap-1.5 md:gap-2.5 opacity-90"
+                    >
+                      <CheckCircle2 className="w-2.5 h-2.5 md:w-4 md:h-4 flex-shrink-0 mt-[2px] md:mt-0" />{" "}
+                      {feat}
+                    </li>
+                  ))}
                 </ul>
 
                 {/* CTA on recommended */}
@@ -605,7 +706,7 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                     href="#join-academy"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className={`inline-flex items-center justify-center w-full py-3 rounded-xl font-bold text-sm mt-2 transition-colors ${
+                    className={`inline-flex items-center justify-center w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm mt-1 md:mt-2 transition-colors ${
                       dm
                         ? "bg-[#0a0a0a] text-[#00FF88] hover:bg-[#0a0a0a]/80"
                         : "bg-white text-emerald-700 hover:bg-white/90"
@@ -616,7 +717,8 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                 )}
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </SectionCard>
 
@@ -657,7 +759,7 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 md:gap-4">
             {ACADEMY_DATA.academy.batches.map((batch, index) => {
               const enrolled = batch._count?.players || 0;
               const capacity = batch.capacity || 1;
@@ -673,23 +775,23 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.08, duration: 0.4 }}
                   whileHover={{ y: -4 }}
-                  className={`p-5 rounded-2xl border transition-all duration-300 cursor-pointer group ${
+                  className={`p-3.5 md:p-5 rounded-2xl border transition-all duration-300 cursor-pointer group ${
                     dm
                       ? "bg-[#0a0a0a] border-white/[0.06] hover:border-[#00FF88]/15"
                       : "bg-white border-gray-100 hover:border-emerald-200 hover:shadow-md"
                   }`}
                 >
                   {/* Header: Name + Age Group Badge */}
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex flex-col gap-1.5 md:flex-row md:items-start md:justify-between mb-3">
                     <h4
-                      className={`font-bold text-sm ${
+                      className={`font-bold text-xs md:text-sm ${
                         dm ? "text-gray-200" : "text-gray-800"
                       }`}
                     >
                       {batch.name}
                     </h4>
                     <span
-                      className={`text-[10px] font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${
+                      className={`text-[9px] md:text-[10px] font-semibold px-2 py-0.5 md:px-2.5 md:py-1 rounded-full whitespace-nowrap w-fit ${
                         dm
                           ? "bg-[#00FF88]/10 text-[#00FF88]"
                           : "bg-emerald-50 text-emerald-700"
@@ -803,93 +905,113 @@ const MiddleSection = ({ ACADEMY_DATA }) => {
         )}
       </SectionCard>
 
-      {/* ===== 8. TESTIMONIALS ===== */}
-      <SectionCard>
-        <SectionTitle
-          icon={Quote}
-          title="What Parents Say"
-          subtitle="Hear from families in our community"
-        />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {testimonials.map((testimonial, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
-              whileHover={{ y: -4 }}
-              className={`p-5 rounded-2xl border transition-all duration-300 ${
-                dm
-                  ? "bg-[#0a0a0a] border-white/[0.06] hover:border-[#00FF88]/15"
-                  : "bg-white border-gray-100 hover:border-emerald-200 hover:shadow-md"
-              }`}
-            >
-              <Quote
-                className={`w-6 h-6 mb-3 ${
-                  dm ? "text-[#00FF88]/30" : "text-emerald-200"
-                }`}
-              />
-              <p
-                className={`text-sm leading-relaxed mb-4 ${
-                  dm ? "text-gray-400" : "text-gray-600"
+      {/* ===== 8. TESTIMONIALS (only if real reviews exist) ===== */}
+      {testimonials.length > 0 && (
+        <SectionCard>
+          <SectionTitle
+            icon={Quote}
+            title="What Parents Say"
+            subtitle="Hear from families in our community"
+          />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {testimonials.map((testimonial, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                whileHover={{ y: -4 }}
+                className={`p-5 rounded-2xl border transition-all duration-300 ${
+                  dm
+                    ? "bg-[#0a0a0a] border-white/[0.06] hover:border-[#00FF88]/15"
+                    : "bg-white border-gray-100 hover:border-emerald-200 hover:shadow-md"
                 }`}
               >
-                {testimonial.text}
-              </p>
-              <div className="flex items-center gap-3">
-                {testimonial.isImage ? (
-                  <img
-                    src={testimonial.avatar}
-                    alt={testimonial.name}
-                    className="w-9 h-9 rounded-full object-cover"
-                  />
-                ) : (
-                  <div
-                    className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
-                      dm
-                        ? "bg-[#00FF88]/10 text-[#00FF88]"
-                        : "bg-emerald-50 text-emerald-700"
-                    }`}
-                  >
-                    {testimonial.avatar}
-                  </div>
-                )}
-                <div>
+                <Quote
+                  className={`w-6 h-6 mb-3 ${
+                    dm ? "text-[#00FF88]/30" : "text-emerald-200"
+                  }`}
+                />
+                {testimonial.title && (
                   <p
-                    className={`text-sm font-semibold ${
+                    className={`text-sm font-semibold mb-1.5 ${
                       dm ? "text-gray-200" : "text-gray-800"
                     }`}
                   >
-                    {testimonial.name}
+                    {testimonial.title}
                   </p>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-xs ${
-                        dm ? "text-gray-500" : "text-gray-400"
+                )}
+                <p
+                  className={`text-sm leading-relaxed mb-4 ${
+                    dm ? "text-gray-400" : "text-gray-600"
+                  }`}
+                >
+                  {testimonial.text}
+                </p>
+                <div className="flex items-center gap-3">
+                  {testimonial.isImage ? (
+                    <img
+                      src={testimonial.avatar}
+                      alt={testimonial.name}
+                      className="w-9 h-9 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold ${
+                        dm
+                          ? "bg-[#00FF88]/10 text-[#00FF88]"
+                          : "bg-emerald-50 text-emerald-700"
                       }`}
                     >
-                      {testimonial.role}
-                    </span>
-                    <div className="flex items-center gap-0.5">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-2.5 h-2.5 ${
-                            s <= testimonial.rating
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-gray-300"
+                      {testimonial.avatar}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p
+                        className={`text-sm font-semibold ${
+                          dm ? "text-gray-200" : "text-gray-800"
+                        }`}
+                      >
+                        {testimonial.name}
+                      </p>
+                      {testimonial.isVerified && (
+                        <CheckCircle2
+                          className={`w-3.5 h-3.5 flex-shrink-0 ${
+                            dm ? "text-[#00FF88]" : "text-emerald-500"
                           }`}
                         />
-                      ))}
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`text-xs ${
+                          dm ? "text-gray-500" : "text-gray-400"
+                        }`}
+                      >
+                        {testimonial.role}
+                      </span>
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <Star
+                            key={s}
+                            className={`w-2.5 h-2.5 ${
+                              s <= testimonial.rating
+                                ? "text-yellow-400 fill-yellow-400"
+                                : "text-gray-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </SectionCard>
+              </motion.div>
+            ))}
+          </div>
+        </SectionCard>
+      )}
     </motion.main>
   );
 };

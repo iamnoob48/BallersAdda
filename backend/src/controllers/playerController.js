@@ -2,6 +2,7 @@ import prisma from '../prismaClient.js';
 import { cacheGet, cacheDel, cacheInvalidate } from '../config/cacheUtils.js';
 import cloudinary from '../config/cloudinaryConfig.js';
 import { processEvent } from '../lib/gamificationService.js';
+import { invalidateAcademyCache } from './academyControllers.js';
 // ── Validation helpers ──────────────────────────────────────────────────
 const VALID_POSITIONS = [
   'GOALKEEPER', 'DEFENDER', 'MIDFIELDER', 'FORWARD',
@@ -378,9 +379,7 @@ export const joinAcademy = async (req, res) => {
       })
     ]);
 
-    // Invalidate cached academy detail so spots update immediately
-    cacheDel(`academy:detail:${academyId}`);
-    cacheInvalidate(`academy:list:*`);
+    invalidateAcademyCache(academyId);
 
     // Gamification: academy join event
     processEvent('ACADEMY_JOIN', playerProfile.id).catch(err => console.error(`gamification error (ACADEMY_JOIN, player ${playerProfile.id}):`, err.message));
@@ -440,9 +439,7 @@ export const leaveAcademy = async (req, res) => {
       })
     ]);
 
-    // Invalidate cached academy detail so spots update immediately
-    cacheDel(`academy:detail:${playerProfile.academyId}`);
-    cacheInvalidate(`academy:list:*`);
+    invalidateAcademyCache(playerProfile.academyId);
 
     return res.status(200).json({
       message: 'Player left academy successfully',

@@ -1,6 +1,13 @@
 import prisma from "../prismaClient.js";
 import { cacheGet, cacheDel, cacheInvalidate } from "../config/cacheUtils.js";
 import { parsePagination, paginationMeta } from "../lib/pagination.js";
+import { geocodeAddress, haversineDistance } from "../lib/geocode.js";
+
+export const invalidateAcademyCache = (academyId) => {
+  cacheDel(`academy:detail:${academyId}`);
+  cacheInvalidate(`academy:list:*`);
+  cacheInvalidate(`academy:filter:*`);
+};
 
 // ── Shared select object (avoids repeating field lists) ─────────────────
 const ACADEMY_LIST_SELECT = {
@@ -15,7 +22,32 @@ const ACADEMY_LIST_SELECT = {
   description: true,
   academyLogoURL: true,
   rating: true,
+  noOfReviews: true,
+  latitude: true,
+  longitude: true,
+  pricingPlans: {
+    where: { active: true, recommended: true },
+    take: 1,
+    select: { priceCents: true, currency: true, billingCycle: true },
+  },
+  batches: {
+    where: { isActive: true },
+    select: { ageGroup: true },
+    distinct: ["ageGroup"],
+  },
 };
+
+const flattenAcademyList = (academies) =>
+  academies.map(({ pricingPlans, batches, ...rest }) => {
+    const plan = pricingPlans?.[0];
+    return {
+      ...rest,
+      startingPrice: plan
+        ? { priceCents: plan.priceCents, currency: plan.currency, billingCycle: plan.billingCycle }
+        : null,
+      ageGroups: batches?.map((b) => b.ageGroup).filter(Boolean) || [],
+    };
+  });
 
 // =====================================================================
 //  GET /academy/details — paginated list of all academies
@@ -23,20 +55,40 @@ const ACADEMY_LIST_SELECT = {
 export const getAcademyDetails = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
-    const cacheKey = `academy:list:page:${page}:limit:${limit}`;
+    const { lat, lng } = req.query;
+    const userLat = lat ? parseFloat(lat) : null;
+    const userLng = lng ? parseFloat(lng) : null;
+    const hasCoords = userLat != null && userLng != null && !isNaN(userLat) && !isNaN(userLng);
+
+    const cacheKey = hasCoords
+      ? `academy:list:p${page}:l${limit}:loc:${userLat.toFixed(2)}_${userLng.toFixed(2)}`
+      : `academy:list:page:${page}:limit:${limit}`;
 
     const { data: result } = await cacheGet(cacheKey, 180, async () => {
       const [totalAcademies, academies] = await Promise.all([
         prisma.academy.count(),
         prisma.academy.findMany({
-          skip,
-          take: limit,
-          orderBy: { id: "asc" },
+          orderBy: { rating: "desc" },
           select: ACADEMY_LIST_SELECT,
         }),
       ]);
+
+      let sorted = flattenAcademyList(academies);
+
+      if (hasCoords) {
+        sorted = sorted.map((a) => {
+          const dist =
+            a.latitude != null && a.longitude != null
+              ? haversineDistance(userLat, userLng, a.latitude, a.longitude)
+              : Infinity;
+          return { ...a, distance: Math.round(dist) };
+        });
+        sorted.sort((a, b) => a.distance - b.distance);
+      }
+
+      const paged = sorted.slice(skip, skip + limit);
       return {
-        data: academies,
+        data: paged,
         pagination: paginationMeta(totalAcademies, page, limit),
       };
     });
@@ -79,6 +131,8 @@ export const getAcademyDetailsById = async (req, res) => {
           noOfReviews: true,
           tournamentsWon: true,
           services: true,
+          haveFreeTrial: true,
+          maxTrialsPerDay: true,
 
           reviews: {
             orderBy: { createdAt: "desc" },
@@ -225,6 +279,8 @@ export const getAcademyDetailsById = async (req, res) => {
         noOfReviews: academy.noOfReviews,
         tournamentsWon: academy.tournamentsWon,
         services: academy.services,
+        haveFreeTrial: academy.haveFreeTrial,
+        maxTrialsPerDay: academy.maxTrialsPerDay,
         pricing: academy.pricingPlans,
         coaches: academy.coaches,
         schedule: scheduleObj,
@@ -279,7 +335,7 @@ export const filterAcademies = async (req, res) => {
       ]);
 
       return {
-        data: academies,
+        data: flattenAcademyList(academies),
         pagination: paginationMeta(totalFiltered, page, limit),
       };
     });
@@ -364,8 +420,7 @@ export const createAcademyReview = async (req, res) => {
       return rev;
     });
 
-    cacheDel(`academy:detail:${academyId}`);
-    cacheInvalidate(`academy:list:*`);
+    invalidateAcademyCache(academyId);
 
     return res.status(201).json({ message: "Review saved", review });
   } catch (error) {
@@ -488,6 +543,21 @@ export const registerAcademy = async (req, res) => {
 
       return { newAcademy, updatedOwner };
     });
+
+    invalidateAcademyCache(result.newAcademy.id);
+
+    // Geocode address in background — don't block registration response
+    geocodeAddress({ address, city, state, country })
+      .then((coords) => {
+        if (coords) {
+          prisma.academy.update({
+            where: { id: result.newAcademy.id },
+            data: { latitude: coords.latitude, longitude: coords.longitude },
+          }).then(() => invalidateAcademyCache(result.newAcademy.id))
+            .catch((e) => console.error("Failed to save coordinates:", e));
+        }
+      })
+      .catch((e) => console.error("Geocoding failed:", e));
 
     return res.status(201).json({
       message: "Academy registered successfully.",

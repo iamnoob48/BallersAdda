@@ -135,8 +135,9 @@ model PlayerProfile {
   attendances  SessionAttendance[]
   academyStats PlayerAcademyStats[]
   enrollments  AcademyEnrollment[]
-  rankings     PlayerRanking[]
-  playerBadges PlayerBadge[]
+  rankings           PlayerRanking[]
+  playerBadges       PlayerBadge[]
+  freeTrialBookings  FreeTrialBooking[]
 
   @@index([academyId])
   @@index([tournamentRatings])
@@ -312,6 +313,8 @@ model Academy {
   address          String?
   state            String?
   pinCode          String?
+  latitude         Float?
+  longitude        Float?
   licenseNo        String?   @unique
   verified         Boolean   @default(false)
   contactEmail     String?   @unique
@@ -325,6 +328,8 @@ model Academy {
   services         String[]  @default(["Football"])
   noOfStudents     Int?      @default(0)
   tournamentsWon   Int?      @default(0)
+  haveFreeTrial    Boolean   @default(true)
+  maxTrialsPerDay  Int       @default(3)
   primaryPictureId Int?      @unique
   userId           String?   @unique
 
@@ -344,6 +349,7 @@ model Academy {
   enrollments    AcademyEnrollment[]
   reviews        AcademyReview[]
   paymentTransactions PaymentTransaction[]
+  freeTrialBookings   FreeTrialBooking[]
 
   @@index([name])
 }
@@ -469,6 +475,37 @@ model AcademyEnrollment {
 
 
 // =====================================================================
+// FREE TRIAL BOOKING — one trial per player per academy
+// =====================================================================
+model FreeTrialBooking {
+  id            Int                @id @default(autoincrement())
+  playerId      Int
+  player        PlayerProfile      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  academyId     Int
+  academy       Academy            @relation(fields: [academyId], references: [id], onDelete: Cascade)
+  sessionId     Int?
+  session       AcademySession?    @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  scheduledDate DateTime
+  dayOfWeek     DayOfWeek
+  status        TrialBookingStatus @default(BOOKED)
+  hasRebooked   Boolean            @default(false)
+  bookedAt      DateTime           @default(now())
+  cancelledAt   DateTime?
+  attendedAt    DateTime?
+  convertedAt   DateTime?
+  expiredAt     DateTime?
+  notes         String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@unique([playerId, academyId])
+  @@index([academyId])
+  @@index([playerId])
+  @@index([scheduledDate])
+  @@index([status])
+}
+
+// =====================================================================
 // COACH — identity lives on User
 // =====================================================================
 model Coach {
@@ -498,12 +535,13 @@ model Coach {
 // ACADEMY SESSIONS
 // =====================================================================
 model AcademySession {
-  id         Int                 @id @default(autoincrement())
-  date       DateTime            @default(now())
-  type       SessionType         @default(TRAINING)
-  academyId  Int
-  academy    Academy             @relation(fields: [academyId], references: [id])
-  attendance SessionAttendance[]
+  id             Int                 @id @default(autoincrement())
+  date           DateTime            @default(now())
+  type           SessionType         @default(TRAINING)
+  academyId      Int
+  academy        Academy             @relation(fields: [academyId], references: [id])
+  attendance     SessionAttendance[]
+  trialBookings  FreeTrialBooking[]
 
   @@index([academyId])
   @@index([date])
@@ -947,4 +985,13 @@ enum PaymentStatus {
 enum PaymentMethod {
   ONLINE
   CASH
+}
+
+enum TrialBookingStatus {
+  BOOKED
+  ATTENDED
+  NO_SHOW
+  CANCELLED
+  CONVERTED
+  EXPIRED
 }

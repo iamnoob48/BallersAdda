@@ -67,14 +67,13 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
 
   return (
     <div
-      className={`min-h-screen font-sans pb-20 transition-colors duration-300 ${
-        dm ? "bg-[#0a0a0a] text-gray-200" : "bg-[#F8F9FA] text-gray-800"
-      }`}
+      className={`min-h-screen font-sans pb-20 transition-colors duration-300 ${dm ? "bg-[#0a0a0a] text-gray-200" : "bg-[#F8F9FA] text-gray-800"
+        }`}
     >
       {isMobile ? <TopNav /> : <NavBar />}
 
       {/* ---------- HERO SECTION ---------- */}
-      <section className="relative w-full h-[420px] md:h-[540px] lg:h-[600px] overflow-hidden">
+      <section className="relative w-full h-[440px] md:h-[540px] lg:h-[600px] overflow-hidden">
         {/* Background image with ken-burns */}
         <motion.img
           src={heroImage}
@@ -121,7 +120,7 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.35, duration: 0.6 }}
-                  className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]"
+                  className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05] mt-3 md:mt-0"
                 >
                   {ACADEMY_DATA.academy.name}
                 </motion.h1>
@@ -145,11 +144,10 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
-                          className={`w-3.5 h-3.5 ${
-                            star <= Math.round(ACADEMY_DATA.academy.rating)
-                              ? "text-yellow-400 fill-yellow-400"
-                              : "text-white/20 fill-white/20"
-                          }`}
+                          className={`w-3.5 h-3.5 ${star <= Math.round(ACADEMY_DATA.academy.rating)
+                            ? "text-yellow-400 fill-yellow-400"
+                            : "text-white/20 fill-white/20"
+                            }`}
                         />
                       ))}
                     </div>
@@ -195,11 +193,10 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.7 }}
                   whileTap={{ scale: 0.96 }}
-                  className={`md:hidden inline-flex items-center justify-center gap-2 w-full mt-4 px-5 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${
-                    dm
-                      ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
-                      : "bg-emerald-500 text-white shadow-emerald-500/25"
-                  }`}
+                  className={`md:hidden inline-flex items-center justify-center gap-2 w-full mt-4 px-5 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${dm
+                    ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
+                    : "bg-emerald-500 text-white shadow-emerald-500/25"
+                    }`}
                 >
                   <ShieldCheck className="w-4 h-4" />
                   Join Academy
@@ -215,11 +212,10 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                   transition={{ delay: 0.7 }}
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base shadow-2xl transition-all ${
-                    dm
-                      ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90 shadow-[#00FF88]/25"
-                      : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/30"
-                  }`}
+                  className={`inline-flex items-center gap-2 px-8 py-4 rounded-2xl font-bold text-base shadow-2xl transition-all ${dm
+                    ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90 shadow-[#00FF88]/25"
+                    : "bg-emerald-500 text-white hover:bg-emerald-600 shadow-emerald-500/30"
+                    }`}
                 >
                   Join Academy
                   <ChevronDown className="w-4 h-4" />
@@ -288,11 +284,10 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                 e.preventDefault();
                 document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
               }}
-              className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-bold text-sm shadow-2xl transition-all ${
-                dm
-                  ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
-                  : "bg-emerald-600 text-white shadow-emerald-500/30"
-              }`}
+              className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-bold text-sm shadow-2xl transition-all ${dm
+                ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
+                : "bg-emerald-600 text-white shadow-emerald-500/30"
+                }`}
             >
               <ShieldCheck className="w-4.5 h-4.5" />
               Join This Academy

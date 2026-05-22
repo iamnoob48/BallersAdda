@@ -461,8 +461,8 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
           subtitle="Choose the plan that fits your goals"
         />
 
-        {/* Billing cycle toggle */}
-        <div ref={pricingRef} className="flex justify-center mb-6">
+        {/* Billing cycle toggle — 44px tall on mobile */}
+        <div ref={pricingRef} className="flex justify-center mb-6 md:mb-8">
           <div
             className={`relative inline-flex items-center rounded-full p-1 ${
               dm ? "bg-white/[0.06]" : "bg-gray-100"
@@ -480,7 +480,7 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                     pricingRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
                   });
                 }}
-                className={`relative z-10 px-4 py-1.5 md:px-6 md:py-2 rounded-full text-xs md:text-sm font-semibold transition-colors duration-200 ${
+                className={`relative z-10 px-5 h-[36px] md:px-6 md:h-[38px] rounded-full text-sm md:text-sm font-semibold transition-colors duration-200 ${
                   billingCycle === tab.value
                     ? dm
                       ? "text-[#0a0a0a]"
@@ -505,14 +505,17 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:gap-4">
+        {/* Pricing cards — single column on mobile, 2-col on md+ */}
+        <div className="flex flex-col md:grid md:grid-cols-2 gap-4 md:gap-4">
+
+          {/* ── Free Trial Banner (full-width on mobile) ── */}
           {showTrialCard && (
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               whileHover={{ y: -6, scale: 1.02 }}
-              className={`relative rounded-2xl border-2 border-dashed cursor-pointer ${
+              className={`relative rounded-2xl border-2 border-dashed cursor-pointer md:col-span-2 ${
                 dm ? "border-[#00FF88]/30 hover:border-[#00FF88]/50" : "border-emerald-300 hover:border-emerald-400"
               }`}
               onClick={() => {
@@ -520,46 +523,37 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                 document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
               }}
             >
-              <div className={`relative z-10 p-3 md:p-7 rounded-2xl ${
+              <div className={`relative z-10 p-5 md:p-7 rounded-2xl ${
                 dm ? "bg-[#00FF88]/5" : "bg-emerald-50/80"
               }`}>
-                <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] md:text-[10px] font-black uppercase tracking-wider mb-2 ${
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider mb-3 ${
                   dm ? "bg-[#00FF88]/15 text-[#00FF88]" : "bg-emerald-100 text-emerald-700"
                 }`}>
-                  <CalendarDays className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  <CalendarDays className="w-3 h-3" />
                   Free Trial
                 </div>
 
-                <h4 className={`text-xs md:text-sm font-medium ${dm ? "text-gray-500" : "text-gray-500"}`}>
-                  Trial Session
+                <h4 className={`text-base md:text-lg font-bold ${dm ? "text-gray-100" : "text-gray-900"}`}>
+                  Start Free Trial Session
                 </h4>
-
-                <div className={`text-lg md:text-4xl font-black my-1 md:my-3 tracking-tight ${dm ? "text-[#00FF88]" : "text-emerald-600"}`}>
-                  Free
-                  <span className={`text-[9px] md:text-sm font-normal opacity-70 ml-0.5 md:ml-1`}>/session</span>
-                </div>
-
-                <ul className="space-y-2 md:space-y-2.5 mt-2 md:mt-4 mb-2 md:mb-5">
-                  {["One free training session", "Experience the academy", "No commitment required"].map((feat, i) => (
-                    <li key={i} className={`text-[10px] leading-normal md:text-sm flex items-start gap-1.5 md:gap-2.5 ${dm ? "text-gray-400" : "text-gray-600"}`}>
-                      <CheckCircle2 className={`w-2.5 h-2.5 md:w-4 md:h-4 flex-shrink-0 mt-[2px] md:mt-0 ${dm ? "text-[#00FF88]" : "text-emerald-500"}`} />
-                      {feat}
-                    </li>
-                  ))}
-                </ul>
+                <p className={`text-sm mt-1 mb-4 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                  One free training — no commitment required
+                </p>
 
                 <motion.span
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`inline-flex items-center justify-center w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm mt-1 md:mt-2 transition-colors ${
+                  className={`inline-flex items-center justify-center w-full py-3 rounded-xl font-bold text-sm transition-colors ${
                     dm ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90" : "bg-emerald-600 text-white hover:bg-emerald-700"
                   }`}
                 >
-                  Get Started
+                  Book Free Session
                 </motion.span>
               </div>
             </motion.div>
           )}
+
+          {/* ── Plan Cards ── */}
           {ACADEMY_DATA?.academy?.pricing?.filter((p) => p.billingCycle === billingCycle).map((plan, idx, allPlans) => {
             const planFeatures = Array.isArray(plan.features) ? plan.features : [];
             const prevFeatures = idx > 0 && Array.isArray(allPlans[idx - 1].features)
@@ -568,12 +562,12 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
             const extraFeatures = prevFeatures
               ? planFeatures.filter((f) => !prevFeatures.has(f.toLowerCase()))
               : planFeatures;
-            const displayFeatures = extraFeatures.slice(0, 4);
+            const displayFeatures = extraFeatures.length > 0 ? extraFeatures : planFeatures;
             const prevPlanTitle = idx > 0 ? allPlans[idx - 1].title : null;
 
             return (
             <motion.div
-              key={idx}
+              key={plan.id || idx}
               initial={{ opacity: 0, y: 16 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -593,7 +587,7 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                         : "rgba(16, 185, 129, 0.4)",
                     }),
               }}
-              className={`relative rounded-2xl shadow-sm transition-colors duration-300 ${
+              className={`relative rounded-2xl shadow-sm transition-colors duration-300 flex flex-col ${
                 plan.recommended ? "overflow-hidden" : ""
               } ${
                 plan.recommended
@@ -615,9 +609,9 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                 />
               )}
 
-              {/* Card body */}
+              {/* Card body — flex-1 so button pins to bottom */}
               <div
-                className={`relative z-10 p-3 md:p-7 rounded-2xl ${
+                className={`relative z-10 p-5 md:p-7 rounded-2xl flex flex-col flex-1 ${
                   plan.recommended
                     ? dm
                       ? "bg-gradient-to-br from-[#00FF88]/80 to-[#00DCFF]/60 text-[#0a0a0a]"
@@ -627,57 +621,59 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                     : "bg-white text-gray-900"
                 }`}
               >
-                {/* Popular badge */}
-                {plan.recommended && (
-                  <motion.div
-                    className={`absolute top-2 right-2 md:top-4 md:right-4 backdrop-blur-md px-1.5 py-0.5 md:px-4 md:py-2 rounded-full text-[7px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest flex items-center gap-0.5 md:gap-1.5 overflow-hidden border ${
-                      dm
-                        ? "bg-[#0a0a0a]/30 text-[#0a0a0a] border-[#0a0a0a]/10"
-                        : "bg-white/25 text-white border-white/20"
-                    }`}
-                    whileHover={{ scale: 1.05 }}
-                  >
-                    <Sparkles className="w-2.5 h-2.5 md:w-3.5 md:h-3.5" />
-                    <span>Popular</span>
-                  </motion.div>
-                )}
-
-                <h4
-                  className={`text-xs md:text-sm font-medium ${
-                    plan.recommended
-                      ? dm
-                        ? "text-[#0a0a0a]/70"
-                        : "text-emerald-100"
-                      : dm
-                      ? "text-gray-500"
-                      : "text-gray-500"
-                  }`}
-                >
-                  {plan.title}
-                </h4>
-
-                {/* Price */}
-                <div
-                  className="text-lg md:text-4xl font-black my-1 md:my-3 inline-block tracking-tight"
-                >
-                  {formatPrice(plan)}
-                  <span
-                    className={`text-[9px] md:text-sm font-normal opacity-70 ml-0.5 md:ml-1 ${
+                {/* Plan title row — with Popular badge inline for recommended */}
+                <div className="flex items-center justify-between gap-2">
+                  <h4
+                    className={`text-base md:text-lg font-bold ${
                       plan.recommended
-                        ? dm
-                          ? "text-[#0a0a0a]"
-                          : "text-white"
+                        ? dm ? "text-[#0a0a0a]" : "text-white"
+                        : dm ? "text-gray-100" : "text-gray-900"
+                    }`}
+                  >
+                    {plan.title}
+                  </h4>
+                  {plan.recommended ? (
+                    <motion.div
+                      className={`backdrop-blur-md px-2.5 py-1 md:px-4 md:py-1.5 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-wider md:tracking-widest flex items-center gap-1 md:gap-1.5 border flex-shrink-0 ${
+                        dm
+                          ? "bg-[#0a0a0a]/30 text-[#0a0a0a] border-[#0a0a0a]/10"
+                          : "bg-white/25 text-white border-white/20"
+                      }`}
+                      whileHover={{ scale: 1.05 }}
+                    >
+                      <Sparkles className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                      <span>Popular</span>
+                    </motion.div>
+                  ) : null}
+                </div>
+
+                {/* Price — own line */}
+                <div className="mt-2">
+                  <span className="text-2xl md:text-3xl font-black tracking-tight">
+                    {formatPrice(plan)}
+                  </span>
+                  <span
+                    className={`text-sm font-normal opacity-70 ml-1 ${
+                      plan.recommended
+                        ? dm ? "text-[#0a0a0a]" : "text-white"
                         : ""
                     }`}
                   >
-                    /{plan.billingCycle?.toLowerCase()}
+                    /{plan.billingCycle?.toLowerCase() === "month" ? "month" : plan.billingCycle?.toLowerCase() === "year" ? "year" : plan.billingCycle?.toLowerCase()}
                   </span>
                 </div>
+
+                {/* Divider */}
+                <div className={`h-px my-4 ${
+                  plan.recommended
+                    ? dm ? "bg-[#0a0a0a]/15" : "bg-white/20"
+                    : dm ? "bg-white/[0.06]" : "bg-gray-100"
+                }`} />
 
                 {/* "Includes previous plan" label */}
                 {prevPlanTitle && (
                   <p
-                    className={`text-[9px] md:text-xs font-semibold mt-2 md:mt-4 mb-1 md:mb-2 ${
+                    className={`text-xs font-semibold mb-2 ${
                       plan.recommended
                         ? dm ? "text-[#0a0a0a]/60" : "text-white/70"
                         : dm ? "text-gray-500" : "text-gray-400"
@@ -687,34 +683,44 @@ const MiddleSection = ({ ACADEMY_DATA, onStartTrial }) => {
                   </p>
                 )}
 
-                {/* Feature list */}
-                <ul className={`space-y-2 md:space-y-2.5 ${prevPlanTitle ? "" : "mt-2 md:mt-4"} mb-2 md:mb-5`}>
+                {/* Feature list — grows to push button down */}
+                <ul className="space-y-3 flex-1">
                   {displayFeatures.map((feat, i) => (
                     <li
                       key={i}
-                      className="text-[10px] leading-normal md:text-sm flex items-start gap-1.5 md:gap-2.5 opacity-90"
+                      className={`text-sm flex items-start gap-2.5 ${
+                        plan.recommended
+                          ? "opacity-90"
+                          : dm ? "text-gray-400" : "text-gray-600"
+                      }`}
                     >
-                      <CheckCircle2 className="w-2.5 h-2.5 md:w-4 md:h-4 flex-shrink-0 mt-[2px] md:mt-0" />{" "}
+                      <CheckCircle2 className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                        plan.recommended
+                          ? dm ? "text-[#0a0a0a]" : "text-white"
+                          : dm ? "text-[#00FF88]" : "text-emerald-500"
+                      }`} />
                       {feat}
                     </li>
                   ))}
                 </ul>
 
-                {/* CTA on recommended */}
-                {plan.recommended && (
-                  <motion.a
-                    href="#join-academy"
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className={`inline-flex items-center justify-center w-full py-2 md:py-3 rounded-lg md:rounded-xl font-bold text-xs md:text-sm mt-1 md:mt-2 transition-colors ${
-                      dm
+                {/* CTA — always shown, pinned to bottom */}
+                <motion.a
+                  href="#join-academy"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className={`inline-flex items-center justify-center w-full py-3 rounded-xl font-bold text-sm mt-5 transition-colors ${
+                    plan.recommended
+                      ? dm
                         ? "bg-[#0a0a0a] text-[#00FF88] hover:bg-[#0a0a0a]/80"
                         : "bg-white text-emerald-700 hover:bg-white/90"
-                    }`}
-                  >
-                    Get Started
-                  </motion.a>
-                )}
+                      : dm
+                      ? "bg-white/[0.06] text-gray-200 hover:bg-white/[0.1] border border-white/[0.06]"
+                      : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-200"
+                  }`}
+                >
+                  Get Started
+                </motion.a>
               </div>
             </motion.div>
             );

@@ -24,7 +24,7 @@ function LocationText({ academy }) {
 function formatPrice(startingPrice) {
   if (!startingPrice) return null;
   try {
-    const amount = startingPrice.priceCents / 100;
+    const amount = startingPrice.priceCents;
     const code = /^[A-Z]{3}$/i.test(startingPrice.currency) ? startingPrice.currency : "INR";
     const formatted = new Intl.NumberFormat("en-IN", {
       style: "currency",
@@ -57,11 +57,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
         initial="idle"
         whileHover="hover"
         onClick={goToDetails}
-        className={`group relative flex flex-col rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 h-full ${
-          dm
+        className={`group relative flex flex-col rounded-2xl overflow-hidden border cursor-pointer transition-all duration-300 h-full ${dm
             ? "bg-[#1a1a1a] border-[#87A98D]/15 shadow-[0_4px_20px_rgb(0,0,0,0.2)] hover:shadow-[0_12px_30px_rgba(0,255,136,0.08)] hover:border-[#00FF88]/25"
             : "bg-white border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_12px_30px_rgb(22,163,74,0.08)] hover:border-green-200"
-        }`}
+          }`}
       >
         {/* Image */}
         <div className="relative h-44 overflow-hidden">
@@ -77,9 +76,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
           {/* Verified badge */}
           <div className="absolute top-3 left-3 z-10">
             <div
-              className={`backdrop-blur-md px-2.5 py-0.5 rounded-xl flex items-center gap-1 shadow-sm ${
-                dm ? "bg-[#121212]/80" : "bg-white/90"
-              }`}
+              className={`backdrop-blur-md px-2.5 py-0.5 rounded-xl flex items-center gap-1 shadow-sm ${dm ? "bg-[#121212]/80" : "bg-white/90"
+                }`}
             >
               <ShieldCheck className={`w-3 h-3 ${dm ? "text-[#00FF88]" : "text-green-600"}`} />
               <span className={`text-[9px] font-bold uppercase tracking-wider ${dm ? "text-gray-300" : "text-gray-700"}`}>
@@ -91,9 +89,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
           {/* Rating overlay */}
           <div className="absolute bottom-3 right-3 z-10">
             <div
-              className={`flex items-center gap-1 backdrop-blur-md px-2 py-1 rounded-xl text-xs font-bold border ${
-                dm ? `bg-[#121212]/80 ${RATING_BG_DM}` : `bg-white/90 ${RATING_BG_LT}`
-              }`}
+              className={`flex items-center gap-1 backdrop-blur-md px-2 py-1 rounded-xl text-xs font-bold border ${dm ? `bg-[#121212]/80 ${RATING_BG_DM}` : `bg-white/90 ${RATING_BG_LT}`
+                }`}
             >
               <Star className={`w-3 h-3 ${RATING_COLOR}`} />
               <span className={dm ? "text-gray-200" : "text-gray-800"}>{rating.toFixed(1)}</span>
@@ -104,9 +101,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
         {/* Content */}
         <div className="flex-1 flex flex-col p-4">
           <h3
-            className={`text-base font-bold leading-snug mb-1.5 transition-colors line-clamp-1 ${
-              dm ? "text-gray-100 group-hover:text-[#00FF88]" : "text-gray-900 group-hover:text-green-700"
-            }`}
+            className={`text-base font-bold leading-snug mb-1.5 transition-colors line-clamp-1 ${dm ? "text-gray-100 group-hover:text-[#00FF88]" : "text-gray-900 group-hover:text-green-700"
+              }`}
           >
             {name}
           </h3>
@@ -139,11 +135,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
           {/* Spacer + CTA */}
           <div className="mt-auto pt-3">
             <motion.button
-              className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-300 ${
-                dm
+              className={`w-full py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all duration-300 ${dm
                   ? "bg-[#00FF88] text-[#121212] hover:bg-[#00FF88]/90"
                   : "bg-gray-900 text-white hover:bg-green-600"
-              }`}
+                }`}
               whileTap={{ scale: 0.97 }}
               onClick={(e) => { e.stopPropagation(); goToDetails(); }}
             >
@@ -162,11 +157,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
       layout
       initial="idle"
       whileHover="hover"
-      className={`group relative flex flex-col md:flex-row w-full rounded-2xl overflow-hidden border transition-all duration-500 ${
-        dm
+      className={`group relative flex flex-col md:flex-row w-full rounded-2xl overflow-hidden border transition-all duration-500 ${dm
           ? "bg-[#1a1a1a] border-[#87A98D]/15 shadow-[0_8px_30px_rgb(0,0,0,0.2)] hover:shadow-[0_20px_40px_rgba(0,255,136,0.08)]"
           : "bg-white border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_40px_rgb(22,163,74,0.1)]"
-      }`}
+        }`}
     >
       {/* Tactical Border Animation */}
       <svg className="absolute inset-0 w-full h-full pointer-events-none z-20">
@@ -188,9 +182,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
       <div className="md:w-2/5 lg:w-1/3 relative h-48 md:h-auto overflow-hidden">
         <div className="absolute top-4 left-4 z-10">
           <div
-            className={`backdrop-blur-md px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm ${
-              dm ? "bg-[#121212]/80" : "bg-white/90"
-            }`}
+            className={`backdrop-blur-md px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-sm ${dm ? "bg-[#121212]/80" : "bg-white/90"
+              }`}
           >
             <ShieldCheck className={`w-3.5 h-3.5 ${dm ? "text-[#00FF88]" : "text-green-600"}`} />
             <span className={`text-[10px] font-bold uppercase tracking-wider ${dm ? "text-gray-300" : "text-gray-800"}`}>
@@ -210,9 +203,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
         <div className="absolute inset-0 bg-gradient-to-t from-green-900/60 via-transparent to-transparent md:bg-gradient-to-r md:from-transparent md:to-transparent opacity-80" />
 
         <div
-          className={`absolute bottom-4 left-4 md:hidden flex items-center gap-1.5 backdrop-blur px-2 py-1 rounded-xl text-xs font-bold border ${
-            dm ? `bg-[#121212]/80 text-gray-200 ${RATING_BG_DM}` : `bg-white/90 text-gray-800 ${RATING_BG_LT}`
-          }`}
+          className={`absolute bottom-4 left-4 md:hidden flex items-center gap-1.5 backdrop-blur px-2 py-1 rounded-xl text-xs font-bold border ${dm ? `bg-[#121212]/80 text-gray-200 ${RATING_BG_DM}` : `bg-white/90 text-gray-800 ${RATING_BG_LT}`
+            }`}
         >
           <Star className={`w-3 h-3 ${RATING_COLOR}`} /> {rating.toFixed(1)}
           {noOfReviews > 0 && (
@@ -228,9 +220,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
         <div className="flex justify-between items-start">
           <div>
             <h3
-              className={`text-lg md:text-2xl font-bold leading-tight transition-colors duration-300 ${
-                dm ? "text-gray-100 group-hover:text-[#00FF88]" : "text-gray-900 group-hover:text-green-700"
-              }`}
+              className={`text-lg md:text-2xl font-bold leading-tight transition-colors duration-300 ${dm ? "text-gray-100 group-hover:text-[#00FF88]" : "text-gray-900 group-hover:text-green-700"
+                }`}
             >
               {name}
             </h3>
@@ -291,9 +282,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
             <a
               href={`mailto:${academy.contactEmail}`}
               onClick={(e) => e.stopPropagation()}
-              className={`flex items-center gap-1.5 text-[11px] truncate ${
-                dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-500 hover:text-emerald-600"
-              }`}
+              className={`flex items-center gap-1.5 text-[11px] truncate ${dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-500 hover:text-emerald-600"
+                }`}
             >
               <Mail className="w-3 h-3 flex-shrink-0" />
               <span className="truncate max-w-[130px]">{academy.contactEmail}</span>
@@ -303,9 +293,8 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
             <a
               href={`tel:${academy.contactPhone}`}
               onClick={(e) => e.stopPropagation()}
-              className={`flex items-center gap-1.5 text-[11px] truncate ${
-                dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-500 hover:text-emerald-600"
-              }`}
+              className={`flex items-center gap-1.5 text-[11px] truncate ${dm ? "text-gray-400 hover:text-[#00FF88]" : "text-gray-500 hover:text-emerald-600"
+                }`}
             >
               <Phone className="w-3 h-3 flex-shrink-0" />
               <span className="truncate">{academy.contactPhone}</span>
@@ -317,15 +306,13 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
         <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-5 md:pt-4">
           {/* Micro-badge — left side */}
           {academy.startingPrice?.priceCents === 0 || academy.haveFreeTrial ? (
-            <span className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-lg ${
-              dm ? "text-[#00FF88]/70 bg-[#00FF88]/5" : "text-emerald-600/70 bg-emerald-50"
-            }`}>
+            <span className={`text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-lg ${dm ? "text-[#00FF88]/70 bg-[#00FF88]/5" : "text-emerald-600/70 bg-emerald-50"
+              }`}>
               Trial Available
             </span>
           ) : (
-            <span className={`flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-lg ${
-              dm ? "text-amber-400/70 bg-amber-400/5" : "text-amber-600/70 bg-amber-50"
-            }`}>
+            <span className={`flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-lg ${dm ? "text-amber-400/70 bg-amber-400/5" : "text-amber-600/70 bg-amber-50"
+              }`}>
               <Zap className="w-2.5 h-2.5 md:w-3 md:h-3" />
               Fast Response
             </span>
@@ -333,11 +320,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
 
           {/* CTA — right side */}
           <motion.button
-            className={`relative overflow-hidden px-4 py-2 md:px-6 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 md:gap-2 shadow-lg transition-all duration-300 ml-auto ${
-              dm
+            className={`relative overflow-hidden px-4 py-2 md:px-6 md:py-2.5 rounded-xl text-xs md:text-sm font-semibold flex items-center gap-1.5 md:gap-2 shadow-lg transition-all duration-300 ml-auto ${dm
                 ? "bg-[#00FF88] text-[#121212] shadow-[#00FF88]/10 group-hover:shadow-[#00FF88]/20"
                 : "bg-gray-900 text-white shadow-gray-200 group-hover:bg-green-600 group-hover:shadow-green-200"
-            }`}
+              }`}
             whileTap={{ scale: 0.98 }}
             onClick={goToDetails}
           >
@@ -357,11 +343,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
                 href={`mailto:${academy.contactEmail}`}
                 onClick={(e) => e.stopPropagation()}
                 title={academy.contactEmail}
-                className={`p-2 rounded-lg border transition-colors ${
-                  dm
+                className={`p-2 rounded-lg border transition-colors ${dm
                     ? "border-white/[0.06] hover:border-[#00FF88]/30 hover:bg-[#00FF88]/5 text-gray-500 hover:text-[#00FF88]"
                     : "border-gray-100 hover:border-emerald-200 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
-                }`}
+                  }`}
               >
                 <Mail className="w-4 h-4" />
               </a>
@@ -371,11 +356,10 @@ export default function AcademyListCard({ academy, viewMode = "list" }) {
                 href={`tel:${academy.contactPhone}`}
                 onClick={(e) => e.stopPropagation()}
                 title={academy.contactPhone}
-                className={`p-2 rounded-lg border transition-colors ${
-                  dm
+                className={`p-2 rounded-lg border transition-colors ${dm
                     ? "border-white/[0.06] hover:border-[#00FF88]/30 hover:bg-[#00FF88]/5 text-gray-500 hover:text-[#00FF88]"
                     : "border-gray-100 hover:border-emerald-200 hover:bg-emerald-50 text-gray-400 hover:text-emerald-600"
-                }`}
+                  }`}
               >
                 <Phone className="w-4 h-4" />
               </a>

@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, Star, ShieldCheck, ChevronRight } from "lucide-react";
 import { useSelector } from "react-redux";
 
 // --- CUSTOM SVG FOOTBALL COMPONENT ---
@@ -34,9 +34,9 @@ const LeftCard = ({ ACADEMY_DATA }) => {
       className="lg:col-span-3 space-y-6"
     >
       {/* Main Profile Card */}
-      <div className={`rounded-2xl p-6 shadow-sm border flex flex-col items-center text-center relative overflow-hidden group transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
+      <div className={`rounded-2xl p-4 md:p-6 shadow-sm border flex flex-col items-center text-center relative overflow-hidden group transition-colors duration-300 ${dm ? "bg-[#1a1a1a] border-[#87A98D]/15" : "bg-white border-gray-100"}`}>
         {/* Animated Header */}
-        <div className={`absolute top-0 left-0 w-full h-32 -z-0 overflow-hidden ${dm ? "bg-[#00FF88]/5" : "bg-emerald-50/50"}`}>
+        <div className={`absolute top-0 left-0 w-full h-24 md:h-32 -z-0 overflow-hidden ${dm ? "bg-[#00FF88]/5" : "bg-emerald-50/50"}`}>
           <div
             className="absolute inset-0 opacity-20"
             style={{
@@ -80,7 +80,7 @@ const LeftCard = ({ ACADEMY_DATA }) => {
           </span>
         </div>
 
-        <div className={`relative w-32 h-32 rounded-2xl p-1.5 shadow-xl mb-4 mt-2 border transform group-hover:scale-105 transition-transform duration-300 ${dm ? "bg-[#121212] shadow-[#00FF88]/5 border-[#87A98D]/20" : "bg-white shadow-emerald-100/50 border-emerald-50"}`}>
+        <div className={`relative w-24 h-24 md:w-32 md:h-32 rounded-2xl p-1.5 shadow-xl mb-3 md:mb-4 mt-2 border transform group-hover:scale-105 transition-transform duration-300 ${dm ? "bg-[#121212] shadow-[#00FF88]/5 border-[#87A98D]/20" : "bg-white shadow-emerald-100/50 border-emerald-50"}`}>
           <img
             src="https://images.unsplash.com/photo-1551966775-a4ddc8df052b?auto=format&fit=crop&q=80&w=200"
             alt="Logo"
@@ -88,15 +88,17 @@ const LeftCard = ({ ACADEMY_DATA }) => {
           />
         </div>
 
-        <h1 className={`text-2xl font-extrabold leading-tight mb-2 ${dm ? "text-gray-100" : "text-gray-900"}`}>
+        <h1 className={`text-xl md:text-2xl font-extrabold leading-tight mb-2 ${dm ? "text-gray-100" : "text-gray-900"}`}>
           {ACADEMY_DATA.academy.name} <br /> Academy
         </h1>
 
-        <div className={`flex items-center gap-1.5 text-sm font-medium mb-6 px-3 py-1 rounded-lg ${dm ? "text-gray-400 bg-[#121212]" : "text-gray-500 bg-gray-50"}`}>
+        <div className={`flex items-center gap-1.5 text-xs md:text-sm font-medium mb-4 md:mb-6 px-3 py-1 rounded-lg ${dm ? "text-gray-400 bg-[#121212]" : "text-gray-500 bg-gray-50"}`}>
           <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
           <span className={dm ? "text-gray-300 font-bold" : "text-gray-900 font-bold"}></span>
           <span className={dm ? "text-gray-500" : "text-gray-400"}>{ACADEMY_DATA.academy.rating}</span>
-          <span className={dm ? "text-gray-400" : "text-gray-600"}>124 Reviews</span>
+          {ACADEMY_DATA.academy.noOfReviews > 0 && (
+            <span className={dm ? "text-gray-400" : "text-gray-600"}>{ACADEMY_DATA.academy.noOfReviews} Reviews</span>
+          )}
         </div>
 
         {/* Sports Available */}
@@ -115,6 +117,24 @@ const LeftCard = ({ ACADEMY_DATA }) => {
             ))}
           </div>
         </div>
+
+        {/* Mobile Join CTA */}
+        <a
+          href="#join-academy"
+          onClick={(e) => {
+            e.preventDefault();
+            document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
+          }}
+          className={`w-full mt-5 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm lg:hidden transition-all ${
+            dm
+              ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90"
+              : "bg-emerald-600 text-white hover:bg-emerald-700"
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4" />
+          Join Academy
+          <ChevronRight className="w-4 h-4" />
+        </a>
       </div>
 
       {/* Map Card */}

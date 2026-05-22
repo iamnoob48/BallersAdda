@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-function CookiePolicy() {
+function SiteCookies() {
   return (
     <div className="min-h-screen bg-[#080b0a] text-white/70 px-6 lg:px-20 py-20">
       <div className="max-w-[800px] mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -36,4 +36,4 @@ function CookiePolicy() {
   );
 }
 
-export default CookiePolicy;
+export default SiteCookies;

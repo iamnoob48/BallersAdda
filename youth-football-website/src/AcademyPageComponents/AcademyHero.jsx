@@ -1,14 +1,21 @@
-import { motion } from "framer-motion";
-import { useState, useMemo } from "react";
-import { Search, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { Search, ArrowRight, MapPin, Navigation, X, Loader2 } from "lucide-react";
 import { useSelector } from "react-redux";
 import AcademyFilterBar from "./AcademyFilterBar";
 import AcademyResults from "./AcademyResults";
 import { AcademyPagination } from "./AcademyPagination";
 import { useGetAcademiesQuery, useFilterAcademiesQuery } from "../redux/slices/academySlice";
+import useUserLocation from "../hooks/useUserLocation";
 
 export default function AcademyPage({ userAcademy }) {
   const dm = useSelector((state) => state.theme.darkMode);
+
+  // Location
+  const { location: userLocation, status: locStatus, error: locError, requestLocation, clearLocation } = useUserLocation();
+  const [locationApplied, setLocationApplied] = useState(false);
+  const [showLocationBanner, setShowLocationBanner] = useState(false);
+  const locationInitRef = useRef(false);
 
   // UI / filter state
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,6 +26,26 @@ export default function AcademyPage({ userAcademy }) {
   // Pagination state
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
+
+  // Auto-request location on mount (once)
+  useEffect(() => {
+    if (locationInitRef.current) return;
+    locationInitRef.current = true;
+    if (userLocation) {
+      setLocationApplied(true);
+    } else if (locStatus === "idle") {
+      setShowLocationBanner(true);
+    }
+  }, []);
+
+  // When location resolves, mark applied (sorting handled by nearCity param)
+  useEffect(() => {
+    if (locStatus === "resolved" && userLocation?.city && !locationApplied) {
+      setLocationApplied(true);
+      setShowLocationBanner(false);
+      setPage(1);
+    }
+  }, [locStatus, userLocation, locationApplied]);
 
   // Check if any filter is active
   const hasActiveFilters = filters.location.length > 0 || filters.rating.length > 0 || filters.ageGroup;
@@ -36,7 +63,9 @@ export default function AcademyPage({ userAcademy }) {
     ageGroup: filters.ageGroup || undefined,
   };
 
-  const defaultQuery = useGetAcademiesQuery({ page, limit }, { skip: hasActiveFilters });
+  const userLat = locationApplied && userLocation?.lat != null ? userLocation.lat : undefined;
+  const userLng = locationApplied && userLocation?.lon != null ? userLocation.lon : undefined;
+  const defaultQuery = useGetAcademiesQuery({ page, limit, lat: userLat, lng: userLng }, { skip: hasActiveFilters });
   const filterQuery = useFilterAcademiesQuery(filterParams, { skip: !hasActiveFilters });
 
   const activeQuery = hasActiveFilters ? filterQuery : defaultQuery;
@@ -85,9 +114,31 @@ export default function AcademyPage({ userAcademy }) {
                 Explore Academies
               </h1>
               <p className={`text-sm md:text-base mt-1 ${dm ? "text-gray-500" : "text-gray-500"}`}>
-                Find top-rated academies and connect with expert coaches near you.
+                {locationApplied && userLocation?.city
+                  ? <>Showing academies near <span className={`font-semibold ${dm ? "text-[#00FF88]" : "text-green-600"}`}>{userLocation.city}</span></>
+                  : "Find top-rated academies and connect with expert coaches near you."}
               </p>
             </motion.div>
+
+            {locationApplied && userLocation?.city && (
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                onClick={() => {
+                  setLocationApplied(false);
+                  clearLocation();
+                }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  dm
+                    ? "bg-[#00FF88]/10 text-[#00FF88] hover:bg-[#00FF88]/20 border border-[#00FF88]/20"
+                    : "bg-green-50 text-green-700 hover:bg-green-100 border border-green-200"
+                }`}
+              >
+                <MapPin className="w-3 h-3" />
+                {userLocation.city}
+                <X className="w-3 h-3" />
+              </motion.button>
+            )}
 
             {pagination && (
               <motion.span
@@ -101,6 +152,74 @@ export default function AcademyPage({ userAcademy }) {
           </div>
         </div>
       </section>
+
+      {/* ─── Location Permission Banner ─── */}
+      <AnimatePresence>
+        {showLocationBanner && locStatus !== "resolved" && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-4 md:px-6"
+          >
+            <div className={`max-w-7xl mx-auto mt-2 mb-1 p-3 md:p-4 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center gap-3 ${
+              dm
+                ? "bg-[#00FF88]/5 border-[#00FF88]/15"
+                : "bg-green-50 border-green-100"
+            }`}>
+              <div className={`p-2 rounded-xl flex-shrink-0 ${dm ? "bg-[#00FF88]/10" : "bg-green-100"}`}>
+                <Navigation className={`w-4 h-4 ${dm ? "text-[#00FF88]" : "text-green-600"}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-semibold ${dm ? "text-gray-200" : "text-gray-800"}`}>
+                  {locStatus === "requesting" || locStatus === "geocoding"
+                    ? "Detecting your location..."
+                    : locStatus === "error"
+                      ? "Couldn't detect location"
+                      : "Find academies near you"}
+                </p>
+                <p className={`text-xs mt-0.5 ${dm ? "text-gray-500" : "text-gray-500"}`}>
+                  {locStatus === "error"
+                    ? locError || "Please try again or browse all academies"
+                    : locStatus === "requesting" || locStatus === "geocoding"
+                      ? "This will only take a moment"
+                      : "Allow location access to see nearby academies first"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {locStatus === "requesting" || locStatus === "geocoding" ? (
+                  <div className={`p-2 ${dm ? "text-[#00FF88]" : "text-green-600"}`}>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        requestLocation();
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                        dm
+                          ? "bg-[#00FF88] text-[#0a0a0a] hover:bg-[#00FF88]/90"
+                          : "bg-green-600 text-white hover:bg-green-700"
+                      }`}
+                    >
+                      {locStatus === "error" ? "Retry" : "Allow Location"}
+                    </button>
+                    <button
+                      onClick={() => setShowLocationBanner(false)}
+                      className={`p-2 rounded-xl transition-colors ${
+                        dm ? "text-gray-500 hover:bg-white/5" : "text-gray-400 hover:bg-gray-100"
+                      }`}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ─── Horizontal Filter Bar ─── */}
       <AcademyFilterBar

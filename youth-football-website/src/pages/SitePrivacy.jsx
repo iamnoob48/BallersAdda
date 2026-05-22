@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 
-function PrivacyPolicy() {
+function SitePrivacy() {
   return (
     <div className="min-h-screen bg-[#080b0a] text-white/70 px-6 lg:px-20 py-20">
       <div className="max-w-[800px] mx-auto" style={{ fontFamily: "'Inter', sans-serif" }}>
@@ -45,4 +45,4 @@ function PrivacyPolicy() {
   );
 }
 
-export default PrivacyPolicy;
+export default SitePrivacy;

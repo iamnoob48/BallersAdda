@@ -9,6 +9,7 @@ import coachRoutes from './routes/coachRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import gamificationRoutes from './routes/gamificationRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import trialRoutes from './routes/trialRoutes.js';
 import authCustomRoutes from './routes/authCustomRoutes.js';
 import { startRankingJob } from './lib/rankingJob.js';
 import { startBracketWorker } from './lib/bracketQueue.js';
@@ -79,6 +80,8 @@ app.use('/api/v1/leaderboard', leaderboardRoutes);
 app.use('/api/v1/player', gamificationRoutes);
 //For payment routes
 app.use('/api/v1/payment', paymentRoutes);
+//For free trial routes
+app.use('/api/v1/trial', trialRoutes);
 
 app.get('/', (req, res) => {
     res.send('Welcome to the Youth Football Website Backend!');

@@ -6,15 +6,16 @@ export const academyApi = createApi({
 
   baseQuery: createBaseQueryWithReauth("/api/v1"),
 
-  tagTypes: ["Academy", "AcademyList"],
+  tagTypes: ["Academy", "AcademyList", "TrialBookings"],
 
   endpoints: (builder) => ({
     // 📌 Fetch all academies (with optional pagination + filters)
     getAcademies: builder.query({
-      query: ({ page = 1, limit = 10, location, rating } = {}) => {
+      query: ({ page = 1, limit = 10, location, rating, lat, lng } = {}) => {
         let queryString = `/academy/details?page=${page}&limit=${limit}`;
         if (location) queryString += `&location=${location}`;
         if (rating) queryString += `&rating=${rating}`;
+        if (lat != null && lng != null) queryString += `&lat=${lat}&lng=${lng}`;
         return queryString;
       },
 
@@ -97,6 +98,44 @@ export const academyApi = createApi({
       }),
       invalidatesTags: ["AcademyList"],
     }),
+
+    // ── Free Trial endpoints ──
+    getTrialAvailability: builder.query({
+      query: ({ academyId, month }) => {
+        let url = `/trial/availability/${academyId}`;
+        if (month) url += `?month=${month}`;
+        return url;
+      },
+      providesTags: (result, error, { academyId }) => [
+        { type: "TrialBookings", id: `availability-${academyId}` },
+      ],
+    }),
+
+    getMyTrials: builder.query({
+      query: () => `/trial/my-trials`,
+      providesTags: ["TrialBookings"],
+    }),
+
+    bookTrial: builder.mutation({
+      query: ({ academyId, date }) => ({
+        url: `/trial/book`,
+        method: "POST",
+        body: { academyId, date },
+      }),
+      invalidatesTags: (result, error, { academyId }) => [
+        "TrialBookings",
+        { type: "TrialBookings", id: `availability-${academyId}` },
+      ],
+    }),
+
+    cancelTrial: builder.mutation({
+      query: ({ academyId }) => ({
+        url: `/trial/cancel`,
+        method: "POST",
+        body: { academyId },
+      }),
+      invalidatesTags: ["TrialBookings"],
+    }),
   }),
 });
 
@@ -106,4 +145,8 @@ export const {
   useFilterAcademiesQuery,
   useJoinAcademyMutation,
   useRegisterAcademyMutation,
+  useGetTrialAvailabilityQuery,
+  useGetMyTrialsQuery,
+  useBookTrialMutation,
+  useCancelTrialMutation,
 } = academyApi;

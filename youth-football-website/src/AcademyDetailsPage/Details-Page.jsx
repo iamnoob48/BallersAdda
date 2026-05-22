@@ -1,5 +1,5 @@
-import React from "react";
-import { motion } from "motion/react";
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
   MapPin,
   Star,
@@ -8,19 +8,47 @@ import {
   Award,
   Calendar,
   ChevronDown,
+  ShieldCheck,
 } from "lucide-react";
 import NavBar from "../components/Navbar.jsx";
 import TopNav from "../components/TopNav.jsx";
 import BottomNav from "../components/BottomNav.jsx";
 import { useIsMobile } from "../hooks/useIsMobile.js";
 import { useSelector } from "react-redux";
+import { useLocation } from "react-router-dom";
 import MiddleSection from "./Middle-Section.jsx";
 import RightCard from "./Right-Card.jsx";
 
 export default function AcademyDetailsPage({ ACADEMY_DATA }) {
   const isMobile = useIsMobile();
   const dm = useSelector((state) => state.theme.darkMode);
+  const { state: locationState } = useLocation();
   const academy = ACADEMY_DATA?.academy;
+  const [showMobileCta, setShowMobileCta] = useState(false);
+  const [triggerTrial, setTriggerTrial] = useState(0);
+  const onStartTrial = useCallback(() => setTriggerTrial((n) => n + 1), []);
+
+  // Auto-open trial picker when navigated from reschedule flow
+  useEffect(() => {
+    if (locationState?.openTrial) {
+      setTriggerTrial((n) => n + 1);
+    }
+  }, [locationState?.openTrial]);
+
+  useEffect(() => {
+    if (!isMobile) return;
+    const onScroll = () => {
+      const joinEl = document.getElementById("join-academy");
+      if (!joinEl) {
+        setShowMobileCta(window.scrollY > 400);
+        return;
+      }
+      const rect = joinEl.getBoundingClientRect();
+      setShowMobileCta(window.scrollY > 400 && rect.top > window.innerHeight);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [isMobile]);
 
   const yearsActive = academy?.establishedAt
     ? new Date().getFullYear() - new Date(academy.establishedAt).getFullYear()
@@ -46,7 +74,7 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
       {isMobile ? <TopNav /> : <NavBar />}
 
       {/* ---------- HERO SECTION ---------- */}
-      <section className="relative w-full h-[480px] md:h-[540px] lg:h-[600px] overflow-hidden mt-16">
+      <section className="relative w-full h-[420px] md:h-[540px] lg:h-[600px] overflow-hidden">
         {/* Background image with ken-burns */}
         <motion.img
           src={heroImage}
@@ -66,19 +94,19 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
 
         {/* Hero content */}
         <div className="absolute inset-0 flex items-end">
-          <div className="max-w-7xl mx-auto w-full px-4 md:px-6 lg:px-8 pb-8 md:pb-12">
+          <div className="max-w-7xl mx-auto w-full px-4 md:px-6 lg:px-8 pb-5 md:pb-12">
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.7 }}
               className="flex flex-col md:flex-row md:items-end gap-5 md:gap-8"
             >
-              {/* Logo */}
+              {/* Logo — hidden on mobile, Join button shown instead */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3, duration: 0.5 }}
-                className="w-20 h-20 md:w-28 md:h-28 lg:w-32 lg:h-32 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl flex-shrink-0 bg-white/10 backdrop-blur-md ring-1 ring-white/10"
+                className="hidden md:flex w-28 h-28 lg:w-32 lg:h-32 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl flex-shrink-0 bg-white/10 backdrop-blur-md ring-1 ring-white/10"
               >
                 <img
                   src="https://images.unsplash.com/photo-1551966775-a4ddc8df052b?auto=format&fit=crop&q=80&w=200"
@@ -93,7 +121,7 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.35, duration: 0.6 }}
-                  className="text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]"
+                  className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.05]"
                 >
                   {ACADEMY_DATA.academy.name}
                 </motion.h1>
@@ -128,9 +156,11 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                     <span className="text-sm font-bold text-white ml-1">
                       {ACADEMY_DATA.academy.rating}
                     </span>
-                    <span className="text-sm text-white/50">
-                      (124 reviews)
-                    </span>
+                    {academy?.noOfReviews > 0 && (
+                      <span className="text-sm text-white/50">
+                        ({academy.noOfReviews} reviews)
+                      </span>
+                    )}
                   </div>
                 </motion.div>
 
@@ -153,6 +183,27 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                     </motion.span>
                   ))}
                 </motion.div>
+
+                {/* Mobile Join Academy button */}
+                <motion.a
+                  href="#join-academy"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
+                  }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                  whileTap={{ scale: 0.96 }}
+                  className={`md:hidden inline-flex items-center justify-center gap-2 w-full mt-4 px-5 py-3 rounded-xl font-bold text-sm shadow-lg transition-all ${
+                    dm
+                      ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
+                      : "bg-emerald-500 text-white shadow-emerald-500/25"
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  Join Academy
+                </motion.a>
               </div>
 
               {/* CTA on hero (desktop) */}
@@ -184,7 +235,7 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.55, duration: 0.5 }}
-              className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-8"
+              className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mt-5 md:mt-8"
             >
               {heroStats.map(({ icon: Icon, label, value }, idx) => (
                 <motion.div
@@ -193,16 +244,16 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.6 + idx * 0.08 }}
                   whileHover={{ y: -2, scale: 1.02 }}
-                  className="flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/[0.08] hover:bg-white/[0.12] transition-all cursor-default"
+                  className="flex items-center gap-2.5 px-3 py-2.5 md:px-4 md:py-3.5 rounded-xl md:rounded-2xl bg-white/[0.07] backdrop-blur-xl border border-white/[0.08] hover:bg-white/[0.12] transition-all cursor-default"
                 >
                   <div className={`p-2 rounded-xl ${dm ? "bg-[#00FF88]/10" : "bg-emerald-500/20"}`}>
                     <Icon className={`w-4 h-4 ${dm ? "text-[#00FF88]" : "text-emerald-300"}`} />
                   </div>
                   <div>
-                    <p className="text-xl font-black text-white leading-none tracking-tight">
+                    <p className="text-base md:text-xl font-black text-white leading-none tracking-tight">
                       {value}
                     </p>
-                    <p className="text-[11px] text-white/45 font-medium mt-0.5">
+                    <p className="text-[10px] md:text-[11px] text-white/45 font-medium mt-0.5">
                       {label}
                     </p>
                   </div>
@@ -214,12 +265,42 @@ export default function AcademyDetailsPage({ ACADEMY_DATA }) {
       </section>
 
       {/* ---------- MAIN CONTENT ---------- */}
-      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 mt-8 lg:mt-10">
+      <div className="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 mt-5 md:mt-8 lg:mt-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-          <MiddleSection ACADEMY_DATA={ACADEMY_DATA} />
-          <RightCard ACADEMY_DATA={ACADEMY_DATA} />
+          <MiddleSection ACADEMY_DATA={ACADEMY_DATA} onStartTrial={onStartTrial} />
+          <RightCard ACADEMY_DATA={ACADEMY_DATA} triggerTrial={triggerTrial} />
         </div>
       </div>
+
+      {/* Floating mobile Join CTA — hides when RightCard is in view */}
+      <AnimatePresence>
+        {isMobile && showMobileCta && (
+          <motion.div
+            initial={{ y: 80, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 80, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+            className="fixed bottom-20 left-4 right-4 z-40"
+          >
+            <a
+              href="#join-academy"
+              onClick={(e) => {
+                e.preventDefault();
+                document.getElementById("join-academy")?.scrollIntoView({ behavior: "smooth" });
+              }}
+              className={`flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl font-bold text-sm shadow-2xl transition-all ${
+                dm
+                  ? "bg-[#00FF88] text-[#0a0a0a] shadow-[#00FF88]/20"
+                  : "bg-emerald-600 text-white shadow-emerald-500/30"
+              }`}
+            >
+              <ShieldCheck className="w-4.5 h-4.5" />
+              Join This Academy
+              <ChevronDown className="w-4 h-4" />
+            </a>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {isMobile && <BottomNav />}
     </div>
